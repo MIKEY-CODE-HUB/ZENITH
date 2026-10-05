@@ -1,0 +1,118 @@
+/* ZENITH Focus Broken Modal Injected Styles */
+#zenith-injected-focus-broken-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 2147483647 !important;
+  background: rgba(7, 8, 12, 0.96) !important;
+  backdrop-filter: blur(35px) !important;
+  -webkit-backdrop-filter: blur(35px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  color: #ffffff !important;
+  padding: 24px !important;
+  box-sizing: border-box !important;
+  text-align: center !important;
+  user-select: none !important;
+  pointer-events: all !important;
+  animation: zenithFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes zenithFadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.zenith-broken-card {
+  max-width: 520px !important;
+  width: 100% !important;
+  background: #12141C !important;
+  border: 2px solid rgba(239, 68, 68, 0.6) !important;
+  border-radius: 32px !important;
+  padding: 44px 36px !important;
+  box-shadow: 0 30px 100px -15px rgba(239, 68, 68, 0.45) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 20px !important;
+}
+
+.zenith-broken-icon {
+  width: 80px !important;
+  height: 80px !important;
+  background: rgba(239, 68, 68, 0.15) !important;
+  border: 2px solid rgba(239, 68, 68, 0.4) !important;
+  border-radius: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 38px !important;
+  animation: zenithBounce 1.5s infinite !important;
+}
+
+@keyframes zenithBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.zenith-broken-badge {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border: 1px solid rgba(239, 68, 68, 0.45) !important;
+  color: #F87171 !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  letter-spacing: 1.5px !important;
+  padding: 5px 14px !important;
+  border-radius: 999px !important;
+  text-transform: uppercase !important;
+}
+
+.zenith-broken-title {
+  font-size: 30px !important;
+  font-weight: 900 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  letter-spacing: -0.5px !important;
+}
+
+.zenith-broken-desc {
+  font-size: 14px !important;
+  color: #E2E8F0 !important;
+  line-height: 1.6 !important;
+  margin: 0 !important;
+  font-weight: 500 !important;
+}
+
+.zenith-broken-timer {
+  background: rgba(6, 182, 212, 0.1) !important;
+  border: 1px solid rgba(6, 182, 212, 0.3) !important;
+  color: #38BDF8 !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  padding: 12px 24px !important;
+  border-radius: 18px !important;
+  font-family: monospace !important;
+  width: 100% !important;
+}
+
+.zenith-broken-btn {
+  width: 100% !important;
+  background: #10B981 !important;
+  color: #090A0F !important;
+  font-weight: 900 !important;
+  font-size: 15px !important;
+  padding: 16px 24px !important;
+  border-radius: 20px !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: transform 0.2s, background 0.2s !important;
+  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.35) !important;
+}
+
+.zenith-broken-btn:hover {
+  transform: scale(1.02) !important;
+  background: #34D399 !important;
+}

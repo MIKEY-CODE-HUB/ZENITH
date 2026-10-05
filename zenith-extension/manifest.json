@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "ZENITH Focus & Distraction Freeze Guardian",
+  "version": "10.0.0",
+  "description": "Locks all external websites with the Focus Broken UI and forces you back to your ZENITH focus room.",
+  "permissions": [
+    "tabs",
+    "storage",
+    "scripting",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["blocked.html"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ZENITH Focus Guardian"
+  }
+}

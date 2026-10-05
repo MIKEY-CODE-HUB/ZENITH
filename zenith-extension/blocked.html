@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZENITH — Focus Protected</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      background-color: #09090b;
+      color: #f4f4f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow: hidden;
+      position: relative;
+    }
+    .card {
+      position: relative;
+      max-width: 480px;
+      width: 100%;
+      background: #121215;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      padding: 40px 32px;
+      text-align: center;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .icon-box {
+      width: 64px;
+      height: 64px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+    .badge {
+      background: rgba(244, 63, 94, 0.1);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      color: #f43f5e;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      color: #ffffff;
+    }
+    p {
+      font-size: 14px;
+      color: #a1a1aa;
+      line-height: 1.6;
+    }
+    .stats-box {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
+      padding: 14px;
+      margin-top: 4px;
+    }
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .stat-item:first-child {
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .stat-label {
+      font-size: 11px;
+      color: #71717a;
+      font-weight: 500;
+    }
+    .stat-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      font-family: monospace;
+    }
+    .btn {
+      width: 100%;
+      background: #ffffff;
+      color: #09090b;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 14px 20px;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn:hover {
+      background: #e4e4e7;
+      transform: scale(1.01);
+    }
+    .btn:active {
+      transform: scale(0.99);
+    }
+    .quote {
+      font-size: 12px;
+      color: #52525b;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-box">🛡️</div>
+    <div class="badge">FOCUS PROTECTED</div>
+    <h1 id="title-text">Website Blocked</h1>
+    <p id="target-site-text">
+      This distracting site is blocked during your active focus session. You chose to focus.
+    </p>
+
+    <div class="stats-box">
+      <div class="stat-item">
+        <span class="stat-label">Focus Active</span>
+        <span class="stat-val" id="focus-timer">Live</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Distractions Blocked</span>
+        <span class="stat-val" id="block-count">1</span>
+      </div>
+    </div>
+
+    <button id="return-btn" class="btn">
+      Return to Focus Room
+    </button>
+
+    <div class="quote">
+      "Do the work. See the truth. Build consistency."
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const targetUrl = params.get('url') || '';
+    const domain = params.get('domain') || '';
+    const roomUrl = params.get('room') || 'http://localhost:3000/dashboard';
+
+    let displayDomain = domain;
+    if (!displayDomain && targetUrl) {
+      try {
+        displayDomain = new URL(targetUrl).hostname.replace(/^www\./, '');
+      } catch (e) {
+        displayDomain = 'Website';
+      }
+    }
+
+    if (displayDomain) {
+      document.getElementById('title-text').textContent = `${displayDomain} is blocked`;
+      document.getElementById('target-site-text').innerHTML =
+        `<strong>${displayDomain}</strong> is blocked during your active Zenith focus session. You chose to focus.`;
+    }
+
+    function returnToFocus() {
+      try {
+        if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ type: "ZENITH_SNAP_BACK" });
+        }
+      } catch (e) {}
+      window.location.href = roomUrl;
+    }
+
+    document.getElementById('return-btn').addEventListener('click', returnToFocus);
+
+    // Auto redirect after 4 seconds if untouched
+    setTimeout(returnToFocus, 4500);
+  </script>
+</body>
+</html>

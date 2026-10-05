@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 260px;
+      margin: 0;
+      padding: 16px;
+      background: #090A0F;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .badge {
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      color: #06B6D4;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 8px;
+    }
+    .status-card {
+      background: #12141C;
+      border: 1px solid #1F2433;
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .status-val {
+      font-weight: 700;
+      color: #10B981;
+    }
+    .btn {
+      width: 100%;
+      background: #06B6D4;
+      color: #000;
+      border: none;
+      padding: 10px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span style="font-size: 20px;">⚡</span>
+    <strong style="font-size: 16px;">ZENITH</strong>
+    <span class="badge">GUARDIAN</span>
+  </div>
+
+  <div class="status-card">
+    <div class="status-row">
+      <span style="color: #9CA3AF;">Freeze Protection:</span>
+      <span class="status-val">ACTIVE</span>
+    </div>
+    <div class="status-row">
+      <span style="color: #9CA3AF;">Instant Snap-Back:</span>
+      <span style="font-weight: 700; color: #10B981;">0ms (ACTIVE)</span>
+    </div>
+  </div>
+
+  <button id="open-zenith" class="btn">Open ZENITH Focus Rooms</button>
+
+  <script src="popup.js"></script>
+</body>
+</html>

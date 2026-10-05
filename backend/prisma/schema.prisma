@@ -1,0 +1,315 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String            @id @default(uuid())
+  name                String
+  username            String            @unique
+  email               String            @unique
+  passwordHash        String
+  avatarUrl           String?
+  preferredActivity   String            @default("Coding")
+  typicalDuration     Int               @default(50) // in minutes
+  cameraAccountability Boolean          @default(true)
+  distractionWarnings Boolean           @default(true)
+  streakTracking      Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  createdRooms        Room[]            @relation("CreatedRooms")
+  participants        RoomParticipant[]
+  focusSessions       FocusSession[]
+  focusEvents         FocusEvent[]
+  userAchievements    UserAchievement[]
+  settings            UserSettings?
+  blockedResources    BlockedResource[]
+  blockAttempts       BlockAttempt[]
+  blockerSessions     BlockerSession[]
+  activityBlockLists  ActivityBlockList[]
+  pointTransactions   PointTransaction[]
+  interactionAuthorizations InteractionAuthorization[]
+  reportsFiled        UserReport[]       @relation("ReportedBy")
+  reportsReceived     UserReport[]       @relation("ReportedUser")
+  blockedUsers        UserBlock[]        @relation("BlockedBy")
+  blockedByUsers      UserBlock[]        @relation("BlockedUser")
+
+  @@map("users")
+}
+
+model UserSettings {
+  id                      String   @id @default(uuid())
+  userId                  String   @unique
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idleThresholdSeconds    Int      @default(60)
+  warningThresholdSeconds Int      @default(10)
+  autoStartTimer          Boolean  @default(false)
+  cameraVisibility        String   @default("Participants") // Everyone, Participants, None
+  activityVisibility      String   @default("Room") // Private, Room, Public
+  showFocusScore          Boolean  @default(true)
+  distractionAlerts       Boolean  @default(true)
+  sessionCompleteAlerts   Boolean  @default(true)
+  streakReminders         Boolean  @default(true)
+  blockerMode             String   @default("BLOCK") // MONITOR, BLOCK, STRICT
+  blockWebsitesEnabled    Boolean  @default(true)
+  blockAppsEnabled        Boolean  @default(true)
+  updatedAt               DateTime @updatedAt
+
+  @@map("user_settings")
+}
+
+model Room {
+  id                  String            @id @default(uuid())
+  name                String
+  description         String?
+  category            String            @default("EDUCATION") // EDUCATION, EXERCISE, SIDE_QUEST, INTERACTION
+  topic               String?           // For interaction rooms
+  activityType        String            @default("Deep Focus")
+  creatorId           String
+  creator             User              @relation("CreatedRooms", fields: [creatorId], references: [id], onDelete: Cascade)
+  roomCode            String            @unique
+  isPrivate           Boolean           @default(false)
+  maxParticipants     Int               @default(12)
+  defaultDuration     Int               @default(50)
+  defaultCamera       Boolean           @default(true)
+  defaultMic          Boolean           @default(false)
+  atmosphere          String?           @default("Rainy Window")
+  isSharedAtmosphere  Boolean           @default(false)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  participants        RoomParticipant[]
+  focusSessions       FocusSession[]
+  interactionAuthorizations InteractionAuthorization[]
+
+  @@map("rooms")
+}
+
+model RoomParticipant {
+  id        String    @id @default(uuid())
+  roomId    String
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String    @default("MEMBER") // HOST, MEMBER
+  status    String    @default("ACTIVE") // ACTIVE, LEFT
+  joinedAt  DateTime  @default(now())
+  leftAt    DateTime?
+
+  @@unique([roomId, userId])
+  @@map("room_participants")
+}
+
+model FocusSession {
+  id                 String          @id @default(uuid())
+  userId             String
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roomId             String?
+  room               Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  category           String          @default("EDUCATION") // EDUCATION, EXERCISE, SIDE_QUEST, INTERACTION
+  activityType       String          @default("Deep Focus")
+  specificActivity   String?
+  atmosphere         String?         @default("Rainy Window")
+  startTime          DateTime        @default(now())
+  endTime            DateTime?
+  plannedDuration    Int             // in minutes
+  focusedDuration    Int             @default(0) // in seconds
+  idleDuration       Int             @default(0) // in seconds
+  distractedDuration Int             @default(0) // in seconds
+  tabSwitchCount     Int             @default(0)
+  warningCount       Int             @default(0)
+  blockAttemptCount  Int             @default(0)
+  longestFocusStreak Int             @default(0) // in seconds
+  baseScore          Float           @default(100.0)
+  penaltyScore       Float           @default(0.0)
+  focusScore         Float           @default(100.0) // 0 - 100
+  pointsEarned       Int             @default(0)
+  status             String          @default("ACTIVE") // ACTIVE, COMPLETED, ABANDONED
+  notes              String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  events             FocusEvent[]
+  blockAttempts      BlockAttempt[]
+  blockerSession     BlockerSession?
+  pointTransactions  PointTransaction[]
+
+  @@map("focus_sessions")
+}
+
+model FocusEvent {
+  id          String        @id @default(uuid())
+  sessionId   String
+  session     FocusSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType   String        // TAB_SWITCH, IDLE, FOCUSED, WINDOW_BLUR, WINDOW_FOCUS, WARNING, BLOCK_ATTEMPT, ROOM_JOIN, ROOM_LEAVE, SESSION_START, SESSION_END
+  startTime   DateTime      @default(now())
+  endTime     DateTime?
+  duration    Int           @default(0) // in seconds
+  metadata    String?       // JSON string for additional context
+  createdAt   DateTime      @default(now())
+
+  @@map("focus_events")
+}
+
+model Achievement {
+  id               String            @id @default(uuid())
+  code             String            @unique
+  title            String
+  description      String
+  icon             String            // emoji or icon name
+  category         String            // STREAK, SESSIONS, SCORE, DURATION, BLOCKER
+  requirementCount Int
+  createdAt        DateTime          @default(now())
+
+  userAchievements UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  unlockedAt    DateTime    @default(now())
+
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+// ══════════════════════════════════════════════════════════
+// BLOCKER SYSTEM MODELS
+// ══════════════════════════════════════════════════════════
+
+model BlockedResource {
+  id          String   @id @default(uuid())
+  userId      String?  // null if system default, or user-specific
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   @default("WEBSITE") // WEBSITE, APPLICATION
+  identifier  String   // domain (e.g. "youtube.com") or app name (e.g. "Discord")
+  displayName String   // e.g. "YouTube", "Discord"
+  category    String   // SOCIAL, ENTERTAINMENT, MESSAGING, MUSIC, GAMES, CUSTOM
+  enabled     Boolean  @default(true)
+  isAllowlist Boolean  @default(false) // if true, this is an allowed domain/app
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  blockAttempts       BlockAttempt[]
+  activityBlockLists  ActivityBlockList[]
+
+  @@unique([userId, type, identifier])
+  @@map("blocked_resources")
+}
+
+model BlockAttempt {
+  id                 String           @id @default(uuid())
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId          String?
+  session            FocusSession?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  resourceId         String?
+  resource           BlockedResource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  resourceType       String           // WEBSITE, APPLICATION
+  resourceIdentifier String           // e.g. "youtube.com" or "Discord"
+  timestamp          DateTime         @default(now())
+  action             String           @default("BLOCKED") // BLOCKED, WARNED, MONITORED
+
+  @@map("block_attempts")
+}
+
+model BlockerSession {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  focusSessionId String       @unique
+  focusSession   FocusSession @relation(fields: [focusSessionId], references: [id], onDelete: Cascade)
+  mode           String       @default("BLOCK") // MONITOR, BLOCK, STRICT
+  startedAt      DateTime     @default(now())
+  endedAt        DateTime?
+  status         String       @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+
+  @@map("blocker_sessions")
+}
+
+model ActivityBlockList {
+  id                 String          @id @default(uuid())
+  userId             String?
+  user               User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityType       String          // Coding, Study, Work, Creative, Gym, Reading, Practice, Other
+  resourceId         String
+  resource           BlockedResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  enabled            Boolean         @default(true)
+
+  @@unique([userId, activityType, resourceId])
+  @@map("activity_block_lists")
+}
+
+// ══════════════════════════════════════════════════════════
+// POINT LEDGER & BEHAVIORAL CURRENCY
+// ══════════════════════════════════════════════════════════
+
+model PointTransaction {
+  id          String        @id @default(uuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount      Int           // Positive for rewards, negative for deductions
+  type        String        // SESSION_COMPLETED, FOCUS_BONUS, STREAK_BONUS, INTERACTION_ROOM, EXERCISE_COMPLETED, SIDE_QUEST_COMPLETED
+  source      String        // SESSION, INTERACTION_ENTRY, STREAK, MANUAL
+  sessionId   String?
+  session     FocusSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  metadata    String?       // JSON metadata
+  createdAt   DateTime      @default(now())
+
+  @@index([userId, createdAt])
+  @@map("point_transactions")
+}
+
+model InteractionAuthorization {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roomId      String
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  pointsSpent Int
+  status      String   @default("ACTIVE") // ACTIVE, EXPIRED, REVOKED
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([userId, roomId])
+  @@map("interaction_authorizations")
+}
+
+model UserReport {
+  id          String   @id @default(uuid())
+  reporterId  String
+  reporter    User     @relation("ReportedBy", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedId  String
+  reported    User     @relation("ReportedUser", fields: [reportedId], references: [id], onDelete: Cascade)
+  roomId      String?
+  reason      String
+  details     String?
+  status      String   @default("PENDING") // PENDING, REVIEWED, DISMISSED
+  createdAt   DateTime @default(now())
+
+  @@map("user_reports")
+}
+
+model UserBlock {
+  id        String   @id @default(uuid())
+  blockerId String
+  blocker   User     @relation("BlockedBy", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("BlockedUser", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@map("user_blocks")
+}
