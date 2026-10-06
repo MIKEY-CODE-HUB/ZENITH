@@ -6,7 +6,7 @@ export interface ShieldDomain {
 }
 
 /**
- * TIER 1 — ALWAYS BLOCKED (Zenith Core Protection)
+ * TIER 1: ALWAYS BLOCKED (Zenith Core Protection)
  * High-distraction platforms automatically enforced during active focus sessions.
  * These cannot be removed by the user.
  */
@@ -30,7 +30,7 @@ export const ALWAYS_BLOCKED_DOMAINS: ShieldDomain[] = [
 ];
 
 /**
- * TIER 2 — ALWAYS ALLOWED (Essential Tools)
+ * TIER 2: ALWAYS ALLOWED (Essential Tools)
  * Essential learning, coding, and problem-solving platforms.
  * These are NEVER blocked and cannot be accidentally blocked.
  */

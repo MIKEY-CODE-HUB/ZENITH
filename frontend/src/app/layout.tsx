@@ -10,7 +10,12 @@ import { AmbientSoundMixer } from '@/components/AmbientSoundMixer';
 
 export const metadata: Metadata = {
   title: 'ZENITH | Deep Work, Ambient Study & Distraction Shield',
-  description: "Aesthetic ambient study space, live accountability rooms, and automated distraction shield.",
+  description: 'Aesthetic ambient study space, live accountability rooms, and automated distraction shield.',
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({

@@ -123,7 +123,7 @@ function BlockedContent() {
 
           {/* Heading & Notice */}
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-[11px] font-bold tracking-wider uppercase">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-400 text-[11px] font-bold tracking-wider uppercase">
               <Lock className="h-3 w-3" />
               <span>Focus Protected</span>
             </div>
@@ -131,7 +131,7 @@ function BlockedContent() {
               {displayDomain} is blocked
             </h1>
             <p className="text-xs sm:text-sm text-zinc-300 max-w-sm mx-auto leading-relaxed">
-              This site is blocked during your active focus room. You committed to deep work — Zenith is holding the line for you.
+              This site is blocked during your active focus room. You committed to deep work: Zenith is holding the line for you.
             </p>
           </div>
 
@@ -161,8 +161,8 @@ function BlockedContent() {
           </div>
 
           {/* Snap-Back Countdown Strip */}
-          <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium flex items-center justify-center gap-2">
-            <Radio className="h-3.5 w-3.5 text-indigo-400 animate-pulse" />
+          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-medium flex items-center justify-center gap-2">
+            <Radio className="h-3.5 w-3.5 text-emerald-400 animate-pulse" />
             <span>Pulling you back to your study room in <strong>{countdown}s</strong>...</span>
           </div>
 

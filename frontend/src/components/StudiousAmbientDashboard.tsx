@@ -381,7 +381,7 @@ export function StudiousAmbientDashboard({ onSwitchToStandardView }: { onSwitchT
             "{currentQuote.text}"
           </p>
           <span className="text-[11px] text-zinc-400 font-medium block mt-1">
-            — {currentQuote.author}
+            - {currentQuote.author}
           </span>
         </div>
       </div>

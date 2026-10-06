@@ -353,6 +353,31 @@ async function main() {
       defaultMic: true,
       creatorId: createdUsers['mikey'].id,
     },
+    {
+      name: 'CIRCUIT',
+      description: 'Technical writing, system design docs, RFCs & research papers.',
+      category: 'SIDE_QUEST',
+      topic: 'System Architecture & RFCs',
+      activityType: 'Creative',
+      atmosphere: 'Rainy Library',
+      roomCode: 'CIRCUIT-11',
+      defaultDuration: 50,
+      maxParticipants: 12,
+      creatorId: createdUsers['sarahj'].id,
+    },
+    {
+      name: 'COLLAB',
+      description: 'Pair programming, technical interview mocks & live code reviews.',
+      category: 'INTERACTION',
+      topic: 'DSA Mock Interviews & Code Review',
+      activityType: 'Problem Discussion',
+      atmosphere: 'Tokyo Midnight',
+      roomCode: 'COLLAB-12',
+      defaultDuration: 35,
+      maxParticipants: 6,
+      defaultMic: true,
+      creatorId: createdUsers['alexchen'].id,
+    },
   ];
 
   for (const r of roomsData) {

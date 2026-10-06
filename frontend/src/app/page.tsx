@@ -21,6 +21,11 @@ import {
   Dumbbell,
   Compass,
   MessageSquare,
+  CloudRain,
+  Trees,
+  Sunset,
+  Moon,
+  Terminal,
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -57,7 +62,7 @@ export default function LandingPage() {
 
         <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 text-center space-y-7">
           {/* Subtle status badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-1 text-xs font-medium text-emerald-300 shadow-inner">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-1 text-xs font-medium text-emerald-300 shadow-inner">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
             <span>Dual-layer focus protection for Mac & Chrome • 0ms Tab Snap-Back</span>
           </div>
@@ -65,7 +70,7 @@ export default function LandingPage() {
           {/* Headline */}
           <div className="space-y-4 max-w-3xl mx-auto">
             <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-[1.12]">
-              Deep work without the <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">self-deception</span>.
+              Deep work without the <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-sky-400 bg-clip-text text-transparent">self-deception</span>.
             </h1>
             <p className="text-base sm:text-lg text-zinc-300 max-w-2xl mx-auto font-normal leading-relaxed">
               Immersive social accountability platform for ambitious students. Master DSA, ship projects, and hit flow state in Tokyo Midnight, Rainy Window, or Nordic Pines soundscapes.
@@ -121,7 +126,7 @@ export default function LandingPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="text-xs font-medium px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+                <span className="text-xs font-medium px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
                   <Shield className="h-3 w-3" />
                   Shield engaged
                 </span>
@@ -185,7 +190,7 @@ export default function LandingPage() {
             </div>
             <h3 className="text-base font-semibold text-white">Silent Coworking</h3>
             <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-              Join focused rooms with engineers, writers, and researchers. No microphone noise or distracting chatter — just shared momentum.
+              Join focused rooms with engineers, writers, and researchers. No microphone noise or distracting chatter: pure shared momentum.
             </p>
           </div>
 
@@ -215,14 +220,14 @@ export default function LandingPage() {
 
       {/* 4. ATMOSPHERIC IMMERSION & 4 PILLARS */}
       <section className="py-16 md:py-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        <div className="relative rounded-3xl bg-gradient-to-br from-[#121526] via-[#0d101d] to-[#141226] border border-indigo-500/20 p-8 sm:p-12 overflow-hidden shadow-2xl">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative rounded-3xl bg-gradient-to-br from-[#0e131b] via-[#090d13] to-[#121722] border border-teal-500/20 p-8 sm:p-12 overflow-hidden shadow-2xl">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative z-10 space-y-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-teal-400 flex items-center gap-1.5">
                   <Headphones className="h-3.5 w-3.5" />
                   <span>Personal Atmospheric Soundscapes</span>
                 </span>
@@ -234,7 +239,7 @@ export default function LandingPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-3 py-1.5 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-medium border border-indigo-500/30 flex items-center gap-1.5">
+                <span className="px-3 py-1.5 rounded-xl bg-teal-500/10 text-teal-300 text-xs font-medium border border-teal-500/30 flex items-center gap-1.5">
                   <Music className="h-3.5 w-3.5" />
                   <span>Ambient Audio Synthesizer</span>
                 </span>
@@ -243,17 +248,22 @@ export default function LandingPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { name: 'Tokyo Midnight', icon: '🌃', desc: 'Binaural neon night rain & distant synth pads', glow: 'hover:border-indigo-400/50' },
-                { name: 'Rainy Library', icon: '🌧️', desc: 'Gentle raindrops on glass with warm acoustic glow', glow: 'hover:border-blue-400/50' },
-                { name: 'Nordic Pines', icon: '🌲', desc: 'Alpine wind, crackling warmth & deep timber tone', glow: 'hover:border-emerald-400/50' },
-                { name: 'Sunset Dusk', icon: '🌇', desc: 'Warm analog warmth, sunset golden hour resonance', glow: 'hover:border-amber-400/50' },
-              ].map((amb) => (
-                <div key={amb.name} className={`p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] ${amb.glow} transition-all space-y-2 group cursor-pointer hover:bg-white/[0.06]`}>
-                  <span className="text-2xl">{amb.icon}</span>
-                  <p className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors">{amb.name}</p>
-                  <p className="text-[11px] text-zinc-400 leading-tight">{amb.desc}</p>
-                </div>
-              ))}
+                { name: 'Tokyo Midnight', icon: Moon, color: 'text-sky-400', desc: 'Binaural neon night rain & distant synth pads', glow: 'hover:border-sky-400/50' },
+                { name: 'Rainy Library', icon: CloudRain, color: 'text-blue-400', desc: 'Gentle raindrops on glass with warm acoustic glow', glow: 'hover:border-blue-400/50' },
+                { name: 'Nordic Pines', icon: Trees, color: 'text-emerald-400', desc: 'Alpine wind, crackling warmth & deep timber tone', glow: 'hover:border-emerald-400/50' },
+                { name: 'Sunset Dusk', icon: Sunset, color: 'text-amber-400', desc: 'Warm analog warmth, sunset golden hour resonance', glow: 'hover:border-amber-400/50' },
+              ].map((amb) => {
+                const IconComponent = amb.icon;
+                return (
+                  <div key={amb.name} className={`p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] ${amb.glow} transition-all space-y-2 group cursor-pointer hover:bg-white/[0.06]`}>
+                    <div className="p-2 rounded-xl bg-white/5 w-fit border border-white/5">
+                      <IconComponent className={`h-5 w-5 ${amb.color}`} />
+                    </div>
+                    <p className="text-xs font-bold text-white group-hover:text-teal-300 transition-colors">{amb.name}</p>
+                    <p className="text-[11px] text-zinc-400 leading-tight">{amb.desc}</p>
+                  </div>
+                );
+              })}
             </div>
 
             {/* 4 Pillars */}
@@ -277,7 +287,7 @@ export default function LandingPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-                  <Compass className="h-4 w-4 text-purple-400 shrink-0" />
+                  <Compass className="h-4 w-4 text-teal-400 shrink-0" />
                   <div>
                     <span className="text-xs font-bold text-white block">Side Quest</span>
                     <span className="text-[10px] text-zinc-400">Projects & Chess</span>
@@ -300,11 +310,13 @@ export default function LandingPage() {
       <footer className="border-t border-white/[0.06] py-12 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-zinc-300">Zenith</span>
-          <span>— Deep work environment</span>
+          <span>- Deep work environment</span>
         </div>
         <div className="flex items-center gap-6">
           <Link href="/rooms" className="hover:text-zinc-300 transition-colors">Silent Rooms</Link>
           <Link href="/blocker" className="hover:text-zinc-300 transition-colors">Shield</Link>
+          <Link href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy Policy</Link>
+          <Link href="/terms" className="hover:text-zinc-300 transition-colors">Terms of Service</Link>
           <Link href="/login" className="hover:text-zinc-300 transition-colors">Sign in</Link>
         </div>
       </footer>

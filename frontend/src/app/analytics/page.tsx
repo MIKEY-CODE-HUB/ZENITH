@@ -117,7 +117,7 @@ export default function AnalyticsPage() {
             },
             personalizedInsight: {
               title: 'Peak Focus Flow',
-              window: 'Morning (8:00 AM – 12:00 PM)',
+              window: 'Morning (8:00 AM - 12:00 PM)',
               avgScore: 94,
               recommendation:
                 'Your deepest sessions occur during the morning window with 94% average focus rate. Schedule your hardest problem sets (DSA, complex engineering) during this prime cognitive zone.',
@@ -223,7 +223,7 @@ export default function AnalyticsPage() {
             <p className="text-2xl font-semibold text-white tracking-tight font-mono">
               {overview?.avgSessionMinutes || 0}m
             </p>
-            <p className="text-[11px] text-zinc-500">Target: 45–60 minutes</p>
+            <p className="text-[11px] text-zinc-500">Target: 45-60 minutes</p>
           </div>
 
           <div className="p-4 rounded-xl bg-[#121215] border border-white/[0.07] space-y-1">
@@ -248,7 +248,7 @@ export default function AnalyticsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
             <div>
               <h2 className="text-sm font-semibold text-white">Day-of-Week Distribution</h2>
-              <p className="text-xs text-zinc-400 mt-0.5">Focus time aggregated by weekday (Monday – Sunday)</p>
+              <p className="text-xs text-zinc-400 mt-0.5">Focus time aggregated by weekday (Monday to Sunday)</p>
             </div>
             <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
               <Calendar className="h-3.5 w-3.5 text-emerald-400" />

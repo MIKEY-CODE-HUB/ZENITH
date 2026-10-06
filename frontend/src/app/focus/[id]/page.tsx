@@ -550,7 +550,7 @@ export default function LiveRoomPage() {
             <Sliders className="h-4 w-4" />
           </button>
 
-          {/* Mic Toggle — strictly available in Interaction Rooms ONLY */}
+          {/* Mic Toggle: strictly available in Interaction Rooms ONLY */}
           {isInteractionRoom && (
             <>
               <div className="h-5 w-px bg-white/15 mx-1" />

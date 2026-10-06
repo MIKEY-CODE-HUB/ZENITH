@@ -149,7 +149,7 @@ function isUrlDistraction(url) {
   const hostname = extractHostname(url);
   if (!hostname) return false;
 
-  // 1. TIER 2: Check protected / allowed tools
+  // 1. TIER 2: Check protected / allowed study & coding tools
   for (const allowed of ALWAYS_ALLOWED_DOMAINS) {
     if (matchesDomainPattern(hostname, allowed)) return false;
   }
@@ -157,22 +157,8 @@ function isUrlDistraction(url) {
     if (matchesDomainPattern(hostname, allowed)) return false;
   }
 
-  // 2. TIER 1: Check Always Blocked platforms
-  for (const blocked of ALWAYS_BLOCKED_DOMAINS) {
-    if (matchesDomainPattern(hostname, blocked)) return true;
-  }
-
-  // 3. TIER 3: Check Custom Blocklist
-  for (const blocked of customBlockedWebsites) {
-    if (matchesDomainPattern(hostname, blocked)) return true;
-  }
-
-  // In STRICT mode, any external website outside allowed is treated as a distraction
-  if (sessionMode === 'STRICT') {
-    return true;
-  }
-
-  return false;
+  // 2. Strict Focus Rule: Pull back for EVERY website outside the allowed list!
+  return true;
 }
 
 async function getZenithTab() {

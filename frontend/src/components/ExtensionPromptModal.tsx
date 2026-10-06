@@ -88,7 +88,7 @@ export function ExtensionPromptModal() {
             className="w-full flex items-center justify-center gap-2 rounded-lg bg-white py-2.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-100 transition-colors shadow-sm"
           >
             <CheckCircle2 className="h-4 w-4" />
-            <span>Extension Ready — Continue to App</span>
+            <span>Extension Ready: Continue to App</span>
           </button>
         </div>
 

@@ -43,13 +43,14 @@ export default function RoomsPage() {
 
   const categories = [
     { id: 'All', label: 'All Rooms', icon: null },
-    { id: 'EDUCATION', label: '🎓 Education', icon: GraduationCap },
-    { id: 'EXERCISE', label: '🏋 Exercise', icon: Dumbbell },
-    { id: 'SIDE_QUEST', label: '🧭 Side Quest', icon: Compass },
-    { id: 'INTERACTION', label: '💬 Interaction (Voice & 30% ⭐)', icon: MessageSquare },
+    { id: 'EDUCATION', label: 'Education', icon: GraduationCap },
+    { id: 'EXERCISE', label: 'Exercise', icon: Dumbbell },
+    { id: 'SIDE_QUEST', label: 'Side Quest', icon: Compass },
+    { id: 'INTERACTION', label: 'Interaction (Voice)', icon: MessageSquare },
   ];
 
   const DEFAULT_ROOM_LIST: Room[] = [
+    // EDUCATION
     {
       id: 'room-grind-1',
       name: 'Grind',
@@ -78,7 +79,7 @@ export default function RoomsPage() {
       atmosphere: 'Rainy Library',
       roomCode: 'FOCUS2',
       isPrivate: false,
-      maxParticipants: 10,
+      maxParticipants: 12,
       defaultDuration: 45,
       defaultCamera: false,
       defaultMic: false,
@@ -87,14 +88,52 @@ export default function RoomsPage() {
       createdAt: new Date().toISOString(),
     },
     {
-      id: 'room-arena-3',
+      id: 'room-forge-3',
+      name: 'Forge',
+      description: 'Building compilers, OS kernels, and backend architecture',
+      category: 'EDUCATION',
+      topic: 'Operating Systems & Rust',
+      activityType: 'Coding',
+      atmosphere: 'Terminal',
+      roomCode: 'FORGE3',
+      isPrivate: false,
+      maxParticipants: 12,
+      defaultDuration: 60,
+      defaultCamera: false,
+      defaultMic: false,
+      activeParticipantsCount: 5,
+      averageFocusScore: 97,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'room-zone-4',
+      name: 'Zone',
+      description: 'Theoretical computer science and algorithm proofs',
+      category: 'EDUCATION',
+      topic: 'Algorithms & Complexity',
+      activityType: 'Study',
+      atmosphere: 'Nordic Pines',
+      roomCode: 'ZONE4',
+      isPrivate: false,
+      maxParticipants: 10,
+      defaultDuration: 50,
+      defaultCamera: false,
+      defaultMic: false,
+      activeParticipantsCount: 2,
+      averageFocusScore: 93,
+      createdAt: new Date().toISOString(),
+    },
+
+    // EXERCISE
+    {
+      id: 'room-arena-5',
       name: 'Arena',
       description: 'Cardio, posture resets & mobility intervals',
       category: 'EXERCISE',
       topic: 'Cardio & Mobility',
       activityType: 'Cardio',
       atmosphere: 'Nordic Pines',
-      roomCode: 'ARENA3',
+      roomCode: 'ARENA5',
       isPrivate: false,
       maxParticipants: 8,
       defaultDuration: 30,
@@ -105,14 +144,52 @@ export default function RoomsPage() {
       createdAt: new Date().toISOString(),
     },
     {
-      id: 'room-flow-4',
+      id: 'room-boost-6',
+      name: 'Boost',
+      description: 'High-cadence calisthenics, core stability and active rest',
+      category: 'EXERCISE',
+      topic: 'Strength & Core',
+      activityType: 'Home Workout',
+      atmosphere: 'Energy Grid',
+      roomCode: 'BOOST6',
+      isPrivate: false,
+      maxParticipants: 8,
+      defaultDuration: 30,
+      defaultCamera: false,
+      defaultMic: false,
+      activeParticipantsCount: 3,
+      averageFocusScore: 95,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'room-momentum-7',
+      name: 'Momentum',
+      description: 'Box breathing, physical tension release & desk stretches',
+      category: 'EXERCISE',
+      topic: 'Posture & Recovery',
+      activityType: 'Mobility',
+      atmosphere: 'Sunset Dusk',
+      roomCode: 'MOMENT7',
+      isPrivate: false,
+      maxParticipants: 10,
+      defaultDuration: 25,
+      defaultCamera: false,
+      defaultMic: false,
+      activeParticipantsCount: 1,
+      averageFocusScore: 99,
+      createdAt: new Date().toISOString(),
+    },
+
+    // SIDE QUEST
+    {
+      id: 'room-flow-8',
       name: 'Flow',
-      description: 'Chess analysis and creative indie projects',
+      description: 'Speed chess endgames, puzzle rushes & tactical strategy',
       category: 'SIDE_QUEST',
-      topic: 'Chess Endgames & UI Design',
+      topic: 'Chess Tactics & Openings',
       activityType: 'Chess',
       atmosphere: 'Sunset Dusk',
-      roomCode: 'FLOW4',
+      roomCode: 'FLOW8',
       isPrivate: false,
       maxParticipants: 6,
       defaultDuration: 40,
@@ -123,14 +200,52 @@ export default function RoomsPage() {
       createdAt: new Date().toISOString(),
     },
     {
-      id: 'room-pulse-5',
+      id: 'room-pulse-9',
       name: 'Pulse',
-      description: 'Peer collaborative strategy (voice active, 30% weekly points)',
+      description: 'Independent product shipping, full-stack side projects',
+      category: 'SIDE_QUEST',
+      topic: 'Indie Web Apps',
+      activityType: 'Personal Projects',
+      atmosphere: 'Tokyo Midnight',
+      roomCode: 'PULSE9',
+      isPrivate: false,
+      maxParticipants: 8,
+      defaultDuration: 45,
+      defaultCamera: false,
+      defaultMic: false,
+      activeParticipantsCount: 4,
+      averageFocusScore: 92,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'room-circuit-10',
+      name: 'Circuit',
+      description: 'Technical writing, design docs, RFCs & research papers',
+      category: 'SIDE_QUEST',
+      topic: 'System Design Docs',
+      activityType: 'Creative',
+      atmosphere: 'Rainy Library',
+      roomCode: 'CIRCUIT10',
+      isPrivate: false,
+      maxParticipants: 8,
+      defaultDuration: 50,
+      defaultCamera: false,
+      defaultMic: false,
+      activeParticipantsCount: 2,
+      averageFocusScore: 95,
+      createdAt: new Date().toISOString(),
+    },
+
+    // INTERACTION
+    {
+      id: 'room-collab-11',
+      name: 'Collab Circle',
+      description: 'Pair programming, technical interview mocks & architecture debate',
       category: 'INTERACTION',
       topic: 'Technical Interview Mock & Architecture',
       activityType: 'Problem Discussion',
       atmosphere: 'Tokyo Midnight',
-      roomCode: 'PULSE5',
+      roomCode: 'COLLAB11',
       isPrivate: false,
       maxParticipants: 6,
       defaultDuration: 35,
@@ -138,6 +253,24 @@ export default function RoomsPage() {
       defaultMic: true,
       activeParticipantsCount: 2,
       averageFocusScore: 95,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'room-rise-12',
+      name: 'Rise Lab',
+      description: 'Whiteboard walkthroughs & career roadmap discussion',
+      category: 'INTERACTION',
+      topic: 'System Design & Career',
+      activityType: 'Discussion',
+      atmosphere: 'City Run',
+      roomCode: 'RISE12',
+      isPrivate: false,
+      maxParticipants: 6,
+      defaultDuration: 30,
+      defaultCamera: true,
+      defaultMic: true,
+      activeParticipantsCount: 3,
+      averageFocusScore: 96,
       createdAt: new Date().toISOString(),
     },
   ];
@@ -283,13 +416,13 @@ export default function RoomsPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-base font-bold text-white tracking-wider">{room.name}</span>
                     <span
-                      className={`text-[10px] font-mono px-2.5 py-1 rounded-full border ${
+                      className={`text-[10px] font-mono px-2.5 py-1 rounded-md border ${
                         isInteraction
                           ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
                           : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                       }`}
                     >
-                      {isInteraction ? '💬 6-PEOPLE MAX' : room.category}
+                      {isInteraction ? 'MAX 6 STUDENTS' : room.category}
                     </span>
                   </div>
 
@@ -339,7 +472,7 @@ export default function RoomsPage() {
                         : 'bg-white/10 hover:bg-white text-zinc-100 hover:text-zinc-950'
                     }`}
                   >
-                    <span>{isFull ? 'Room Full' : isInteraction ? 'Enter (30% ⭐)' : 'Enter Room'}</span>
+                    <span>{isFull ? 'Room Full' : isInteraction ? 'Enter (30% Points)' : 'Enter Room'}</span>
                     {!isFull && <ArrowRight className="h-3.5 w-3.5" />}
                   </button>
                 </div>
@@ -376,15 +509,15 @@ export default function RoomsPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-400">Your balance:</span>
-                  <span className="text-white font-bold">{interactionQuote.weeklyBalance} ⭐</span>
+                  <span className="text-white font-bold">{interactionQuote.weeklyBalance} pts</span>
                 </div>
                 <div className="flex justify-between text-amber-400">
                   <span>Room cost:</span>
-                  <span className="font-bold">-{interactionQuote.cost} ⭐</span>
+                  <span className="font-bold">-{interactionQuote.cost} pts</span>
                 </div>
                 <div className="flex justify-between pt-1 border-t border-white/10 text-zinc-300">
                   <span>Remaining:</span>
-                  <span className="font-bold text-white">{interactionQuote.remaining} ⭐</span>
+                  <span className="font-bold text-white">{interactionQuote.remaining} pts</span>
                 </div>
               </div>
 

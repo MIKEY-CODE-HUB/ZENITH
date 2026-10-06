@@ -26,11 +26,14 @@ import {
   Radio,
   Image as ImageIcon,
   Zap,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 const DEFAULT_ROOMS: Room[] = [
+  // EDUCATION
   {
     id: 'room-grind-1',
     name: 'Grind',
@@ -59,7 +62,7 @@ const DEFAULT_ROOMS: Room[] = [
     atmosphere: 'Rainy Library',
     roomCode: 'FOCUS2',
     isPrivate: false,
-    maxParticipants: 10,
+    maxParticipants: 12,
     defaultDuration: 45,
     defaultCamera: false,
     defaultMic: false,
@@ -68,14 +71,52 @@ const DEFAULT_ROOMS: Room[] = [
     createdAt: new Date().toISOString(),
   },
   {
-    id: 'room-arena-3',
+    id: 'room-forge-3',
+    name: 'Forge',
+    description: 'Building compilers, OS kernels, and backend architecture',
+    category: 'EDUCATION',
+    topic: 'Operating Systems & Rust',
+    activityType: 'Coding',
+    atmosphere: 'Terminal',
+    roomCode: 'FORGE3',
+    isPrivate: false,
+    maxParticipants: 12,
+    defaultDuration: 60,
+    defaultCamera: false,
+    defaultMic: false,
+    activeParticipantsCount: 5,
+    averageFocusScore: 97,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'room-zone-4',
+    name: 'Zone',
+    description: 'Theoretical computer science and algorithm proofs',
+    category: 'EDUCATION',
+    topic: 'Algorithms & Complexity',
+    activityType: 'Study',
+    atmosphere: 'Nordic Pines',
+    roomCode: 'ZONE4',
+    isPrivate: false,
+    maxParticipants: 10,
+    defaultDuration: 50,
+    defaultCamera: false,
+    defaultMic: false,
+    activeParticipantsCount: 2,
+    averageFocusScore: 93,
+    createdAt: new Date().toISOString(),
+  },
+
+  // EXERCISE
+  {
+    id: 'room-arena-5',
     name: 'Arena',
     description: 'Cardio, posture resets & mobility intervals',
     category: 'EXERCISE',
     topic: 'Cardio & Mobility',
     activityType: 'Cardio',
     atmosphere: 'Nordic Pines',
-    roomCode: 'ARENA3',
+    roomCode: 'ARENA5',
     isPrivate: false,
     maxParticipants: 8,
     defaultDuration: 30,
@@ -83,6 +124,136 @@ const DEFAULT_ROOMS: Room[] = [
     defaultMic: false,
     activeParticipantsCount: 2,
     averageFocusScore: 98,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'room-boost-6',
+    name: 'Boost',
+    description: 'High-cadence calisthenics, core stability and active rest',
+    category: 'EXERCISE',
+    topic: 'Strength & Core',
+    activityType: 'Home Workout',
+    atmosphere: 'Energy Grid',
+    roomCode: 'BOOST6',
+    isPrivate: false,
+    maxParticipants: 8,
+    defaultDuration: 30,
+    defaultCamera: false,
+    defaultMic: false,
+    activeParticipantsCount: 3,
+    averageFocusScore: 95,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'room-momentum-7',
+    name: 'Momentum',
+    description: 'Box breathing, physical tension release & desk stretches',
+    category: 'EXERCISE',
+    topic: 'Posture & Recovery',
+    activityType: 'Mobility',
+    atmosphere: 'Sunset Dusk',
+    roomCode: 'MOMENT7',
+    isPrivate: false,
+    maxParticipants: 10,
+    defaultDuration: 25,
+    defaultCamera: false,
+    defaultMic: false,
+    activeParticipantsCount: 1,
+    averageFocusScore: 99,
+    createdAt: new Date().toISOString(),
+  },
+
+  // SIDE QUEST
+  {
+    id: 'room-flow-8',
+    name: 'Flow',
+    description: 'Speed chess endgames, puzzle rushes & tactical strategy',
+    category: 'SIDE_QUEST',
+    topic: 'Chess Tactics & Openings',
+    activityType: 'Chess',
+    atmosphere: 'Sunset Dusk',
+    roomCode: 'FLOW8',
+    isPrivate: false,
+    maxParticipants: 6,
+    defaultDuration: 40,
+    defaultCamera: false,
+    defaultMic: false,
+    activeParticipantsCount: 3,
+    averageFocusScore: 91,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'room-pulse-9',
+    name: 'Pulse',
+    description: 'Independent product shipping, full-stack side projects',
+    category: 'SIDE_QUEST',
+    topic: 'Indie Web Apps',
+    activityType: 'Personal Projects',
+    atmosphere: 'Tokyo Midnight',
+    roomCode: 'PULSE9',
+    isPrivate: false,
+    maxParticipants: 8,
+    defaultDuration: 45,
+    defaultCamera: false,
+    defaultMic: false,
+    activeParticipantsCount: 4,
+    averageFocusScore: 92,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'room-circuit-10',
+    name: 'Circuit',
+    description: 'Technical writing, design docs, RFCs & research papers',
+    category: 'SIDE_QUEST',
+    topic: 'System Design Docs',
+    activityType: 'Creative',
+    atmosphere: 'Rainy Library',
+    roomCode: 'CIRCUIT10',
+    isPrivate: false,
+    maxParticipants: 8,
+    defaultDuration: 50,
+    defaultCamera: false,
+    defaultMic: false,
+    activeParticipantsCount: 2,
+    averageFocusScore: 95,
+    createdAt: new Date().toISOString(),
+  },
+
+  // INTERACTION
+  {
+    id: 'room-collab-11',
+    name: 'Collab Circle',
+    description: 'Pair programming, technical interview mocks & architecture debate',
+    category: 'INTERACTION',
+    topic: 'Technical Interview Mock & Architecture',
+    activityType: 'Problem Discussion',
+    atmosphere: 'Tokyo Midnight',
+    roomCode: 'COLLAB11',
+    isPrivate: false,
+    maxParticipants: 6,
+    defaultDuration: 35,
+    defaultCamera: true,
+    defaultMic: true,
+    activeParticipantsCount: 2,
+    averageFocusScore: 95,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'room-rise-12',
+    name: 'Rise Lab',
+    description: 'Whiteboard walkthroughs & career roadmap discussion',
+    category: 'INTERACTION',
+    topic: 'System Design & Career',
+    activityType: 'Discussion',
+    atmosphere: 'City Run',
+    roomCode: 'RISE12',
+    isPrivate: false,
+    maxParticipants: 6,
+    defaultDuration: 30,
+    defaultCamera: true,
+    defaultMic: true,
+    activeParticipantsCount: 3,
+    averageFocusScore: 96,
     createdAt: new Date().toISOString(),
   },
 ];
@@ -129,18 +300,39 @@ export default function DashboardPage() {
   const getAtmosphericVibe = () => {
     const hour = new Date().getHours();
     if (hour >= 22 || hour < 5) {
-      return { greeting: 'Late Night Flow', icon: '🌙', vibe: 'Deep midnight immersion. When the world is asleep, you build.', accent: 'from-indigo-600/30 via-violet-600/20 to-transparent' };
+      return {
+        greeting: 'Late Night Flow',
+        icon: Moon,
+        vibe: 'Deep midnight immersion. When the world is asleep, you build.',
+        accent: 'from-sky-600/25 via-teal-600/20 to-transparent',
+      };
     }
     if (hour >= 5 && hour < 12) {
-      return { greeting: 'Dawn Momentum', icon: '☀️', vibe: 'Fresh morning clarity. Seize high-cognitive energy before distractions wake.', accent: 'from-amber-600/30 via-orange-600/20 to-transparent' };
+      return {
+        greeting: 'Dawn Momentum',
+        icon: Sun,
+        vibe: 'Fresh morning clarity. Seize high-cognitive energy before distractions wake.',
+        accent: 'from-amber-600/25 via-orange-600/20 to-transparent',
+      };
     }
     if (hour >= 12 && hour < 17) {
-      return { greeting: 'Peak Focus Zone', icon: '⚡', vibe: 'Afternoon power block. Execute your hardest engineering and problem sets.', accent: 'from-emerald-600/30 via-teal-600/20 to-transparent' };
+      return {
+        greeting: 'Peak Focus Zone',
+        icon: Zap,
+        vibe: 'Afternoon power block. Execute your hardest engineering and problem sets.',
+        accent: 'from-emerald-600/25 via-teal-600/20 to-transparent',
+      };
     }
-    return { greeting: 'Golden Hour Dusk', icon: '🌅', vibe: 'Evening consistency. Lock in your closing study sprint for the day.', accent: 'from-rose-600/30 via-purple-600/20 to-transparent' };
+    return {
+      greeting: 'Golden Hour Dusk',
+      icon: Compass,
+      vibe: 'Evening consistency. Lock in your closing study sprint for the day.',
+      accent: 'from-rose-600/25 via-amber-600/20 to-transparent',
+    };
   };
 
   const vibe = getAtmosphericVibe();
+  const VibeIcon = vibe.icon;
   const weeklyPoints = stats?.weeklyPoints || 640;
   const weeklyGoal = 1000;
   const progressPercent = Math.min(100, Math.round((weeklyPoints / weeklyGoal) * 100));
@@ -160,20 +352,20 @@ export default function DashboardPage() {
         {/* Dynamic Atmospheric Hero Banner */}
         <div className={`relative p-6 sm:p-9 rounded-3xl bg-gradient-to-r ${vibe.accent} bg-[#10121a] border border-white/[0.08] shadow-2xl overflow-hidden`}>
           {/* Subtle Ambient Blur Halos */}
-          <div className="absolute -top-24 -right-24 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -top-24 -right-24 w-80 h-80 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-2 max-w-xl">
               <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
-                <span className="text-base">{vibe.icon}</span>
+                <VibeIcon className="h-4 w-4 text-emerald-400" />
                 <span className="uppercase tracking-widest text-[11px] font-bold text-white/90">
                   {vibe.greeting} • {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </span>
                 <span className="text-zinc-600">•</span>
                 <button
                   onClick={() => setIsSceneryModalOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] text-[11px] text-zinc-300 transition-colors border border-white/10"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-[11px] text-zinc-300 transition-colors border border-white/10"
                 >
                   <ImageIcon className="h-3 w-3 text-emerald-400" />
                   <span>Theme: {currentScenery.name}</span>
@@ -257,9 +449,9 @@ export default function DashboardPage() {
               />
             </div>
             <div className="flex justify-between text-[11px] text-zinc-400 font-mono pt-0.5">
-              <span>0 ⭐</span>
+              <span>0 pts</span>
               <span className="text-emerald-400 font-semibold">{progressPercent}% verified focus complete</span>
-              <span>{weeklyGoal} ⭐ Target</span>
+              <span>{weeklyGoal} pts target</span>
             </div>
           </div>
         </div>
@@ -287,7 +479,7 @@ export default function DashboardPage() {
                 <span className="text-[10px] font-bold font-mono text-sky-400/80 uppercase">Pillar I</span>
               </div>
               <div>
-                <h3 className="text-xs font-bold text-zinc-300">🎓 Education</h3>
+                <h3 className="text-xs font-bold text-zinc-300">Education</h3>
                 <p className="text-2xl font-extrabold text-white mt-0.5 font-mono">
                   {formatMinutesHuman(categoryMinutes.education)}
                 </p>
@@ -304,7 +496,7 @@ export default function DashboardPage() {
                 <span className="text-[10px] font-bold font-mono text-amber-400/80 uppercase">Pillar II</span>
               </div>
               <div>
-                <h3 className="text-xs font-bold text-zinc-300">🏋 Exercise</h3>
+                <h3 className="text-xs font-bold text-zinc-300">Exercise</h3>
                 <p className="text-2xl font-extrabold text-white mt-0.5 font-mono">
                   {formatMinutesHuman(categoryMinutes.exercise)}
                 </p>
@@ -313,15 +505,15 @@ export default function DashboardPage() {
             </div>
 
             {/* 3. Side Quest */}
-            <div className="p-5 rounded-2xl bg-gradient-to-b from-[#191325] to-[#10121a] border border-purple-500/25 hover:border-purple-500/40 transition-all shadow-lg space-y-3 group">
+            <div className="p-5 rounded-2xl bg-gradient-to-b from-[#10191c] to-[#10121a] border border-teal-500/25 hover:border-teal-500/40 transition-all shadow-lg space-y-3 group">
               <div className="flex items-center justify-between">
-                <div className="p-2.5 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30 shadow-inner">
+                <div className="p-2.5 rounded-xl bg-teal-500/15 text-teal-400 border border-teal-500/30 shadow-inner">
                   <Compass className="h-5 w-5" />
                 </div>
-                <span className="text-[10px] font-bold font-mono text-purple-400/80 uppercase">Pillar III</span>
+                <span className="text-[10px] font-bold font-mono text-teal-400/80 uppercase">Pillar III</span>
               </div>
               <div>
-                <h3 className="text-xs font-bold text-zinc-300">🧭 Side Quest</h3>
+                <h3 className="text-xs font-bold text-zinc-300">Side Quest</h3>
                 <p className="text-2xl font-extrabold text-white mt-0.5 font-mono">
                   {formatMinutesHuman(categoryMinutes.sideQuest)}
                 </p>
@@ -338,7 +530,7 @@ export default function DashboardPage() {
                 <span className="text-[10px] font-bold font-mono text-emerald-400/80 uppercase">Pillar IV</span>
               </div>
               <div>
-                <h3 className="text-xs font-bold text-zinc-300">💬 Interaction</h3>
+                <h3 className="text-xs font-bold text-zinc-300">Interaction</h3>
                 <p className="text-2xl font-extrabold text-white mt-0.5 font-mono">
                   {formatMinutesHuman(categoryMinutes.interaction)}
                 </p>
@@ -362,7 +554,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {rooms.slice(0, 3).map((room) => {
+            {rooms.slice(0, 6).map((room) => {
               const isInteraction = room.category === 'INTERACTION';
               return (
                 <div
@@ -374,7 +566,7 @@ export default function DashboardPage() {
                       <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
                       <h3 className="text-base font-bold text-white tracking-tight">{room.name}</h3>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.04] text-zinc-400 border border-white/5">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/[0.04] text-zinc-400 border border-white/5">
                       {room.roomCode}
                     </span>
                   </div>

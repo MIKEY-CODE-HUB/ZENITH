@@ -312,8 +312,8 @@ export default function BlockerDashboardPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Tier 1 — Always Blocked</h2>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Tier 1: Always Blocked</h2>
+                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30">
                       Core Protection
                     </span>
                   </div>
@@ -365,8 +365,8 @@ export default function BlockerDashboardPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Tier 2 — Always Allowed</h2>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Tier 2: Always Allowed</h2>
+                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                       Essential Tools
                     </span>
                   </div>
@@ -415,8 +415,8 @@ export default function BlockerDashboardPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Tier 3 — My Blocklist</h2>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Tier 3: My Blocklist</h2>
+                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
                       Personal Customization
                     </span>
                   </div>
