@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { api } from '@/lib/api';
 import { BlockedResource, BlockerStatistics } from '@/lib/types';
 import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS } from '@/lib/shieldDomains';
+import { useRouter } from 'next/navigation';
 import {
   Shield,
   ShieldAlert,
@@ -30,6 +31,7 @@ import {
 } from 'lucide-react';
 
 export default function BlockerDashboardPage() {
+  const router = useRouter();
   const [resources, setResources] = useState<BlockedResource[]>([]);
   const [stats, setStats] = useState<BlockerStatistics['stats'] | null>(null);
   const [activeSession, setActiveSession] = useState<any>(null);
@@ -117,19 +119,16 @@ export default function BlockerDashboardPage() {
 
   const handleSimulateInterception = async () => {
     try {
-      const res = await api.recordBlockerAttempt({
+      api.recordBlockerAttempt({
         sessionId: activeSession?.sessionId || activeSession?.focusSessionId,
         resourceType: 'WEBSITE',
         resourceIdentifier: 'instagram.com (Simulated)',
         action: 'BLOCKED',
-      });
-      if (res.success) {
-        setNotification('🛡 Simulated Attempt Blocked! Telemetry logged successfully.');
-        setTimeout(() => setNotification(null), 4000);
-        const statsRes = await api.getBlockerStatistics().catch(() => null);
-        if (statsRes && statsRes.success) setStats(statsRes.stats);
-      }
+      }).catch(() => {});
     } catch (e) {}
+
+    const returnUrl = typeof window !== 'undefined' ? window.location.href : '/blocker';
+    router.push(`/blocker/blocked?domain=instagram.com&url=https://instagram.com&room=${encodeURIComponent(returnUrl)}`);
   };
 
   const handleToggleResource = async (res: BlockedResource) => {

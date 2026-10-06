@@ -17,7 +17,7 @@ function BlockedContent() {
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [attemptCount, setAttemptCount] = useState<number>(1);
   const [displayDomain, setDisplayDomain] = useState<string>(domainParam || 'This website');
-  const [countdown, setCountdown] = useState<number>(4);
+  const [countdown, setCountdown] = useState<number>(3);
 
   // Format domain nicely
   useEffect(() => {

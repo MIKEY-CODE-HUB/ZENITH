@@ -192,8 +192,21 @@
 
     document.getElementById('return-btn').addEventListener('click', returnToFocus);
 
-    // Auto redirect after 4 seconds if untouched
-    setTimeout(returnToFocus, 4500);
+    let countdown = 3;
+    const countEl = document.createElement('div');
+    countEl.style.cssText = 'padding: 10px 16px; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 14px; color: #a5b4fc; font-size: 12px; font-weight: 600; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;';
+    countEl.innerHTML = '⚡ Pulling you back to focus room in <strong id="cd-timer" style="color: #ffffff; font-family: monospace;">3</strong>s...';
+    document.querySelector('.card').insertBefore(countEl, document.getElementById('return-btn'));
+
+    const cdInterval = setInterval(() => {
+      countdown--;
+      const el = document.getElementById('cd-timer');
+      if (el) el.textContent = countdown;
+      if (countdown <= 0) {
+        clearInterval(cdInterval);
+        returnToFocus();
+      }
+    }, 1000);
   </script>
 </body>
 </html>
