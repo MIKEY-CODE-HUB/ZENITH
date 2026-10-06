@@ -35,6 +35,13 @@ export default function LandingPage() {
     }
   };
 
+  const [demoEntering, setDemoEntering] = useState(false);
+
+  const handleDemoClick = async () => {
+    setDemoEntering(true);
+    await demoLogin('mikey');
+  };
+
   const samplePeers = [
     { name: 'Elena R.', task: 'Rust compiler optimization', streak: '52m', initials: 'ER' },
     { name: 'Marcus Chen', task: 'Writing system design doc', streak: '44m', initials: 'MC' },
@@ -76,10 +83,18 @@ export default function LandingPage() {
             </button>
 
             <button
-              onClick={() => demoLogin('mikey')}
+              onClick={handleDemoClick}
+              disabled={demoEntering}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-medium text-zinc-300 hover:text-white hover:bg-white/[0.08] transition-colors"
             >
-              <span>Explore live demo</span>
+              {demoEntering ? (
+                <>
+                  <span className="h-3 w-3 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+                  <span>Entering demo...</span>
+                </>
+              ) : (
+                <span>Explore live demo</span>
+              )}
             </button>
           </div>
 

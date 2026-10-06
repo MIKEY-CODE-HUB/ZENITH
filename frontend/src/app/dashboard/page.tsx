@@ -30,13 +30,70 @@ import {
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+const DEFAULT_ROOMS: Room[] = [
+  {
+    id: 'room-grind-1',
+    name: 'Grind',
+    description: 'Intense DSA & Systems programming coworking',
+    category: 'EDUCATION',
+    topic: 'DSA & Algorithms',
+    activityType: 'Coding',
+    atmosphere: 'Tokyo Midnight',
+    roomCode: 'GRIND1',
+    isPrivate: false,
+    maxParticipants: 12,
+    defaultDuration: 50,
+    defaultCamera: false,
+    defaultMic: false,
+    activeParticipantsCount: 4,
+    averageFocusScore: 96,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'room-focus-2',
+    name: 'Focus',
+    description: 'Silent study and deep mathematics research',
+    category: 'EDUCATION',
+    topic: 'Discrete Math & Calculus',
+    activityType: 'Mathematics',
+    atmosphere: 'Rainy Library',
+    roomCode: 'FOCUS2',
+    isPrivate: false,
+    maxParticipants: 10,
+    defaultDuration: 45,
+    defaultCamera: false,
+    defaultMic: false,
+    activeParticipantsCount: 3,
+    averageFocusScore: 94,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'room-arena-3',
+    name: 'Arena',
+    description: 'Cardio, posture resets & mobility intervals',
+    category: 'EXERCISE',
+    topic: 'Cardio & Mobility',
+    activityType: 'Cardio',
+    atmosphere: 'Nordic Pines',
+    roomCode: 'ARENA3',
+    isPrivate: false,
+    maxParticipants: 8,
+    defaultDuration: 30,
+    defaultCamera: false,
+    defaultMic: false,
+    activeParticipantsCount: 2,
+    averageFocusScore: 98,
+    createdAt: new Date().toISOString(),
+  },
+];
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const { currentScenery, isPlayingSound, toggleSound, setIsSceneryModalOpen, activeSound } = useAmbient();
   const router = useRouter();
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [rooms, setRooms] = useState<Room[]>([]);
+  const [rooms, setRooms] = useState<Room[]>(DEFAULT_ROOMS);
   const [loading, setLoading] = useState<boolean>(true);
   const [showStartModal, setShowStartModal] = useState<boolean>(false);
 
@@ -52,11 +109,14 @@ export default function DashboardPage() {
         if (statsRes.success && statsRes.stats) {
           setStats(statsRes.stats);
         }
-        if (roomsRes.success && roomsRes.rooms) {
+        if (roomsRes.success && roomsRes.rooms && roomsRes.rooms.length > 0) {
           setRooms(roomsRes.rooms);
+        } else {
+          setRooms(DEFAULT_ROOMS);
         }
       } catch (err) {
         console.error('Error loading dashboard:', err);
+        setRooms(DEFAULT_ROOMS);
       } finally {
         setLoading(false);
       }
