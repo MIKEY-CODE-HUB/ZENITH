@@ -1,4 +1,5 @@
 import { prisma } from '../config/prisma.js';
+import { StreakAchievementService } from './streakAchievementService.js';
 
 export interface PointSummary {
   weeklyPoints: number;
@@ -41,10 +42,12 @@ export class PointService {
     const weeklyPoints = Math.max(0, weeklyAggregate._sum.amount || 0);
     const lifetimePoints = Math.max(0, lifetimeAggregate._sum.amount || 0);
 
+    const streak = await StreakAchievementService.calculateStreak(userId);
+
     return {
       weeklyPoints,
       lifetimePoints,
-      currentStreakDays: 1,
+      currentStreakDays: streak,
     };
   }
 

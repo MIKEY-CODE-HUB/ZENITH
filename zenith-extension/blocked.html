@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ZENITH — Focus Protected</title>
+  <title>ZENITH - Focus Protected</title>
   <style>
     * {
       box-sizing: border-box;
@@ -51,7 +51,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
+      color: #10b981;
     }
     .badge {
       background: rgba(244, 63, 94, 0.1);
@@ -61,7 +61,7 @@
       font-weight: 700;
       letter-spacing: 1.2px;
       padding: 5px 14px;
-      border-radius: 999px;
+      border-radius: 8px;
       text-transform: uppercase;
     }
     h1 {
@@ -133,7 +133,11 @@
 </head>
 <body>
   <div class="card">
-    <div class="icon-box">🛡️</div>
+    <div class="icon-box">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    </div>
     <div class="badge">FOCUS PROTECTED</div>
     <h1 id="title-text">Website Blocked</h1>
     <p id="target-site-text">
@@ -142,12 +146,12 @@
 
     <div class="stats-box">
       <div class="stat-item">
-        <span class="stat-label">Focus Active</span>
-        <span class="stat-val" id="focus-timer">Live</span>
+        <span class="stat-label">Focus Shield</span>
+        <span class="stat-val" id="focus-timer">Armed</span>
       </div>
       <div class="stat-item">
         <span class="stat-label">Distractions Blocked</span>
-        <span class="stat-val" id="block-count">1</span>
+        <span class="stat-val" id="block-count">Active</span>
       </div>
     </div>
 
@@ -194,8 +198,8 @@
 
     let countdown = 3;
     const countEl = document.createElement('div');
-    countEl.style.cssText = 'padding: 10px 16px; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 14px; color: #a5b4fc; font-size: 12px; font-weight: 600; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;';
-    countEl.innerHTML = '⚡ Pulling you back to focus room in <strong id="cd-timer" style="color: #ffffff; font-family: monospace;">3</strong>s...';
+    countEl.style.cssText = 'padding: 10px 16px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; color: #6ee7b7; font-size: 12px; font-weight: 600; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;';
+    countEl.innerHTML = 'Pulling you back to focus room in <strong id="cd-timer" style="color: #ffffff; font-family: monospace;">3</strong>s...';
     document.querySelector('.card').insertBefore(countEl, document.getElementById('return-btn'));
 
     const cdInterval = setInterval(() => {

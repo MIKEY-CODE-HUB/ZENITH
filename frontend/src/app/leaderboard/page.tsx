@@ -145,6 +145,12 @@ export default function LeaderboardPage() {
                 </div>
               </div>
             ))}
+            {leaderboard.length === 0 && !loading && (
+              <div className="p-12 text-center text-zinc-500 text-xs font-medium space-y-1">
+                <p className="text-zinc-300 font-semibold text-sm">Clean cycle slate</p>
+                <p>No verified sessions recorded yet this cycle. Complete your first focus session to claim your rank.</p>
+              </div>
+            )}
           </div>
         </div>
       </main>

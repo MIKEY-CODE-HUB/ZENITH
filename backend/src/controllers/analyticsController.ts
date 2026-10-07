@@ -59,7 +59,33 @@ export class AnalyticsController {
 
   public static async getDashboardStats(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const userId = req.user!.userId;
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.json({
+          success: true,
+          stats: {
+            todayFocusedMinutes: 0,
+            todayDistractedMinutes: 0,
+            todayFocusScore: 100,
+            todaySessionsCount: 0,
+            weeklyPoints: 0,
+            lifetimePoints: 0,
+            categoryMinutes: {
+              education: 0,
+              exercise: 0,
+              sideQuest: 0,
+              interaction: 0,
+            },
+            currentStreak: 0,
+            totalLifetimeFocusedMinutes: 0,
+            lifetimeAvgScore: 0,
+            totalLifetimeSessions: 0,
+            recentSessions: [],
+            insights: [],
+          },
+        });
+        return;
+      }
       const daily = await AnalyticsService.getDailyAnalytics(userId);
       const streak = await StreakAchievementService.calculateStreak(userId);
       const points = await PointService.getUserPointSummary(userId);

@@ -1,4 +1,4 @@
-// ZENITH Universal Content Guardian v11.0
+// ZENITH Universal Content Guardian v12.0
 
 (function () {
   if (window !== window.top) return;
@@ -14,7 +14,12 @@
     function checkZenithState() {
       const href = window.location.href;
       const isRoom = href.includes('/focus/') && !href.includes('/setup') && !href.includes('/summary');
-      if (isRoom) {
+      let isShieldActive = false;
+      try {
+        isShieldActive = localStorage.getItem('zenith_shield_active') === 'true';
+      } catch (e) {}
+
+      if (isRoom || isShieldActive) {
         chrome.storage.local.set({
           isFocusSessionActive: true,
           zenithFocusUrl: href,
@@ -68,10 +73,10 @@
     return;
   }
 
-  // 2. ON EXTERNAL WEBSITES DURING ACTIVE FOCUS (Fallback content script check)
+  // 2. ON EXTERNAL WEBSITES DURING ACTIVE FOCUS
   if (!isZenithSite && !currentUrl.startsWith('chrome://') && !currentUrl.startsWith('chrome-extension://')) {
     chrome.storage.local.get(['isFocusSessionActive', 'zenithFocusUrl', 'allowedWebsites'], (data) => {
-      if (data && data.isFocusSessionActive && data.zenithFocusUrl) {
+      if (data && data.isFocusSessionActive) {
         const allowedList = [
           'github.com',
           'leetcode.com',
@@ -103,25 +108,33 @@
 
         if (isAllowed) return;
 
+        // Distraction detected: immediately pause media & freeze
         try {
           document.querySelectorAll('video, audio').forEach((m) => m.pause());
           if (document.body) document.body.style.overflow = 'hidden';
         } catch (e) {}
 
+        // Snap user back to Zenith focus tab immediately
         chrome.runtime.sendMessage({
           type: 'EXTERNAL_TAB_SWITCH',
           url: currentUrl,
         }).catch(() => {});
 
+        // Redirect this tab to the 3-second blocked countdown page
+        const returnUrl = data.zenithFocusUrl || 'http://localhost:3000/dashboard';
+        let targetOrigin = 'http://localhost:3000';
+        try {
+          targetOrigin = new URL(returnUrl).origin;
+        } catch (e) {}
+
         try {
           const u = new URL(currentUrl);
           const domain = u.hostname.replace(/^www\./, '');
-          const targetOrigin = data.zenithFocusUrl ? new URL(data.zenithFocusUrl).origin : 'http://localhost:3000';
-          const blockedPageUrl = `${targetOrigin}/blocker/blocked?domain=${encodeURIComponent(domain)}&url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(data.zenithFocusUrl)}`;
+          const blockedPageUrl = `${targetOrigin}/blocker/blocked?domain=${encodeURIComponent(domain)}&url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(returnUrl)}`;
           window.location.replace(blockedPageUrl);
         } catch (e) {
           const extUrl = chrome.runtime.getURL(
-            `blocked.html?url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(data.zenithFocusUrl)}`
+            `blocked.html?url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(returnUrl)}`
           );
           window.location.replace(extUrl);
         }

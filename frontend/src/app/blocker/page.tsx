@@ -100,12 +100,22 @@ export default function BlockerDashboardPage() {
       if (activeSession) {
         await api.deactivateBlocker(activeSession.focusSessionId || activeSession.sessionId || '');
         setActiveSession(null);
+        if (typeof window !== 'undefined') {
+          window.postMessage({ type: 'ZENITH_ROOM_ENDED' }, '*');
+          localStorage.removeItem('zenith_shield_active');
+          localStorage.removeItem('zenith_shield_url');
+        }
         setNotification('Distraction Shield deactivated. All apps and external sites unlocked.');
       } else {
         const res = await api.activateBlocker('', blockerMode);
         if (res.success) {
           setActiveSession(res.blockerSession);
-          setNotification(`🛡 Distraction Shield ENGAGED in ${blockerMode} mode!`);
+          if (typeof window !== 'undefined') {
+            window.postMessage({ type: 'ZENITH_ROOM_ACTIVE', roomUrl: window.location.href }, '*');
+            localStorage.setItem('zenith_shield_active', 'true');
+            localStorage.setItem('zenith_shield_url', window.location.href);
+          }
+          setNotification(`Distraction Shield engaged in ${blockerMode} mode.`);
         }
       }
       setTimeout(() => setNotification(null), 4000);

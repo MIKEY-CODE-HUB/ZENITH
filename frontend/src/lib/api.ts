@@ -75,8 +75,8 @@ class ApiClient {
             defaultDuration: 50,
             defaultCamera: false,
             defaultMic: false,
-            activeParticipantsCount: 4,
-            averageFocusScore: 96,
+            activeParticipantsCount: 0,
+            averageFocusScore: 0,
             createdAt: new Date().toISOString(),
           },
           {
@@ -94,8 +94,8 @@ class ApiClient {
             defaultDuration: 45,
             defaultCamera: false,
             defaultMic: false,
-            activeParticipantsCount: 3,
-            averageFocusScore: 94,
+            activeParticipantsCount: 0,
+            averageFocusScore: 0,
             createdAt: new Date().toISOString(),
           },
           {
@@ -113,8 +113,8 @@ class ApiClient {
             defaultDuration: 30,
             defaultCamera: false,
             defaultMic: false,
-            activeParticipantsCount: 2,
-            averageFocusScore: 98,
+            activeParticipantsCount: 0,
+            averageFocusScore: 0,
             createdAt: new Date().toISOString(),
           },
           {
@@ -132,8 +132,8 @@ class ApiClient {
             defaultDuration: 40,
             defaultCamera: false,
             defaultMic: false,
-            activeParticipantsCount: 3,
-            averageFocusScore: 91,
+            activeParticipantsCount: 0,
+            averageFocusScore: 0,
             createdAt: new Date().toISOString(),
           },
           {
@@ -151,8 +151,8 @@ class ApiClient {
             defaultDuration: 35,
             defaultCamera: true,
             defaultMic: true,
-            activeParticipantsCount: 2,
-            averageFocusScore: 95,
+            activeParticipantsCount: 0,
+            averageFocusScore: 0,
             createdAt: new Date().toISOString(),
           },
         ],
@@ -163,9 +163,9 @@ class ApiClient {
       return {
         success: true,
         summary: {
-          weeklyPoints: 640,
-          lifetimePoints: 2840,
-          currentStreakDays: 5,
+          weeklyPoints: 0,
+          lifetimePoints: 0,
+          currentStreakDays: 0,
         },
         transactions: [],
       } as unknown as T;
@@ -175,14 +175,23 @@ class ApiClient {
       return {
         success: true,
         stats: {
-          weeklyPoints: 640,
-          currentStreak: 5,
+          weeklyPoints: 0,
+          currentStreak: 0,
+          todayFocusedMinutes: 0,
+          todayDistractedMinutes: 0,
+          todayFocusScore: 100,
+          todaySessionsCount: 0,
+          totalLifetimeFocusedMinutes: 0,
+          lifetimeAvgScore: 0,
+          totalLifetimeSessions: 0,
           categoryMinutes: {
-            education: 134,
-            exercise: 32,
-            sideQuest: 45,
-            interaction: 15,
+            education: 0,
+            exercise: 0,
+            sideQuest: 0,
+            interaction: 0,
           },
+          recentSessions: [],
+          insights: [],
         },
       } as unknown as T;
     }
@@ -211,11 +220,19 @@ class ApiClient {
       return {
         success: true,
         quote: {
-          weeklyBalance: 640,
-          cost: 192,
-          remaining: 448,
+          weeklyBalance: 0,
+          cost: 0,
+          remaining: 0,
           canAfford: true,
         },
+      } as unknown as T;
+    }
+
+    if (endpoint.startsWith('/users/leaderboard')) {
+      return {
+        success: true,
+        metric: 'score',
+        leaderboard: [],
       } as unknown as T;
     }
 

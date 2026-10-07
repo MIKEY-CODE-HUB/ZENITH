@@ -78,49 +78,45 @@ export default function AnalyticsPage() {
         if (res && res.success && res.data) {
           setData(res.data);
         } else {
-          // Graceful fallback defaults if first time
+          // Graceful clean slate defaults for new user
           setData({
             overview: {
-              totalFocusedMinutes: 280,
-              totalSessions: 6,
-              avgSessionMinutes: 47,
-              focusRate: 91,
+              totalFocusedMinutes: 0,
+              totalSessions: 0,
+              avgSessionMinutes: 0,
+              focusRate: 100,
             },
             dayOfWeekDistribution: [
-              { short: 'Mon', full: 'Monday', focusedMinutes: 50, sessionsCount: 1 },
-              { short: 'Tue', full: 'Tuesday', focusedMinutes: 90, sessionsCount: 2 },
-              { short: 'Wed', full: 'Wednesday', focusedMinutes: 45, sessionsCount: 1 },
-              { short: 'Thu', full: 'Thursday', focusedMinutes: 60, sessionsCount: 1 },
-              { short: 'Fri', full: 'Friday', focusedMinutes: 35, sessionsCount: 1 },
+              { short: 'Mon', full: 'Monday', focusedMinutes: 0, sessionsCount: 0 },
+              { short: 'Tue', full: 'Tuesday', focusedMinutes: 0, sessionsCount: 0 },
+              { short: 'Wed', full: 'Wednesday', focusedMinutes: 0, sessionsCount: 0 },
+              { short: 'Thu', full: 'Thursday', focusedMinutes: 0, sessionsCount: 0 },
+              { short: 'Fri', full: 'Friday', focusedMinutes: 0, sessionsCount: 0 },
               { short: 'Sat', full: 'Saturday', focusedMinutes: 0, sessionsCount: 0 },
               { short: 'Sun', full: 'Sunday', focusedMinutes: 0, sessionsCount: 0 },
             ],
             streaks: {
-              currentStreak: 2,
-              longestStreak: 5,
+              currentStreak: 0,
+              longestStreak: 0,
             },
             weekOverWeek: {
-              thisWeekMinutes: 280,
-              lastWeekMinutes: 245,
-              percentDelta: '+14%',
+              thisWeekMinutes: 0,
+              lastWeekMinutes: 0,
+              percentDelta: '0%',
               isImprovement: true,
             },
-            topDistractions: [
-              { identifier: 'instagram.com', displayName: 'Instagram', count: 8, percentage: 57 },
-              { identifier: 'reddit.com', displayName: 'Reddit', count: 4, percentage: 29 },
-              { identifier: 'youtube.com', displayName: 'YouTube', count: 2, percentage: 14 },
-            ],
+            topDistractions: [],
             personalRecords: {
-              longestSessionMinutes: 75,
-              bestFocusDay: { date: 'Wednesday', minutes: 90 },
-              bestWeekMinutes: 340,
+              longestSessionMinutes: 0,
+              bestFocusDay: { date: 'Pending', minutes: 0 },
+              bestWeekMinutes: 0,
             },
             personalizedInsight: {
-              title: 'Peak Focus Flow',
-              window: 'Morning (8:00 AM - 12:00 PM)',
-              avgScore: 94,
+              title: 'First Session Pending',
+              window: 'Calibration in progress',
+              avgScore: 0,
               recommendation:
-                'Your deepest sessions occur during the morning window with 94% average focus rate. Schedule your hardest problem sets (DSA, complex engineering) during this prime cognitive zone.',
+                'Complete your first focus block in any room to begin tracking genuine deep work telemetry.',
             },
           });
         }

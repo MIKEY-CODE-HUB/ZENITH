@@ -47,12 +47,6 @@ export default function LandingPage() {
     await demoLogin('mikey');
   };
 
-  const samplePeers = [
-    { name: 'Elena R.', task: 'Rust compiler optimization', streak: '52m', initials: 'ER' },
-    { name: 'Marcus Chen', task: 'Writing system design doc', streak: '44m', initials: 'MC' },
-    { name: 'Priya Patel', task: 'Reviewing pull requests', streak: '1h 10m', initials: 'PP' },
-  ];
-
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 selection:bg-zinc-800 selection:text-white">
       {/* 1. HERO SECTION */}
@@ -113,54 +107,61 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* 2. PRODUCT PREVIEW CARD */}
+      {/* 2. PRODUCT PREVIEW CARD */}
         <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 mt-16">
           <div className="rounded-2xl border border-white/10 bg-[#121215] p-5 sm:p-7 shadow-2xl space-y-6">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <div className="flex items-center gap-3">
                 <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
                 <div>
-                  <h3 className="text-sm font-semibold text-white">Full-Stack Architecture Lab</h3>
-                  <p className="text-xs text-zinc-400">Silent Room • 50m Deep Work Block</p>
+                  <h3 className="text-sm font-semibold text-white">Focus Workspace</h3>
+                  <p className="text-xs text-zinc-400">Silent Room • 50m Planned Block</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
                 <span className="text-xs font-medium px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
                   <Shield className="h-3 w-3" />
-                  Shield engaged
+                  Shield armed
                 </span>
               </div>
             </div>
 
-            {/* Peer Cards Row */}
+            {/* Core Capability Cards Row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {samplePeers.map((peer, i) => (
-                <div key={i} className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-lg bg-zinc-800 border border-white/10 flex items-center justify-center text-xs font-semibold text-zinc-300">
-                        {peer.initials}
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-white">{peer.name}</p>
-                        <p className="text-[11px] text-zinc-500">{peer.streak} in the zone</p>
-                      </div>
-                    </div>
-                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                  </div>
-                  <div className="p-2 rounded-lg bg-black/40 text-[11px] text-zinc-400 border border-white/5">
-                    {peer.task}
-                  </div>
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-emerald-400" />
+                  <p className="text-xs font-semibold text-white">Active Room</p>
                 </div>
-              ))}
+                <p className="text-xs text-zinc-300 font-medium">DSA & Algorithms</p>
+                <p className="text-[11px] text-zinc-500 leading-tight">Silent coworking with zero microphone chatter.</p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-sky-400" />
+                  <p className="text-xs font-semibold text-white">Shield Policy</p>
+                </div>
+                <p className="text-xs text-zinc-300 font-medium">0ms Tab Snap-Back</p>
+                <p className="text-[11px] text-zinc-500 leading-tight">External distractions locked immediately upon switch.</p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
+                <div className="flex items-center gap-2">
+                  <Headphones className="h-4 w-4 text-amber-400" />
+                  <p className="text-xs font-semibold text-white">Atmospheric Audio</p>
+                </div>
+                <p className="text-xs text-zinc-300 font-medium">Tokyo Midnight</p>
+                <p className="text-[11px] text-zinc-500 leading-tight">Binaural beats layered with gentle night rain.</p>
+              </div>
             </div>
 
             {/* Bottom session bar */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs text-zinc-400">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-zinc-400" />
-                <span>Session progress: <strong className="text-white font-medium">38m elapsed</strong> of 50m</span>
+                <span>Session telemetry: <strong className="text-white font-medium">Clean slate</strong> • Ready to launch</span>
               </div>
               <div className="flex items-center gap-2 text-emerald-400">
                 <CheckCircle2 className="h-4 w-4" />

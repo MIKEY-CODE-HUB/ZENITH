@@ -109,8 +109,15 @@ async function pollBackendStatus() {
         allowedWebsites: data.allowedWebsites || [],
       });
     } else {
-      isSessionActive = false;
-      chrome.storage.local.set({ isFocusSessionActive: false });
+      // Don't deactivate if user is currently inside an active Zenith session
+      chrome.storage.local.get(['isFocusSessionActive', 'zenithFocusUrl'], (st) => {
+        if (st && st.isFocusSessionActive) {
+          isSessionActive = true;
+          if (st.zenithFocusUrl) zenithRoomUrl = st.zenithFocusUrl;
+        } else {
+          isSessionActive = false;
+        }
+      });
     }
   } catch (e) {}
 }
@@ -167,7 +174,7 @@ async function getZenithTab() {
   if (activeZenithTabId !== null) {
     try {
       const tab = await chrome.tabs.get(activeZenithTabId);
-      if (tab && isZenithRoomUrl(tab.url)) {
+      if (tab && isZenithUrl(tab.url)) {
         return tab;
       }
     } catch (e) {
@@ -177,15 +184,27 @@ async function getZenithTab() {
 
   try {
     const tabs = await chrome.tabs.query({});
-    const found = tabs.find(t => isZenithRoomUrl(t.url));
+    // Priority 1: Direct focus room tab
+    let found = tabs.find(t => isZenithRoomUrl(t.url));
+    // Priority 2: Zenith tab excluding /blocked screen
+    if (!found) {
+      found = tabs.find(t => isZenithUrl(t.url) && !t.url.includes('/blocked'));
+    }
+    // Priority 3: Any open Zenith tab
+    if (!found) {
+      found = tabs.find(t => isZenithUrl(t.url));
+    }
+
     if (found) {
       activeZenithTabId = found.id;
       activeZenithWindowId = found.windowId;
       isSessionActive = true;
-      zenithRoomUrl = found.url;
+      if (!found.url.includes('/blocked')) {
+        zenithRoomUrl = found.url;
+      }
       chrome.storage.local.set({
         isFocusSessionActive: true,
-        zenithFocusUrl: found.url,
+        zenithFocusUrl: zenithRoomUrl || found.url,
         activeZenithTabId: found.id,
         activeZenithWindowId: found.windowId,
       });
@@ -201,9 +220,15 @@ async function interceptAndRedirect(tabId, distractingUrl) {
   if (!isSessionActive) return;
 
   const hostname = extractHostname(distractingUrl);
-  const targetRoomUrl = zenithRoomUrl || `${FRONTEND_URL}/dashboard`;
+  let baseUrl = FRONTEND_URL;
+  if (zenithRoomUrl) {
+    try {
+      baseUrl = new URL(zenithRoomUrl).origin;
+    } catch (e) {}
+  }
+  const targetRoomUrl = zenithRoomUrl || `${baseUrl}/dashboard`;
 
-  const webBlockUrl = `${FRONTEND_URL}/blocker/blocked?domain=${encodeURIComponent(hostname)}&url=${encodeURIComponent(distractingUrl)}&room=${encodeURIComponent(targetRoomUrl)}`;
+  const webBlockUrl = `${baseUrl}/blocker/blocked?domain=${encodeURIComponent(hostname)}&url=${encodeURIComponent(distractingUrl)}&room=${encodeURIComponent(targetRoomUrl)}`;
   const extBlockUrl = chrome.runtime.getURL(
     `blocked.html?domain=${encodeURIComponent(hostname)}&url=${encodeURIComponent(distractingUrl)}&room=${encodeURIComponent(targetRoomUrl)}`
   );
@@ -251,16 +276,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'ZENITH_ROOM_ACTIVE') {
     isSessionActive = true;
     zenithRoomUrl = msg.roomUrl;
-    if (sender && sender.tab) {
-      activeZenithTabId = sender.tab.id;
-      activeZenithWindowId = sender.tab.windowId;
-      chrome.storage.local.set({
-        isFocusSessionActive: true,
-        zenithFocusUrl: msg.roomUrl,
-        activeZenithTabId: sender.tab.id,
-        activeZenithWindowId: sender.tab.windowId,
-      });
-    }
+    const tabId = sender?.tab?.id || activeZenithTabId;
+    const windowId = sender?.tab?.windowId || activeZenithWindowId;
+    if (tabId) activeZenithTabId = tabId;
+    if (windowId) activeZenithWindowId = windowId;
+
+    chrome.storage.local.set({
+      isFocusSessionActive: true,
+      zenithFocusUrl: msg.roomUrl,
+      activeZenithTabId: tabId,
+      activeZenithWindowId: windowId,
+    });
     sendResponse({ success: true });
   } else if (msg.type === 'ZENITH_ROOM_ENDED') {
     isSessionActive = false;
@@ -275,8 +301,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   } else if (msg.type === 'EXTERNAL_TAB_SWITCH' || msg.type === 'ZENITH_SNAP_BACK') {
     getZenithTab().then((tab) => {
       if (tab) {
-        chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
+        if (tab.windowId) {
+          chrome.windows.update(tab.windowId, { focused: true }).catch(() => {});
+        }
         chrome.tabs.update(tab.id, { active: true }).catch(() => {});
+        setTimeout(() => {
+          chrome.tabs.update(tab.id, { active: true }).catch(() => {});
+        }, 60);
+      } else {
+        const dest = zenithRoomUrl || `${FRONTEND_URL}/dashboard`;
+        chrome.tabs.create({ url: dest, active: true });
       }
     });
     sendResponse({ success: true });
@@ -328,22 +362,29 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     if (activeInfo.tabId !== zenithTab.id) {
       // User switched away from the active Zenith focus room!
       const activeTab = await chrome.tabs.get(activeInfo.tabId).catch(() => null);
+      if (!activeTab || !activeTab.url) return;
 
-      if (activeTab && activeTab.url && isUrlDistraction(activeTab.url)) {
-        // Freeze and redirect distracting tab
-        await interceptAndRedirect(activeInfo.tabId, activeTab.url);
+      // Allow approved work/study tools (GitHub, LeetCode, Docs, MDN, StackOverflow)
+      if (!isUrlDistraction(activeTab.url)) {
+        return;
       }
+
+      // DISTRACTION DETECTED: Freeze and redirect distracting tab
+      await interceptAndRedirect(activeInfo.tabId, activeTab.url);
 
       // IMMEDIATELY PULL USER RIGHT BACK TO ZENITH FOCUS ROOM!
       if (zenithTab.windowId) {
-        await chrome.windows.update(zenithTab.windowId, { focused: true }).catch(() => {});
+        chrome.windows.update(zenithTab.windowId, { focused: true }).catch(() => {});
       }
-      await chrome.tabs.update(zenithTab.id, { active: true }).catch(() => {});
+      chrome.tabs.update(zenithTab.id, { active: true }).catch(() => {});
+      setTimeout(() => {
+        chrome.tabs.update(zenithTab.id, { active: true }).catch(() => {});
+      }, 60);
 
       // Forward telemetry notification to the focus room
       chrome.tabs.sendMessage(zenithTab.id, {
         type: 'ZENITH_DISTRACTION_ATTEMPT',
-        domain: activeTab?.url ? extractHostname(activeTab.url) : 'external tab',
+        domain: extractHostname(activeTab.url) || 'external tab',
         reason: 'Tab switch intercepted: pulled back to focus room immediately.',
         timestamp: Date.now(),
       }).catch(() => {});

@@ -48,8 +48,8 @@ const DEFAULT_ROOMS: Room[] = [
     defaultDuration: 50,
     defaultCamera: false,
     defaultMic: false,
-    activeParticipantsCount: 4,
-    averageFocusScore: 96,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
   {
@@ -66,8 +66,8 @@ const DEFAULT_ROOMS: Room[] = [
     defaultDuration: 45,
     defaultCamera: false,
     defaultMic: false,
-    activeParticipantsCount: 3,
-    averageFocusScore: 94,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
   {
@@ -84,8 +84,8 @@ const DEFAULT_ROOMS: Room[] = [
     defaultDuration: 60,
     defaultCamera: false,
     defaultMic: false,
-    activeParticipantsCount: 5,
-    averageFocusScore: 97,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
   {
@@ -102,8 +102,8 @@ const DEFAULT_ROOMS: Room[] = [
     defaultDuration: 50,
     defaultCamera: false,
     defaultMic: false,
-    activeParticipantsCount: 2,
-    averageFocusScore: 93,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
 
@@ -122,8 +122,8 @@ const DEFAULT_ROOMS: Room[] = [
     defaultDuration: 30,
     defaultCamera: false,
     defaultMic: false,
-    activeParticipantsCount: 2,
-    averageFocusScore: 98,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
   {
@@ -140,8 +140,8 @@ const DEFAULT_ROOMS: Room[] = [
     defaultDuration: 30,
     defaultCamera: false,
     defaultMic: false,
-    activeParticipantsCount: 3,
-    averageFocusScore: 95,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
   {
@@ -158,8 +158,8 @@ const DEFAULT_ROOMS: Room[] = [
     defaultDuration: 25,
     defaultCamera: false,
     defaultMic: false,
-    activeParticipantsCount: 1,
-    averageFocusScore: 99,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
 
@@ -178,8 +178,8 @@ const DEFAULT_ROOMS: Room[] = [
     defaultDuration: 40,
     defaultCamera: false,
     defaultMic: false,
-    activeParticipantsCount: 3,
-    averageFocusScore: 91,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
   {
@@ -196,8 +196,8 @@ const DEFAULT_ROOMS: Room[] = [
     defaultDuration: 45,
     defaultCamera: false,
     defaultMic: false,
-    activeParticipantsCount: 4,
-    averageFocusScore: 92,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
   {
@@ -214,8 +214,8 @@ const DEFAULT_ROOMS: Room[] = [
     defaultDuration: 50,
     defaultCamera: false,
     defaultMic: false,
-    activeParticipantsCount: 2,
-    averageFocusScore: 95,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
 
@@ -234,8 +234,8 @@ const DEFAULT_ROOMS: Room[] = [
     defaultDuration: 35,
     defaultCamera: true,
     defaultMic: true,
-    activeParticipantsCount: 2,
-    averageFocusScore: 95,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
   {
@@ -252,8 +252,8 @@ const DEFAULT_ROOMS: Room[] = [
     defaultDuration: 30,
     defaultCamera: true,
     defaultMic: true,
-    activeParticipantsCount: 3,
-    averageFocusScore: 96,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
 ];
@@ -333,15 +333,15 @@ export default function DashboardPage() {
 
   const vibe = getAtmosphericVibe();
   const VibeIcon = vibe.icon;
-  const weeklyPoints = stats?.weeklyPoints || 640;
+  const weeklyPoints = stats?.weeklyPoints ?? 0;
   const weeklyGoal = 1000;
   const progressPercent = Math.min(100, Math.round((weeklyPoints / weeklyGoal) * 100));
 
-  const categoryMinutes = stats?.categoryMinutes || {
-    education: 134,
-    exercise: 32,
-    sideQuest: 45,
-    interaction: 15,
+  const categoryMinutes = stats?.categoryMinutes ?? {
+    education: 0,
+    exercise: 0,
+    sideQuest: 0,
+    interaction: 0,
   };
 
   return (
@@ -431,11 +431,11 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3 text-xs">
               <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/25 font-semibold">
                 <Flame className="h-4 w-4 fill-current" />
-                <span>{stats?.currentStreak || 1}-Day Streak</span>
+                <span>{stats?.currentStreak ?? 0}-Day Streak</span>
               </div>
               <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold">
                 <Clock className="h-4 w-4" />
-                <span>{formatMinutesHuman(stats?.todayFocusedMinutes || 120)} Today</span>
+                <span>{formatMinutesHuman(stats?.todayFocusedMinutes ?? 0)} Today</span>
               </div>
             </div>
           </div>

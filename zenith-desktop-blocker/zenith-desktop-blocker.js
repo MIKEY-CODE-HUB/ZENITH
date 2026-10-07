@@ -112,7 +112,7 @@ function enforceBrowserTabSnapBack(browserName = 'Google Chrome') {
           set tabIdx to 1
           repeat with t in tabs of w
             set tUrl to URL of t
-            if (tUrl contains "/focus/") and not (tUrl contains "/setup" or tUrl contains "/summary") then
+            if ((tUrl contains "/focus/") or (tUrl contains "/blocker") or (tUrl contains "zenith")) and not (tUrl contains "/setup" or tUrl contains "/summary" or tUrl contains "/blocked") then
               set focusWin to w
               set focusTabIdx to tabIdx
               exit repeat
@@ -129,8 +129,8 @@ function enforceBrowserTabSnapBack(browserName = 'Google Chrome') {
         set curTab to active tab of frontWin
         set curUrl to URL of curTab
         
-        -- If user is already on the focus tab, all good
-        if curUrl contains "/focus/" and not (curUrl contains "/setup" or curUrl contains "/summary") then
+        -- If user is already on the focus tab or Zenith app, all good
+        if ((curUrl contains "/focus/") or (curUrl contains "/blocker") or (curUrl contains "zenith")) and not (curUrl contains "/setup" or curUrl contains "/summary") then
           return "ON_FOCUS"
         end if
         
@@ -152,7 +152,7 @@ function enforceBrowserTabSnapBack(browserName = 'Google Chrome') {
           end if
         end repeat
         
-        if isExplicitBlocked or ${isStrict} or not (curUrl contains "/focus/") then
+        if isExplicitBlocked or ${isStrict} then
           -- Distraction or external tab switch detected! Snap back immediately!
           set active tab index of focusWin to focusTabIdx
           set index of focusWin to 1

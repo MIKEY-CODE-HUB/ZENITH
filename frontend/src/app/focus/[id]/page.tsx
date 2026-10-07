@@ -178,6 +178,12 @@ export default function LiveRoomPage() {
         setSessionId(storedSessionId);
         api.activateBlocker(storedSessionId, 'STRICT').catch(() => {});
       }
+
+      if (typeof window !== 'undefined') {
+        window.postMessage({ type: 'ZENITH_ROOM_ACTIVE', roomUrl: window.location.href }, '*');
+        localStorage.setItem('zenith_shield_active', 'true');
+        localStorage.setItem('zenith_shield_url', window.location.href);
+      }
     }
 
     initSession();
@@ -283,6 +289,12 @@ export default function LiveRoomPage() {
   const handleEndSession = async () => {
     try {
       setEnding(true);
+
+      if (typeof window !== 'undefined') {
+        window.postMessage({ type: 'ZENITH_ROOM_ENDED' }, '*');
+        localStorage.removeItem('zenith_shield_active');
+        localStorage.removeItem('zenith_shield_url');
+      }
 
       if (sessionId) {
         const res = await api.endSession(sessionId, {

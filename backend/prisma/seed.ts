@@ -388,53 +388,14 @@ async function main() {
     });
   }
 
-  // 6. Seed Point Ledger for Mikey (Weekly points = 640 ⭐)
-  await prisma.pointTransaction.deleteMany({ where: { userId: mikey.id } });
-  const initialPoints = [
-    { amount: 55, type: 'SESSION_COMPLETED', source: 'SESSION', daysAgo: 3 },
-    { amount: 60, type: 'SESSION_COMPLETED', source: 'SESSION', daysAgo: 2 },
-    { amount: 75, type: 'SESSION_COMPLETED', source: 'SESSION', daysAgo: 1 },
-    { amount: 50, type: 'EXERCISE_COMPLETED', source: 'SESSION', daysAgo: 1 },
-    { amount: 400, type: 'STREAK_BONUS', source: 'STREAK', daysAgo: 0 },
-  ];
-  for (const pt of initialPoints) {
-    await prisma.pointTransaction.create({
-      data: {
-        userId: mikey.id,
-        amount: pt.amount,
-        type: pt.type,
-        source: pt.source,
-        createdAt: new Date(Date.now() - pt.daysAgo * 86400000),
-      },
-    });
-  }
+  // 6. Start Fresh: Ensure Clean Slate for new / existing users (0 fake points, 0 fake attempts)
+  await prisma.pointTransaction.deleteMany({});
+  await prisma.blockAttempt.deleteMany({});
+  await prisma.focusSession.deleteMany({});
+  await prisma.blockerSession.deleteMany({});
+  await prisma.roomParticipant.deleteMany({});
 
-  // 6. Seed Block Attempts History for Analytics
-  const attemptDistractions = [
-    { name: 'youtube.com', type: 'WEBSITE', count: 18 },
-    { name: 'instagram.com', type: 'WEBSITE', count: 12 },
-    { name: 'reddit.com', type: 'WEBSITE', count: 9 },
-    { name: 'Discord', type: 'APPLICATION', count: 6 },
-    { name: 'twitter.com', type: 'WEBSITE', count: 5 },
-  ];
-
-  for (const item of attemptDistractions) {
-    const res = createdResources[item.name];
-    for (let i = 0; i < item.count; i++) {
-      await prisma.blockAttempt.create({
-        data: {
-          userId: mikey.id,
-          resourceId: res ? res.id : null,
-          resourceType: item.type,
-          resourceIdentifier: item.name,
-          action: 'BLOCKED',
-          timestamp: new Date(Date.now() - Math.floor(Math.random() * 7 * 86400000)),
-        },
-      });
-    }
-  }
-
-  console.log('✅ Seed completed successfully with Blocker Resources & Attempt Analytics!');
+  console.log('✅ Seed completed successfully: clean slate, 12 focus rooms, 0 fake stats!');
 }
 
 main()
