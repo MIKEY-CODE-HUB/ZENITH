@@ -39,7 +39,7 @@ export function RoomCard({ room, onJoin }: RoomCardProps) {
         <div className="flex items-center justify-between text-xs text-zinc-400">
           <div className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5 text-zinc-500" />
-            <span>{Math.max(1, room.activeParticipantsCount)}/{room.maxParticipants} peers</span>
+            <span>{room.activeParticipantsCount || 0}/{room.maxParticipants} peers</span>
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -49,7 +49,7 @@ export function RoomCard({ room, onJoin }: RoomCardProps) {
 
           <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
             <Flame className="h-3.5 w-3.5 text-amber-400" />
-            <span>{room.averageFocusScore || 85}%</span>
+            <span>{room.averageFocusScore ? `${room.averageFocusScore}%` : 'Fresh'}</span>
           </div>
         </div>
 

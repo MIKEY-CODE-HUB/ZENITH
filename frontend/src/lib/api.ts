@@ -203,6 +203,58 @@ class ApiClient {
       } as unknown as T;
     }
 
+    if (endpoint.startsWith('/blocker/activate')) {
+      return {
+        success: true,
+        blockerSession: {
+          id: 'local-shield-active',
+          sessionId: 'local-shield-active',
+          focusSessionId: 'local-shield-active',
+          mode: 'STRICT',
+          status: 'ACTIVE',
+          startTime: new Date().toISOString(),
+        },
+      } as unknown as T;
+    }
+
+    if (endpoint.startsWith('/blocker/deactivate')) {
+      return {
+        success: true,
+        message: 'Shield deactivated',
+      } as unknown as T;
+    }
+
+    if (endpoint.startsWith('/blocker/status') || endpoint.startsWith('/blocker/live-status')) {
+      return {
+        success: true,
+        status: 'ACTIVE',
+        active: true,
+        activeSession: null,
+      } as unknown as T;
+    }
+
+    if (endpoint.startsWith('/blocker/statistics')) {
+      return {
+        success: true,
+        activeSession: null,
+        stats: {
+          totalBlocks: 0,
+          websitesBlocked: 0,
+          appsBlocked: 0,
+          timeSavedMinutes: 0,
+          topBlockedResources: [],
+          attemptsByHour: [],
+        },
+      } as unknown as T;
+    }
+
+    if (endpoint.startsWith('/blocker/attempt')) {
+      return {
+        success: true,
+        attempt: { id: 'mock-attempt', action: 'BLOCKED' },
+      } as unknown as T;
+    }
+
     if (endpoint.startsWith('/sessions/start')) {
       return {
         success: true,

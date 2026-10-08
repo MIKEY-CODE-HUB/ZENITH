@@ -26,15 +26,6 @@ import {
   Check,
 } from 'lucide-react';
 
-const DEEP_WORK_QUOTES = [
-  { text: "Deep work is the superpower of the 21st century.", author: "Cal Newport" },
-  { text: "You do not rise to the level of your goals. You fall to the level of your systems.", author: "James Clear" },
-  { text: "Focus is the art of knowing what to ignore.", author: "Steve Jobs" },
-  { text: "The impediment to action advances action. What stands in the way becomes the way.", author: "Marcus Aurelius" },
-  { text: "Do what you have to do until you can do what you want to do.", author: "James Baldwin" },
-  { text: "Simplicity is prerequisite for reliability.", author: "Edsger W. Dijkstra" },
-];
-
 export function StudiousAmbientDashboard({ onSwitchToStandardView }: { onSwitchToStandardView: () => void }) {
   const router = useRouter();
   const {
@@ -58,15 +49,9 @@ export function StudiousAmbientDashboard({ onSwitchToStandardView }: { onSwitchT
   const [timerRemaining, setTimerRemaining] = useState<number>(50 * 60);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
 
-  // Quote State
-  const [quoteIndex, setQuoteIndex] = useState(0);
-
   // Intention / Scratchpad Tasks
   const [intention, setIntention] = useState('');
-  const [tasks, setTasks] = useState<{ id: string; text: string; done: boolean }[]>([
-    { id: '1', text: 'Read & annotate chapter notes', done: false },
-    { id: '2', text: 'Implement priority queue algorithm', done: false },
-  ]);
+  const [tasks, setTasks] = useState<{ id: string; text: string; done: boolean }[]>([]);
   const [newTaskText, setNewTaskText] = useState('');
 
   // Shield Blocker Status
@@ -187,8 +172,6 @@ export function StudiousAmbientDashboard({ onSwitchToStandardView }: { onSwitchT
     setTimerRemaining(mins * 60);
     setIsTimerRunning(false);
   };
-
-  const currentQuote = DEEP_WORK_QUOTES[quoteIndex % DEEP_WORK_QUOTES.length];
 
   return (
     <div className="relative min-h-[calc(100vh-4rem)] w-full overflow-hidden flex flex-col justify-between p-4 sm:p-8 transition-colors duration-700">
@@ -369,20 +352,6 @@ export function StudiousAmbientDashboard({ onSwitchToStandardView }: { onSwitchT
             placeholder="Set your main study intention for today..."
             className="w-full text-center text-xs sm:text-sm text-zinc-100 placeholder-zinc-400/70 bg-black/30 backdrop-blur-xl border border-white/10 hover:border-white/20 focus:border-white/30 rounded-xl py-2 px-4 focus:outline-none transition-all"
           />
-        </div>
-
-        {/* Daily Deep Work Quote */}
-        <div
-          onClick={() => setQuoteIndex((prev) => prev + 1)}
-          className="cursor-pointer max-w-lg mx-auto group select-none transition-opacity hover:opacity-90 pt-1"
-          title="Click for next quote"
-        >
-          <p className="text-xs sm:text-sm text-zinc-200/90 italic drop-shadow-sm font-serif">
-            "{currentQuote.text}"
-          </p>
-          <span className="text-[11px] text-zinc-400 font-medium block mt-1">
-            - {currentQuote.author}
-          </span>
         </div>
       </div>
 

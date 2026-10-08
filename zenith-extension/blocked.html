@@ -158,17 +158,13 @@
     <button id="return-btn" class="btn">
       Return to Focus Room
     </button>
-
-    <div class="quote">
-      "Do the work. See the truth. Build consistency."
-    </div>
   </div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
     const targetUrl = params.get('url') || '';
     const domain = params.get('domain') || '';
-    const roomUrl = params.get('room') || 'http://localhost:3000/dashboard';
+    const roomUrl = params.get('room') || 'https://zenith-dusky-theta.vercel.app/dashboard';
 
     let displayDomain = domain;
     if (!displayDomain && targetUrl) {

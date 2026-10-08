@@ -32,7 +32,7 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <Music className="h-5 w-5" />
             </div>
             <div>
@@ -79,7 +79,7 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
                 className="h-16 w-16 rounded-lg object-cover border border-white/10 shadow-md"
               />
               <div className="flex-1 min-w-0">
-                <span className="text-[10px] uppercase font-semibold text-indigo-400 tracking-wider">
+                <span className="text-[10px] uppercase font-semibold text-emerald-400 tracking-wider">
                   {currentTrack.category}
                 </span>
                 <h3 className="text-sm font-semibold text-white truncate mt-0.5">{currentTrack.title}</h3>
@@ -91,19 +91,19 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
             <div className="flex items-center justify-center gap-4">
               <button
                 onClick={() => musicPlayer.previous()}
-                className="p-2.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
+                className="p-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
               >
                 <SkipBack className="h-5 w-5" />
               </button>
               <button
                 onClick={() => musicPlayer.togglePlay()}
-                className="p-3.5 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 transition-colors shadow-lg"
+                className="p-3.5 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 transition-colors shadow-lg"
               >
                 {isPlaying ? <Pause className="h-5 w-5 fill-current" /> : <Play className="h-5 w-5 fill-current ml-0.5" />}
               </button>
               <button
                 onClick={() => musicPlayer.next()}
-                className="p-2.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
+                className="p-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
               >
                 <SkipForward className="h-5 w-5" />
               </button>
@@ -118,7 +118,7 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
                 max="100"
                 value={volume}
                 onChange={(e) => musicPlayer.setVolume(parseInt(e.target.value, 10))}
-                className="w-full accent-indigo-400 h-1.5 bg-zinc-800 rounded-lg cursor-pointer"
+                className="w-full accent-emerald-400 h-1.5 bg-zinc-800 rounded-lg cursor-pointer"
               />
               <span className="text-xs font-mono text-zinc-400 w-8 text-right">{volume}%</span>
             </div>
@@ -131,7 +131,7 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
                   onClick={() => musicPlayer.playTrack(idx)}
                   className={`w-full text-left p-2.5 rounded-lg flex items-center justify-between transition-colors text-xs ${
                     currentTrack.id === t.id
-                      ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-medium'
+                      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-medium'
                       : 'hover:bg-white/5 text-zinc-300'
                   }`}
                 >
@@ -140,7 +140,7 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
                     <div className="text-[10px] text-zinc-400">{t.category} • {t.artist}</div>
                   </div>
                   {currentTrack.id === t.id && isPlaying && (
-                    <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
                   )}
                 </button>
               ))}

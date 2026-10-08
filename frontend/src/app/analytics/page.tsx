@@ -168,12 +168,14 @@ export default function AnalyticsPage() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-white">Week-over-Week Momentum</span>
-                <span className="px-2 py-0.5 rounded-full text-xs font-bold font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  {wow?.percentDelta || '+13%'}
+                <span className="px-2 py-0.5 rounded-xl text-xs font-bold font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  {wow?.percentDelta || '0%'}
                 </span>
               </div>
               <p className="text-xs text-zinc-400 mt-0.5">
-                {wow?.isImprovement
+                {(wow?.thisWeekMinutes || 0) === 0 && (wow?.lastWeekMinutes || 0) === 0
+                  ? 'No baseline recorded yet. Complete your first focus session to start tracking week-over-week momentum.'
+                  : wow?.isImprovement
                   ? `Solid improvement: you have focused ${formatMinutesHuman(wow.thisWeekMinutes)} this week, outpacing last week's baseline.`
                   : `Focus volume is tracking steadily at ${formatMinutesHuman(wow?.thisWeekMinutes || 0)}.`}
               </p>
@@ -229,7 +231,7 @@ export default function AnalyticsPage() {
             </div>
             <div className="flex items-center gap-2">
               <p className="text-2xl font-semibold text-white tracking-tight font-mono">
-                {overview?.focusRate || 92}%
+                {overview?.focusRate ?? 100}%
               </p>
               <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">
                 High
@@ -351,7 +353,7 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
                 <span className="text-sm font-bold font-mono text-white">
-                  {records?.longestSessionMinutes || 50}m
+                  {records?.longestSessionMinutes ?? 0}m
                 </span>
               </div>
 
@@ -360,11 +362,11 @@ export default function AnalyticsPage() {
                   <Calendar className="h-4 w-4 text-emerald-400" />
                   <div>
                     <p className="text-xs font-medium text-zinc-200">Best Focus Day</p>
-                    <p className="text-[10px] text-zinc-500">{records?.bestFocusDay.date || 'Recent'}</p>
+                    <p className="text-[10px] text-zinc-500">{records?.bestFocusDay?.date || 'Pending'}</p>
                   </div>
                 </div>
                 <span className="text-sm font-bold font-mono text-emerald-400">
-                  {formatMinutesHuman(records?.bestFocusDay.minutes || 90)}
+                  {formatMinutesHuman(records?.bestFocusDay?.minutes ?? 0)}
                 </span>
               </div>
 
@@ -377,7 +379,7 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
                 <span className="text-sm font-bold font-mono text-white">
-                  {formatMinutesHuman(records?.bestWeekMinutes || 180)}
+                  {formatMinutesHuman(records?.bestWeekMinutes ?? 0)}
                 </span>
               </div>
             </div>

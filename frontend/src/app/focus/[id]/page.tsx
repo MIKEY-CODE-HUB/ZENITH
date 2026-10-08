@@ -33,6 +33,7 @@ import {
   AlertTriangle,
   Flame,
   Clock,
+  GraduationCap,
   Sparkles,
   Volume2,
 } from 'lucide-react';
@@ -495,7 +496,10 @@ export default function LiveRoomPage() {
             </div>
             <div className="p-3 rounded-xl bg-white/[0.04] border border-white/5">
               <span className="text-[10px] text-zinc-400 uppercase">Points Gained</span>
-              <div className="text-base font-bold text-amber-400 mt-0.5">+{estimatedPoints} ⭐</div>
+              <div className="text-base font-bold text-amber-400 mt-0.5 flex items-center gap-1">
+                <span>+{estimatedPoints}</span>
+                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+              </div>
             </div>
           </div>
 
@@ -509,16 +513,17 @@ export default function LiveRoomPage() {
       <div className="absolute bottom-16 inset-x-0 z-20 flex justify-center px-4 pointer-events-none">
         <button
           onClick={() => setIsTapeExpanded(!isTapeExpanded)}
-          className="pointer-events-auto flex items-center gap-4 px-4 py-2 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-xs text-zinc-300 hover:text-white hover:border-white/30 transition-all shadow-xl font-mono"
+          className="pointer-events-auto flex items-center gap-4 px-4 py-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/15 text-xs text-zinc-300 hover:text-white hover:border-white/30 transition-all shadow-xl font-mono"
         >
           <span className="flex items-center gap-1.5 font-sans font-semibold text-white">
-            🎓 {activityName}
+            <GraduationCap className="h-3.5 w-3.5 text-emerald-400" />
+            <span>{activityName}</span>
           </span>
           <span>•</span>
           <span className="text-emerald-400">{Math.round(focusedSeconds / 60)}m Focused</span>
           <span>•</span>
-          <div className="w-24 bg-zinc-800 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-sky-400 h-full rounded-full" style={{ width: `${sessionProgressPercent}%` }} />
+          <div className="w-24 bg-zinc-800 rounded-lg h-1.5 overflow-hidden">
+            <div className="bg-sky-400 h-full rounded-lg" style={{ width: `${sessionProgressPercent}%` }} />
           </div>
           <span>•</span>
           <span className="text-sky-300 font-semibold">{currentFocusRate}% Focus</span>

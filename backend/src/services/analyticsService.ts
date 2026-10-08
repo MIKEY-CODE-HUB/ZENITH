@@ -349,7 +349,7 @@ export class AnalyticsService {
     if (lastWeekMinutes > 0) {
       percentDelta = Math.round(((thisWeekMinutes - lastWeekMinutes) / lastWeekMinutes) * 100);
     } else if (thisWeekMinutes > 0) {
-      percentDelta = 13;
+      percentDelta = 0;
     }
 
     // 4. TOP DISTRACTION SOURCES
@@ -407,20 +407,20 @@ export class AnalyticsService {
     }
 
     const personalRecords = {
-      longestSessionMinutes: Math.round(longestSessionSeconds / 60) || 50,
+      longestSessionMinutes: Math.round(longestSessionSeconds / 60),
       bestFocusDay: {
-        date: bestDayDate || new Date().toISOString().split('T')[0],
-        minutes: bestDayMinutes || (thisWeekMinutes > 0 ? thisWeekMinutes : 90),
+        date: bestDayDate || 'Pending',
+        minutes: bestDayMinutes,
       },
-      bestWeekMinutes: Math.max(thisWeekMinutes, lastWeekMinutes, 180),
+      bestWeekMinutes: Math.max(thisWeekMinutes, lastWeekMinutes),
     };
 
     // 6. PERSONALIZED INSIGHT CARD
     const hourScores: Record<string, { sum: number; count: number; name: string }> = {
-      morning: { sum: 0, count: 0, name: 'Morning (8:00 AM – 12:00 PM)' },
-      afternoon: { sum: 0, count: 0, name: 'Afternoon (1:00 PM – 5:00 PM)' },
-      evening: { sum: 0, count: 0, name: 'Evening (6:00 PM – 10:00 PM)' },
-      night: { sum: 0, count: 0, name: 'Late Night (11:00 PM – 3:00 AM)' },
+      morning: { sum: 0, count: 0, name: 'Morning (8:00 AM - 12:00 PM)' },
+      afternoon: { sum: 0, count: 0, name: 'Afternoon (1:00 PM - 5:00 PM)' },
+      evening: { sum: 0, count: 0, name: 'Evening (6:00 PM - 10:00 PM)' },
+      night: { sum: 0, count: 0, name: 'Late Night (11:00 PM - 3:00 AM)' },
     };
 
     for (const s of allCompletedSessions) {
@@ -447,11 +447,16 @@ export class AnalyticsService {
       }
     }
 
-    const personalizedInsight = {
+    const personalizedInsight = allCompletedSessions.length > 0 ? {
       title: 'Peak Focus Flow',
       window: hourScores[peakSlot].name,
-      avgScore: highestAvg || 92,
-      recommendation: `Your deepest sessions occur during the ${peakSlot} window with an average focus score of ${highestAvg || 92}%. Schedule your hardest DSA problems or project sprints during this prime cognitive window.`,
+      avgScore: highestAvg,
+      recommendation: `Your deepest sessions occur during the ${peakSlot} window with an average focus score of ${highestAvg}%. Schedule your hardest DSA problems or project sprints during this prime cognitive window.`,
+    } : {
+      title: 'First Session Pending',
+      window: 'Calibration in progress',
+      avgScore: 0,
+      recommendation: 'Complete your first focus block in any room to begin tracking genuine deep work telemetry.',
     };
 
     return {
@@ -469,7 +474,7 @@ export class AnalyticsService {
       weekOverWeek: {
         thisWeekMinutes,
         lastWeekMinutes,
-        percentDelta: percentDelta >= 0 ? `+${percentDelta}%` : `${percentDelta}%`,
+        percentDelta: percentDelta !== 0 ? (percentDelta > 0 ? `+${percentDelta}%` : `${percentDelta}%`) : '0%',
         isImprovement: percentDelta >= 0,
       },
       topDistractions,

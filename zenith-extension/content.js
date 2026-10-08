@@ -121,8 +121,8 @@
         }).catch(() => {});
 
         // Redirect this tab to the 3-second blocked countdown page
-        const returnUrl = data.zenithFocusUrl || 'http://localhost:3000/dashboard';
-        let targetOrigin = 'http://localhost:3000';
+        const returnUrl = data.zenithFocusUrl || 'https://zenith-dusky-theta.vercel.app/dashboard';
+        let targetOrigin = 'https://zenith-dusky-theta.vercel.app';
         try {
           targetOrigin = new URL(returnUrl).origin;
         } catch (e) {}

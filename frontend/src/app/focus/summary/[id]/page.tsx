@@ -18,6 +18,7 @@ import {
   Sparkles,
   ShieldCheck,
   CheckCircle2,
+  Star,
 } from 'lucide-react';
 
 export default function SessionSummaryPage() {
@@ -131,7 +132,8 @@ export default function SessionSummaryPage() {
         {/* Points Earned Banner */}
         <div className="pt-2 flex justify-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 font-semibold text-sm">
-            <span>⭐ +{session.pointsEarned || 48} points earned</span>
+            <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+            <span>+{session.pointsEarned ?? 0} points earned</span>
             <span className="text-xs font-normal text-amber-200/80">• Added to your weekly balance</span>
           </div>
         </div>

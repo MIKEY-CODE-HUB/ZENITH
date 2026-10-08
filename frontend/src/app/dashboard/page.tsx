@@ -256,6 +256,42 @@ const DEFAULT_ROOMS: Room[] = [
     averageFocusScore: 0,
     createdAt: new Date().toISOString(),
   },
+  {
+    id: 'room-cortex-13',
+    name: 'Cortex',
+    description: 'Machine Learning research, paper reading & model training',
+    category: 'EDUCATION',
+    topic: 'Deep Learning & Math',
+    activityType: 'Research',
+    atmosphere: 'Nordic Pines',
+    roomCode: 'CORTEX13',
+    isPrivate: false,
+    maxParticipants: 12,
+    defaultDuration: 60,
+    defaultCamera: false,
+    defaultMic: false,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'room-zenith-14',
+    name: 'Zenith Peak',
+    description: 'Silent ultra-deep work block for long marathon sessions',
+    category: 'SIDE_QUEST',
+    topic: 'Open Source & Sprints',
+    activityType: 'Coding',
+    atmosphere: 'Terminal',
+    roomCode: 'PEAK14',
+    isPrivate: false,
+    maxParticipants: 10,
+    defaultDuration: 75,
+    defaultCamera: false,
+    defaultMic: false,
+    activeParticipantsCount: 0,
+    averageFocusScore: 0,
+    createdAt: new Date().toISOString(),
+  },
 ];
 
 export default function DashboardPage() {
@@ -442,9 +478,9 @@ export default function DashboardPage() {
 
           {/* Glowing Atmospheric Progress Bar */}
           <div className="space-y-1.5">
-            <div className="w-full bg-zinc-900 rounded-full h-3.5 overflow-hidden p-0.5 border border-white/[0.08]">
+            <div className="w-full bg-zinc-900 rounded-xl h-3.5 overflow-hidden p-0.5 border border-white/[0.08]">
               <div
-                className="bg-gradient-to-r from-emerald-400 via-sky-400 to-amber-400 h-full rounded-full transition-all duration-700 shadow-md shadow-emerald-500/30"
+                className="bg-gradient-to-r from-emerald-400 via-sky-400 to-amber-400 h-full rounded-lg transition-all duration-700 shadow-md shadow-emerald-500/30"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -578,7 +614,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Capacity:</span>
-                      <span className="font-mono text-zinc-300">{room.participants?.length || 1} / {room.maxParticipants} students</span>
+                      <span className="font-mono text-zinc-300">{(room.participants?.length ?? room.activeParticipantsCount) ?? 0} / {room.maxParticipants} students</span>
                     </div>
                   </div>
 
@@ -593,14 +629,6 @@ export default function DashboardPage() {
               );
             })}
           </div>
-        </div>
-
-        {/* Grounding Student Philosophy Card */}
-        <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between gap-4 text-xs text-zinc-400">
-          <p className="italic leading-relaxed max-w-2xl">
-            &ldquo;We don&apos;t track hours to impress anyone. We expose distractions so you can witness where your actual time goes and build unshakeable consistency.&rdquo;
-          </p>
-          <span className="font-semibold text-white font-mono shrink-0 hidden sm:inline">ZENITH 2026</span>
         </div>
       </main>
 

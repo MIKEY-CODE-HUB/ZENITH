@@ -39,7 +39,7 @@ function BlockedContent() {
 
     async function checkStatus() {
       try {
-        const res = await fetch('http://127.0.0.1:5001/api/blocker/live-status').catch(() => null);
+        const res = await fetch('/api/blocker/live-status').catch(() => null);
         if (res && res.ok) {
           const data = await res.json();
           if (data.active) {
@@ -54,7 +54,7 @@ function BlockedContent() {
       } catch (e) {}
 
       try {
-        const statsRes = await fetch('http://127.0.0.1:5001/api/blocker/statistics').catch(() => null);
+        const statsRes = await fetch('/api/blocker/statistics').catch(() => null);
         if (statsRes && statsRes.ok) {
           const s = await statsRes.json();
           if (s.success && s.stats) {
@@ -179,9 +179,6 @@ function BlockedContent() {
               <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
               <span>Return to Focus Room Now</span>
             </button>
-            <p className="text-[11px] text-zinc-500 italic">
-              &ldquo;Do the work. See the truth. Build consistency.&rdquo;
-            </p>
           </div>
         </div>
       </main>

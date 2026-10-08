@@ -50,7 +50,7 @@ let customBlockedWebsites = [];
 let customAllowedWebsites = [];
 
 const BACKEND_URL = 'http://127.0.0.1:5001';
-const FRONTEND_URL = 'http://localhost:3000';
+const FRONTEND_URL = 'https://zenith-dusky-theta.vercel.app';
 
 // Robust domain matching
 function matchesDomainPattern(hostname, targetDomain) {
@@ -322,6 +322,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 if (chrome.webNavigation && chrome.webNavigation.onBeforeNavigate) {
   chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
     if (details.frameId === 0) {
+      await syncStateFromStorage();
       if (!isSessionActive) return;
       if (isZenithUrl(details.url)) return;
 
@@ -334,10 +335,11 @@ if (chrome.webNavigation && chrome.webNavigation.onBeforeNavigate) {
 
 // 2. Intercept tab updates / address bar navigation
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (!isSessionActive) return;
-
   const targetUrl = tab.url || changeInfo.url;
   if (!targetUrl) return;
+
+  await syncStateFromStorage();
+  if (!isSessionActive) return;
 
   if (isZenithRoomUrl(targetUrl)) {
     activeZenithTabId = tabId;
@@ -353,6 +355,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
 // 3. INSTANT SNAP-BACK ON ANY TAB SWITCH (Zero Delay)
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  await syncStateFromStorage();
   if (!isSessionActive) return;
 
   try {
