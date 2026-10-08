@@ -1,19 +1,91 @@
-// ZENITH Universal Content Guardian v12.0
+// ZENITH Universal Content Guardian v13.0
+// Production Allowlist-First Content Script
 
 (function () {
   if (window !== window.top) return;
 
   const currentUrl = window.location.href;
-  const isZenithSite = currentUrl.includes('localhost:3000') ||
-                       currentUrl.includes('127.0.0.1:3000') ||
-                       currentUrl.includes('vercel.app') ||
-                       currentUrl.includes('zenith');
 
-  // 1. IN ZENITH WEB APPLICATION
+  const ALWAYS_ALLOWED_DOMAINS = [
+    'github.com',
+    'github.dev',
+    'githubusercontent.com',
+    'githubassets.com',
+    'gist.github.com',
+    'leetcode.com',
+    'leetcode.cn',
+    'codeforces.com',
+    'codeforces.org',
+    'codechef.com',
+    'hackerrank.com',
+    'chess.com',
+    'lichess.org',
+    'developer.mozilla.org',
+    'stackoverflow.com',
+    'stackexchange.com',
+    'sstatic.net',
+    'w3schools.com',
+    'geeksforgeeks.org',
+    'docs.google.com',
+    'drive.google.com',
+    'vscode.dev',
+    'localhost',
+    '127.0.0.1',
+  ];
+
+  function extractHostname(url) {
+    if (!url) return '';
+    try {
+      const parsed = new URL(url);
+      return parsed.hostname.toLowerCase().trim().replace(/^www\./, '');
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function matchesDomainPattern(hostname, targetDomain) {
+    if (!hostname || !targetDomain) return false;
+    const h = hostname.toLowerCase().trim().replace(/^www\./, '');
+    const d = targetDomain.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].split(':')[0];
+    
+    if (h === d) return true;
+    if (h.endsWith('.' + d)) return true;
+    if (d === 'localhost' && (h === '127.0.0.1' || h === 'localhost')) return true;
+    return false;
+  }
+
+  function isZenithUrl(url) {
+    if (!url) return false;
+    if (url.includes('/blocker/blocked') || url.includes('blocked.html')) {
+      return true;
+    }
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.toLowerCase().trim().replace(/^www\./, '');
+      const port = parsed.port;
+
+      if (host === 'localhost' || host === '127.0.0.1') {
+        return port === '3000' || port === '5001' || port === '' || !port;
+      }
+      if (host === 'zenith-dusky-theta.vercel.app' || (host.endsWith('.vercel.app') && host.includes('zenith'))) {
+        return true;
+      }
+      if (host === 'zenith.app' || host.endsWith('.zenith.app') || host === 'zenith-focus.com') {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  const isZenithSite = isZenithUrl(currentUrl);
+
+  // ── 1. IN ZENITH WEB APPLICATION ───────────────────────────────────────────
   if (isZenithSite) {
     function checkZenithState() {
       const href = window.location.href;
-      const isRoom = href.includes('/focus/') && !href.includes('/setup') && !href.includes('/summary');
+      const isRoom = href.includes('/focus/') && !href.includes('/setup') && !href.includes('/summary') && !href.includes('/blocked');
       let isShieldActive = false;
       try {
         isShieldActive = localStorage.getItem('zenith_shield_active') === 'true';
@@ -73,54 +145,49 @@
     return;
   }
 
-  // 2. ON EXTERNAL WEBSITES DURING ACTIVE FOCUS
+  // ── 2. ON EXTERNAL WEBSITES DURING ACTIVE FOCUS ────────────────────────────
   if (!isZenithSite && !currentUrl.startsWith('chrome://') && !currentUrl.startsWith('chrome-extension://')) {
     chrome.storage.local.get(['isFocusSessionActive', 'zenithFocusUrl', 'allowedWebsites'], (data) => {
       if (data && data.isFocusSessionActive) {
-        const allowedList = [
-          'github.com',
-          'leetcode.com',
-          'codeforces.com',
-          'codechef.com',
-          'hackerrank.com',
-          'chess.com',
-          'lichess.org',
-          'developer.mozilla.org',
-          'stackoverflow.com',
-          'w3schools.com',
-          'geeksforgeeks.org',
-          'docs.google.com',
-          'localhost',
-          '127.0.0.1',
-          ...(data.allowedWebsites || []),
-        ];
+        const host = extractHostname(currentUrl);
+        if (!host) return;
 
+        // Check against allowlist
         let isAllowed = false;
-        try {
-          const host = new URL(currentUrl).hostname.toLowerCase();
-          for (const item of allowedList) {
-            if (host === item || host.endsWith('.' + item)) {
+        for (const item of ALWAYS_ALLOWED_DOMAINS) {
+          if (matchesDomainPattern(host, item)) {
+            isAllowed = true;
+            break;
+          }
+        }
+
+        if (!isAllowed && data.allowedWebsites) {
+          for (const item of data.allowedWebsites) {
+            if (matchesDomainPattern(host, item)) {
               isAllowed = true;
               break;
             }
           }
-        } catch (e) {}
+        }
 
+        // Allowed destination: grant normal navigation
         if (isAllowed) return;
 
-        // Distraction detected: immediately pause media & freeze
+        // DEFAULT-DENY: Block and redirect immediately
         try {
           document.querySelectorAll('video, audio').forEach((m) => m.pause());
-          if (document.body) document.body.style.overflow = 'hidden';
+          if (document.body) {
+            document.body.style.display = 'none';
+          }
         } catch (e) {}
 
-        // Snap user back to Zenith focus tab immediately
+        // Notify background to snap user back to Zenith
         chrome.runtime.sendMessage({
           type: 'EXTERNAL_TAB_SWITCH',
           url: currentUrl,
         }).catch(() => {});
 
-        // Redirect this tab to the 3-second blocked countdown page
+        // Redirect to Zenith blocked countdown page
         const returnUrl = data.zenithFocusUrl || 'https://zenith-dusky-theta.vercel.app/dashboard';
         let targetOrigin = 'https://zenith-dusky-theta.vercel.app';
         try {
@@ -128,8 +195,7 @@
         } catch (e) {}
 
         try {
-          const u = new URL(currentUrl);
-          const domain = u.hostname.replace(/^www\./, '');
+          const domain = host;
           const blockedPageUrl = `${targetOrigin}/blocker/blocked?domain=${encodeURIComponent(domain)}&url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(returnUrl)}`;
           window.location.replace(blockedPageUrl);
         } catch (e) {

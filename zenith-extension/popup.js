@@ -1,3 +1,6 @@
 document.getElementById("open-zenith").addEventListener("click", () => {
-  chrome.tabs.create({ url: "http://localhost:3000/rooms" });
+  chrome.storage.local.get(['zenithFocusUrl'], (data) => {
+    const url = data?.zenithFocusUrl || 'https://zenith-dusky-theta.vercel.app/rooms';
+    chrome.tabs.create({ url });
+  });
 });
