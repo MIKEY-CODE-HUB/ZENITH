@@ -54,7 +54,22 @@ let currentSessionData = {
   mode: 'STRICT',
   blockedWebsites: ['youtube.com', 'instagram.com', 'reddit.com', 'twitter.com', 'x.com', 'netflix.com', 'tiktok.com'],
   blockedApps: ['Discord', 'Spotify', 'Steam', 'Telegram', 'WhatsApp', 'Slack'],
-  allowedWebsites: ['github.com', 'stackoverflow.com', 'developer.mozilla.org', 'docs.google.com']
+  allowedWebsites: [
+    'github.com',
+    'github.dev',
+    'leetcode.com',
+    'codeforces.com',
+    'codechef.com',
+    'hackerrank.com',
+    'chess.com',
+    'lichess.org',
+    'developer.mozilla.org',
+    'stackoverflow.com',
+    'docs.google.com',
+    'drive.google.com',
+    'vscode.dev',
+    'localhost',
+  ]
 };
 
 let lastReportedResource = '';
@@ -112,7 +127,7 @@ function enforceBrowserTabSnapBack(browserName = 'Google Chrome') {
           set tabIdx to 1
           repeat with t in tabs of w
             set tUrl to URL of t
-            if ((tUrl contains "/focus/") or (tUrl contains "/blocker") or (tUrl contains "zenith")) and not (tUrl contains "/setup" or tUrl contains "/summary" or tUrl contains "/blocked") then
+            if ((tUrl contains "/focus/") or (tUrl contains "/room/") or (tUrl contains "/rooms/") or (tUrl contains "/blocker") or (tUrl contains "zenith")) and not (tUrl contains "/setup" or tUrl contains "/summary" or tUrl contains "/blocked") then
               set focusWin to w
               set focusTabIdx to tabIdx
               exit repeat
@@ -130,7 +145,7 @@ function enforceBrowserTabSnapBack(browserName = 'Google Chrome') {
         set curUrl to URL of curTab
         
         -- If user is already on the focus tab or Zenith app, all good
-        if ((curUrl contains "/focus/") or (curUrl contains "/blocker") or (curUrl contains "zenith")) and not (curUrl contains "/setup" or curUrl contains "/summary") then
+        if ((curUrl contains "/focus/") or (curUrl contains "/room/") or (curUrl contains "/rooms/") or (curUrl contains "/blocker") or (curUrl contains "zenith")) and not (curUrl contains "/setup" or curUrl contains "/summary") then
           return "ON_FOCUS"
         end if
         

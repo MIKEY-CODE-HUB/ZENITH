@@ -1,4 +1,4 @@
-// ZENITH Universal Content Guardian v13.0
+// ZENITH Universal Content Guardian v14.0
 // Production Allowlist-First Content Script
 
 (function () {
@@ -39,7 +39,12 @@
       const parsed = new URL(url);
       return parsed.hostname.toLowerCase().trim().replace(/^www\./, '');
     } catch (e) {
-      return '';
+      try {
+        const parsed = new URL('https://' + url);
+        return parsed.hostname.toLowerCase().trim().replace(/^www\./, '');
+      } catch (e2) {
+        return '';
+      }
     }
   }
 
@@ -62,15 +67,25 @@
     try {
       const parsed = new URL(url);
       const host = parsed.hostname.toLowerCase().trim().replace(/^www\./, '');
-      const port = parsed.port;
 
       if (host === 'localhost' || host === '127.0.0.1') {
-        return port === '3000' || port === '5001' || port === '' || !port;
-      }
-      if (host === 'zenith-dusky-theta.vercel.app' || (host.endsWith('.vercel.app') && host.includes('zenith'))) {
         return true;
       }
-      if (host === 'zenith.app' || host.endsWith('.zenith.app') || host === 'zenith-focus.com') {
+      if (
+        host === 'zenith.com' ||
+        host.endsWith('.zenith.com') ||
+        host === 'zenith.app' ||
+        host.endsWith('.zenith.app') ||
+        host === 'zenith-focus.com' ||
+        host.endsWith('.zenith-focus.com') ||
+        host === 'zenith.io' ||
+        host.endsWith('.zenith.io') ||
+        host === 'zenith.dev' ||
+        host.endsWith('.zenith.dev') ||
+        host === 'zenith-dusky-theta.vercel.app' ||
+        (host.endsWith('.vercel.app') && (host.includes('zenith') || host.includes('trapbreaker'))) ||
+        host.includes('zenith')
+      ) {
         return true;
       }
       return false;
@@ -85,7 +100,12 @@
   if (isZenithSite) {
     function checkZenithState() {
       const href = window.location.href;
-      const isRoom = href.includes('/focus/') && !href.includes('/setup') && !href.includes('/summary') && !href.includes('/blocked');
+      const isRoom = (
+        (href.includes('/focus/') || href.includes('/room/') || href.includes('/rooms/')) &&
+        !href.includes('/setup') &&
+        !href.includes('/summary') &&
+        !href.includes('/blocked')
+      );
       let isShieldActive = false;
       try {
         isShieldActive = localStorage.getItem('zenith_shield_active') === 'true';
@@ -113,7 +133,7 @@
     // Listen for postMessage from React components
     window.addEventListener('message', (event) => {
       if (!event.data) return;
-      if (event.data.type === 'ZENITH_ROOM_ACTIVE') {
+      if (event.data.type === 'ZENITH_ROOM_ACTIVE' || event.data.type === 'ZENITH_BLOCKER_ACTIVATE') {
         const url = event.data.roomUrl || window.location.href;
         chrome.storage.local.set({
           isFocusSessionActive: true,
@@ -137,7 +157,7 @@
       if (msg && msg.type === 'ZENITH_DISTRACTION_ATTEMPT') {
         window.postMessage({
           type: 'ZENITH_FOCUS_BROKEN',
-          reason: `Attempt to visit ${msg.domain || 'distracting site'} blocked. Focus protected.`,
+          reason: `Attempt to visit ${msg.domain || 'unapproved site'} blocked. Focus protected.`,
         }, '*');
       }
     });
@@ -196,7 +216,10 @@
 
         try {
           const domain = host;
-          const blockedPageUrl = `${targetOrigin}/blocker/blocked?domain=${encodeURIComponent(domain)}&url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(returnUrl)}`;
+          const blockedPageUrl = (targetOrigin.includes('localhost') || targetOrigin.includes('127.0.0.1') || targetOrigin.includes('vercel.app'))
+            ? `${targetOrigin}/blocker/blocked?domain=${encodeURIComponent(domain)}&url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(returnUrl)}`
+            : chrome.runtime.getURL(`blocked.html?domain=${encodeURIComponent(domain)}&url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(returnUrl)}`);
+          
           window.location.replace(blockedPageUrl);
         } catch (e) {
           const extUrl = chrome.runtime.getURL(

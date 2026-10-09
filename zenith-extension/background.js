@@ -44,7 +44,6 @@ const BACKEND_URL = 'http://127.0.0.1:5001';
 const FRONTEND_URL = 'https://zenith-dusky-theta.vercel.app';
 
 // ── ROBUST DOMAIN PARSING & MATCHING ──────────────────────────────────────────
-// Extracts clean hostname without protocol, port, or leading 'www.'
 function extractHostname(url) {
   if (!url) return '';
   try {
@@ -60,8 +59,7 @@ function extractHostname(url) {
   }
 }
 
-// Precise domain matching: exact match OR subdomain match
-// Prevents substring bypasses (e.g. 'fakegithub.com' will NOT match 'github.com')
+// Precise domain matching: exact match OR valid subdomain match
 function matchesDomainPattern(hostname, targetDomain) {
   if (!hostname || !targetDomain) return false;
   const h = hostname.toLowerCase().trim().replace(/^www\./, '');
@@ -77,7 +75,6 @@ function matchesDomainPattern(hostname, targetDomain) {
 function isZenithUrl(url) {
   if (!url) return false;
   
-  // The block pages are always part of Zenith
   if (url.includes('/blocker/blocked') || url.includes('blocked.html')) {
     return true;
   }
@@ -85,24 +82,32 @@ function isZenithUrl(url) {
   try {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase().trim().replace(/^www\./, '');
-    const port = parsed.port;
 
-    // Localhost development
+    // Localhost development (any port)
     if (host === 'localhost' || host === '127.0.0.1') {
-      return port === '3000' || port === '5001' || port === '' || !port;
-    }
-
-    // Vercel deployment
-    if (host === 'zenith-dusky-theta.vercel.app' || (host.endsWith('.vercel.app') && host.includes('zenith'))) {
       return true;
     }
 
-    // Zenith production domains
-    if (host === 'zenith.app' || host.endsWith('.zenith.app') || host === 'zenith-focus.com') {
+    // Zenith production & preview domains
+    if (
+      host === 'zenith.com' ||
+      host.endsWith('.zenith.com') ||
+      host === 'zenith.app' ||
+      host.endsWith('.zenith.app') ||
+      host === 'zenith-focus.com' ||
+      host.endsWith('.zenith-focus.com') ||
+      host === 'zenith.io' ||
+      host.endsWith('.zenith.io') ||
+      host === 'zenith.dev' ||
+      host.endsWith('.zenith.dev') ||
+      host === 'zenith-dusky-theta.vercel.app' ||
+      (host.endsWith('.vercel.app') && (host.includes('zenith') || host.includes('trapbreaker'))) ||
+      host.includes('zenith')
+    ) {
       return true;
     }
 
-    // Match origin of currently active Zenith session
+    // Match origin of active Zenith room
     if (zenithRoomUrl) {
       try {
         const roomOrigin = new URL(zenithRoomUrl).origin;
@@ -118,22 +123,34 @@ function isZenithUrl(url) {
 
 function isZenithRoomUrl(url) {
   if (!url) return false;
-  return isZenithUrl(url) && (url.includes('/focus/') || url.includes('/blocker')) && !url.includes('/setup') && !url.includes('/summary') && !url.includes('/blocked');
+  if (!isZenithUrl(url)) return false;
+
+  const isSetupOrSummary = url.includes('/setup') || url.includes('/summary') || url.includes('/blocked');
+  if (isSetupOrSummary) return false;
+
+  return (
+    url.includes('/focus/') ||
+    url.includes('/room/') ||
+    url.includes('/rooms/')
+  );
 }
 
 // ── ALLOWLIST-FIRST EVALUATION (DEFAULT-DENY) ─────────────────────────────────
-// When a session is active, EVERY destination outside Zenith and the allowlist is BLOCKED.
 function isUrlDistraction(url) {
   if (!isSessionActive) return false;
   if (!url) return false;
 
-  // Internal browser schemes (empty tabs, extension pages, chrome internal)
+  // Browser internal schemes (blank tab, extension pages, chrome internal)
   if (
     url === 'about:blank' ||
     url === 'about:newtab' ||
     url.startsWith('chrome://') ||
     url.startsWith('chrome-extension://') ||
-    url.startsWith('edge://')
+    url.startsWith('chrome-search://') ||
+    url.startsWith('edge://') ||
+    url.startsWith('brave://') ||
+    url.startsWith('devtools://') ||
+    url.startsWith('view-source:')
   ) {
     return false;
   }
@@ -144,14 +161,14 @@ function isUrlDistraction(url) {
   const hostname = extractHostname(url);
   if (!hostname) return false;
 
-  // 1. Check always allowed study and engineering tools
+  // 1. Check always allowed study and engineering platforms
   for (const allowed of ALWAYS_ALLOWED_DOMAINS) {
     if (matchesDomainPattern(hostname, allowed)) {
       return false;
     }
   }
 
-  // 2. Check custom allowed websites configured by user
+  // 2. Check custom user-configured allowed websites
   for (const allowed of customAllowedWebsites) {
     if (matchesDomainPattern(hostname, allowed)) {
       return false;
@@ -173,15 +190,22 @@ async function syncStateFromStorage() {
       'allowedWebsites',
       'blockedWebsites',
       'sessionMode',
+      'lastActiveTime',
     ], (data) => {
       if (data && data.isFocusSessionActive === true) {
-        isSessionActive = true;
-        zenithRoomUrl = data.zenithFocusUrl || zenithRoomUrl;
-        activeZenithTabId = data.activeZenithTabId || activeZenithTabId;
-        activeZenithWindowId = data.activeZenithWindowId || activeZenithWindowId;
-        if (data.allowedWebsites) customAllowedWebsites = data.allowedWebsites;
-        if (data.blockedWebsites) customBlockedWebsites = data.blockedWebsites;
-        if (data.sessionMode) sessionMode = data.sessionMode;
+        // Safe 12-hour session expiry failsafe
+        if (data.lastActiveTime && Date.now() - data.lastActiveTime > 12 * 60 * 60 * 1000) {
+          isSessionActive = false;
+          chrome.storage.local.set({ isFocusSessionActive: false, zenithFocusUrl: null });
+        } else {
+          isSessionActive = true;
+          zenithRoomUrl = data.zenithFocusUrl || zenithRoomUrl;
+          activeZenithTabId = data.activeZenithTabId || activeZenithTabId;
+          activeZenithWindowId = data.activeZenithWindowId || activeZenithWindowId;
+          if (data.allowedWebsites) customAllowedWebsites = data.allowedWebsites;
+          if (data.blockedWebsites) customBlockedWebsites = data.blockedWebsites;
+          if (data.sessionMode) sessionMode = data.sessionMode;
+        }
       } else if (data && data.isFocusSessionActive === false) {
         isSessionActive = false;
       }
@@ -206,9 +230,9 @@ async function pollBackendStatus() {
         sessionMode: data.mode || 'STRICT',
         allowedWebsites: data.allowedWebsites || [],
         blockedWebsites: data.blockedWebsites || [],
+        lastActiveTime: Date.now(),
       });
     } else {
-      // Check local storage before deactivating to preserve standalone sessions
       chrome.storage.local.get(['isFocusSessionActive', 'zenithFocusUrl'], (st) => {
         if (st && st.isFocusSessionActive) {
           isSessionActive = true;
@@ -225,7 +249,7 @@ setInterval(pollBackendStatus, 3000);
 pollBackendStatus();
 syncStateFromStorage();
 
-// ── TAB LOCATOR ──────────────────────────────────────────────────────────────
+// ── TAB LOCATOR & ROOM DETECTOR ──────────────────────────────────────────────
 async function getZenithTab() {
   await syncStateFromStorage();
 
@@ -242,13 +266,10 @@ async function getZenithTab() {
 
   try {
     const tabs = await chrome.tabs.query({});
-    // Priority 1: Focus room tab
     let found = tabs.find(t => isZenithRoomUrl(t.url));
-    // Priority 2: Zenith tab excluding /blocked
     if (!found) {
       found = tabs.find(t => isZenithUrl(t.url) && !t.url.includes('/blocked'));
     }
-    // Priority 3: Any Zenith tab
     if (!found) {
       found = tabs.find(t => isZenithUrl(t.url));
     }
@@ -265,6 +286,7 @@ async function getZenithTab() {
         zenithFocusUrl: zenithRoomUrl || found.url,
         activeZenithTabId: found.id,
         activeZenithWindowId: found.windowId,
+        lastActiveTime: Date.now(),
       });
       return found;
     }
@@ -273,9 +295,67 @@ async function getZenithTab() {
   return null;
 }
 
+// ── SANITIZE ALL OPEN TABS ON SESSION ENGAGEMENT ──────────────────────────────
+async function enforceAllOpenTabs() {
+  await syncStateFromStorage();
+  if (!isSessionActive) return;
+
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (!tab.url) continue;
+      if (tab.id === activeZenithTabId) continue;
+      if (isZenithUrl(tab.url)) continue;
+
+      if (isUrlDistraction(tab.url)) {
+        interceptAndRedirect(tab.id, tab.url);
+      }
+    }
+  } catch (e) {}
+}
+
+// ── INJECT CONTENT SCRIPT INTO EXISTING TABS ──────────────────────────────────
+async function injectContentScriptIntoOpenTabs() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('about:')) continue;
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js'],
+      }).catch(() => {});
+    }
+  } catch (e) {}
+}
+
+// On install or startup, inspect open tabs to immediately recognize active session
+chrome.runtime.onInstalled?.addListener(async () => {
+  const zTab = await getZenithTab();
+  if (zTab) {
+    isSessionActive = true;
+    enforceAllOpenTabs();
+  }
+  injectContentScriptIntoOpenTabs();
+});
+
+chrome.runtime.onStartup?.addListener(async () => {
+  const zTab = await getZenithTab();
+  if (zTab) {
+    isSessionActive = true;
+    enforceAllOpenTabs();
+  }
+  injectContentScriptIntoOpenTabs();
+});
+
+// Initial inspection on script evaluation
+getZenithTab().then((zTab) => {
+  if (zTab) {
+    isSessionActive = true;
+    enforceAllOpenTabs();
+  }
+});
+
 // ── INTERCEPTION & REDIRECTION ENGINE ─────────────────────────────────────────
-// Immediately halts access to non-allowed destination, shows blocked countdown,
-// and snaps the user right back to Zenith focus room.
 async function interceptAndRedirect(tabId, distractingUrl) {
   if (!isSessionActive) return;
 
@@ -293,14 +373,16 @@ async function interceptAndRedirect(tabId, distractingUrl) {
     `blocked.html?domain=${encodeURIComponent(hostname)}&url=${encodeURIComponent(distractingUrl)}&room=${encodeURIComponent(targetRoomUrl)}`
   );
 
-  // 1. Immediately replace the distracting tab with the blocked page
+  const blockUrl = (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1') || baseUrl.includes('vercel.app')) ? webBlockUrl : extBlockUrl;
+
+  // 1. Immediately replace the distracting tab with the blocked countdown screen
   try {
-    chrome.tabs.update(tabId, { url: webBlockUrl }).catch(() => {
+    chrome.tabs.update(tabId, { url: blockUrl }).catch(() => {
       chrome.tabs.update(tabId, { url: extBlockUrl }).catch(() => {});
     });
   } catch (e) {}
 
-  // 2. Refocus the active Zenith tab immediately
+  // 2. Refocus the active Zenith tab immediately (< 50ms)
   try {
     const zenithTab = await getZenithTab();
     if (zenithTab && zenithTab.id && zenithTab.id !== tabId) {
@@ -335,18 +417,40 @@ async function interceptAndRedirect(tabId, distractingUrl) {
   } catch (e) {}
 }
 
-// ── EVENT LISTENERS (AIRTIGHT COVERAGE ACROSS ALL BROWSER ACTIONS) ─────────────
+// ── COMPREHENSIVE EVENT LISTENERS ─────────────────────────────────────────────
 
 // 1. Intercept BEFORE navigation begins (0ms, prevents page loading)
 if (chrome.webNavigation && chrome.webNavigation.onBeforeNavigate) {
   chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
     if (details.frameId !== 0) return;
-
-    await syncStateFromStorage();
-    if (!isSessionActive) return;
-
     const url = details.url;
     if (!url) return;
+
+    if (isZenithRoomUrl(url)) {
+      activeZenithTabId = details.tabId;
+      isSessionActive = true;
+      zenithRoomUrl = url;
+      chrome.storage.local.set({
+        isFocusSessionActive: true,
+        zenithFocusUrl: url,
+        activeZenithTabId: details.tabId,
+        lastActiveTime: Date.now(),
+      });
+      enforceAllOpenTabs();
+      return;
+    }
+
+    await syncStateFromStorage();
+    if (!isSessionActive) {
+      const zTab = await getZenithTab();
+      if (zTab) isSessionActive = true;
+      else return;
+    }
+
+    if (url === 'about:blank' || url.startsWith('chrome://') || url.startsWith('chrome-extension://')) {
+      return;
+    }
+
     if (isZenithUrl(url)) return;
 
     if (isUrlDistraction(url)) {
@@ -355,45 +459,43 @@ if (chrome.webNavigation && chrome.webNavigation.onBeforeNavigate) {
   });
 }
 
-// 2. Intercept tab updates / address bar navigation
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  const targetUrl = tab.url || changeInfo.url;
-  if (!targetUrl) return;
-
-  await syncStateFromStorage();
-  if (!isSessionActive) return;
-
-  if (isZenithRoomUrl(targetUrl)) {
-    activeZenithTabId = tabId;
-    activeZenithWindowId = tab.windowId;
-    isSessionActive = true;
-    zenithRoomUrl = targetUrl;
-    chrome.storage.local.set({
-      isFocusSessionActive: true,
-      zenithFocusUrl: targetUrl,
-      activeZenithTabId: tabId,
-      activeZenithWindowId: tab.windowId,
-    });
-    return;
-  }
-
-  if (isZenithUrl(targetUrl)) return;
-
-  if (isUrlDistraction(targetUrl)) {
-    await interceptAndRedirect(tabId, targetUrl);
-  }
-});
-
-// 3. Intercept committed / back / forward / history navigations
-if (chrome.webNavigation && chrome.webNavigation.onCommitted) {
-  chrome.webNavigation.onCommitted.addListener(async (details) => {
+// 2. Intercept SPA history navigation (Next.js router.push / pushState)
+if (chrome.webNavigation && chrome.webNavigation.onHistoryStateUpdated) {
+  chrome.webNavigation.onHistoryStateUpdated.addListener(async (details) => {
     if (details.frameId !== 0) return;
+    const url = details.url;
+    if (!url) return;
+
+    if (isZenithRoomUrl(url)) {
+      activeZenithTabId = details.tabId;
+      isSessionActive = true;
+      zenithRoomUrl = url;
+      await chrome.storage.local.set({
+        isFocusSessionActive: true,
+        zenithFocusUrl: url,
+        activeZenithTabId: details.tabId,
+        lastActiveTime: Date.now(),
+      });
+      enforceAllOpenTabs();
+      return;
+    }
+
+    if (url.includes('/summary')) {
+      isSessionActive = false;
+      zenithRoomUrl = null;
+      await chrome.storage.local.set({
+        isFocusSessionActive: false,
+        zenithFocusUrl: null,
+      });
+      return;
+    }
 
     await syncStateFromStorage();
-    if (!isSessionActive) return;
-
-    const url = details.url;
-    if (!url || isZenithUrl(url)) return;
+    if (!isSessionActive) {
+      const zTab = await getZenithTab();
+      if (zTab) isSessionActive = true;
+      else return;
+    }
 
     if (isUrlDistraction(url)) {
       await interceptAndRedirect(details.tabId, url);
@@ -401,48 +503,202 @@ if (chrome.webNavigation && chrome.webNavigation.onCommitted) {
   });
 }
 
-// 4. INSTANT SNAP-BACK ON ANY TAB SWITCH (Zero Delay)
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
+// 3. Intercept tab updates / address bar navigation / refreshes
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  const targetUrl = changeInfo.url || tab.url || tab.pendingUrl;
+  if (!targetUrl) return;
+
+  if (isZenithRoomUrl(targetUrl)) {
+    activeZenithTabId = tabId;
+    activeZenithWindowId = tab.windowId;
+    isSessionActive = true;
+    zenithRoomUrl = targetUrl;
+    await chrome.storage.local.set({
+      isFocusSessionActive: true,
+      zenithFocusUrl: targetUrl,
+      activeZenithTabId: tabId,
+      activeZenithWindowId: tab.windowId,
+      lastActiveTime: Date.now(),
+    });
+    enforceAllOpenTabs();
+    return;
+  }
+
+  if (targetUrl.includes('/summary')) {
+    isSessionActive = false;
+    await chrome.storage.local.set({
+      isFocusSessionActive: false,
+      zenithFocusUrl: null,
+    });
+    return;
+  }
+
   await syncStateFromStorage();
-  if (!isSessionActive) return;
+  if (!isSessionActive) {
+    const zTab = await getZenithTab();
+    if (zTab) isSessionActive = true;
+    else return;
+  }
 
-  try {
-    const activeTab = await chrome.tabs.get(activeInfo.tabId).catch(() => null);
-    if (!activeTab || !activeTab.url) return;
-
-    // Internal blank or newtab pages are permitted while user is typing
-    if (activeTab.url === 'about:blank' || activeTab.url.startsWith('chrome://newtab')) {
-      return;
-    }
-
-    // If destination is Zenith, update active tab
-    if (isZenithUrl(activeTab.url)) {
-      if (!activeTab.url.includes('/blocked')) {
-        activeZenithTabId = activeTab.id;
-        activeZenithWindowId = activeTab.windowId;
-        zenithRoomUrl = activeTab.url;
-      }
-      return;
-    }
-
-    // If destination is explicitly allowed (e.g. GitHub, LeetCode, Codeforces), ALLOW!
-    if (!isUrlDistraction(activeTab.url)) {
-      return;
-    }
-
-    // NON-ALLOWED DESTINATION: BLOCK AND PULL BACK IMMEDIATELY!
-    await interceptAndRedirect(activeInfo.tabId, activeTab.url);
-  } catch (e) {}
+  if (isUrlDistraction(targetUrl)) {
+    await interceptAndRedirect(tabId, targetUrl);
+  }
 });
 
-// 5. Handle Zenith tab closure
+// 4. Intercept committed / back / forward navigation
+if (chrome.webNavigation && chrome.webNavigation.onCommitted) {
+  chrome.webNavigation.onCommitted.addListener(async (details) => {
+    if (details.frameId !== 0) return;
+    const url = details.url;
+    if (!url) return;
+
+    if (isZenithRoomUrl(url)) {
+      activeZenithTabId = details.tabId;
+      isSessionActive = true;
+      zenithRoomUrl = url;
+      return;
+    }
+
+    await syncStateFromStorage();
+    if (!isSessionActive) {
+      const zTab = await getZenithTab();
+      if (zTab) isSessionActive = true;
+      else return;
+    }
+
+    if (url === 'about:blank' || url.startsWith('chrome://') || url.startsWith('chrome-extension://')) {
+      return;
+    }
+
+    if (isZenithUrl(url)) return;
+
+    if (isUrlDistraction(url)) {
+      await interceptAndRedirect(details.tabId, url);
+    }
+  });
+}
+
+// 5. Intercept newly created tabs with distracting targets (e.g. right-click open link)
+chrome.tabs.onCreated.addListener(async (tab) => {
+  const url = tab.url || tab.pendingUrl;
+  if (!url) return;
+
+  await syncStateFromStorage();
+  if (!isSessionActive) {
+    const zTab = await getZenithTab();
+    if (zTab) isSessionActive = true;
+    else return;
+  }
+
+  if (isUrlDistraction(url)) {
+    await interceptAndRedirect(tab.id, url);
+  }
+});
+
+// 6. INSTANT SNAP-BACK ON ANY TAB SWITCH (Zero Delay)
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  const tab = await chrome.tabs.get(activeInfo.tabId).catch(() => null);
+  if (!tab) return;
+  const targetUrl = tab.url || tab.pendingUrl;
+  if (!targetUrl) return;
+
+  if (isZenithRoomUrl(targetUrl)) {
+    activeZenithTabId = tab.id;
+    activeZenithWindowId = tab.windowId;
+    isSessionActive = true;
+    zenithRoomUrl = targetUrl;
+    await chrome.storage.local.set({
+      isFocusSessionActive: true,
+      zenithFocusUrl: targetUrl,
+      activeZenithTabId: tab.id,
+      activeZenithWindowId: tab.windowId,
+      lastActiveTime: Date.now(),
+    });
+    return;
+  }
+
+  await syncStateFromStorage();
+  if (!isSessionActive) {
+    const zTab = await getZenithTab();
+    if (zTab) isSessionActive = true;
+    else return;
+  }
+
+  if (
+    targetUrl === 'about:blank' ||
+    targetUrl.startsWith('chrome://newtab') ||
+    targetUrl.startsWith('chrome://new-tab-page') ||
+    targetUrl.startsWith('edge://newtab') ||
+    targetUrl.startsWith('brave://newtab')
+  ) {
+    return;
+  }
+
+  if (isZenithUrl(targetUrl)) return;
+
+  if (!isUrlDistraction(targetUrl)) return;
+
+  // Non-allowed destination: block and pull back immediately
+  await interceptAndRedirect(activeInfo.tabId, targetUrl);
+});
+
+// 7. MULTIPLE WINDOWS ENFORCEMENT
+if (chrome.windows && chrome.windows.onFocusChanged) {
+  chrome.windows.onFocusChanged.addListener(async (windowId) => {
+    if (windowId === chrome.windows.WINDOW_ID_NONE) return;
+    await syncStateFromStorage();
+    if (!isSessionActive) {
+      const zTab = await getZenithTab();
+      if (zTab) isSessionActive = true;
+      else return;
+    }
+
+    try {
+      const [activeTab] = await chrome.tabs.query({ active: true, windowId });
+      if (!activeTab) return;
+      const url = activeTab.url || activeTab.pendingUrl;
+      if (!url) return;
+
+      if (isZenithRoomUrl(url)) {
+        activeZenithTabId = activeTab.id;
+        activeZenithWindowId = windowId;
+        return;
+      }
+
+      if (
+        url === 'about:blank' ||
+        url.startsWith('chrome://newtab') ||
+        url.startsWith('chrome://new-tab-page') ||
+        url.startsWith('edge://newtab') ||
+        url.startsWith('brave://newtab')
+      ) {
+        return;
+      }
+
+      if (isZenithUrl(url)) return;
+
+      if (isUrlDistraction(url)) {
+        await interceptAndRedirect(activeTab.id, url);
+      }
+    } catch (e) {}
+  });
+}
+
+// 8. Handle Zenith tab closure — restore normal browsing if no room tab remains
 chrome.tabs.onRemoved.addListener((tabId) => {
   if (tabId === activeZenithTabId) {
     activeZenithTabId = null;
     chrome.tabs.query({}).then((tabs) => {
       const remainingZenith = tabs.find(t => isZenithRoomUrl(t.url));
       if (!remainingZenith) {
-        // No remaining room tab found
+        // No remaining room tab found: restore normal browsing immediately!
+        isSessionActive = false;
+        zenithRoomUrl = null;
+        chrome.storage.local.set({
+          isFocusSessionActive: false,
+          zenithFocusUrl: null,
+          activeZenithTabId: null,
+        });
       } else {
         activeZenithTabId = remainingZenith.id;
       }
@@ -452,9 +708,9 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 // ── MESSAGE PASSING WITH ZENITH WEB APPLICATION ──────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === 'ZENITH_ROOM_ACTIVE') {
+  if (msg.type === 'ZENITH_ROOM_ACTIVE' || msg.type === 'ZENITH_BLOCKER_ACTIVATE') {
     isSessionActive = true;
-    zenithRoomUrl = msg.roomUrl;
+    zenithRoomUrl = msg.roomUrl || msg.config?.roomUrl || zenithRoomUrl;
     const tabId = sender?.tab?.id || activeZenithTabId;
     const windowId = sender?.tab?.windowId || activeZenithWindowId;
     if (tabId) activeZenithTabId = tabId;
@@ -462,10 +718,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
     chrome.storage.local.set({
       isFocusSessionActive: true,
-      zenithFocusUrl: msg.roomUrl,
+      zenithFocusUrl: zenithRoomUrl,
       activeZenithTabId: tabId,
       activeZenithWindowId: windowId,
+      lastActiveTime: Date.now(),
     });
+    enforceAllOpenTabs();
     sendResponse({ success: true });
   } else if (msg.type === 'ZENITH_ROOM_ENDED') {
     isSessionActive = false;
