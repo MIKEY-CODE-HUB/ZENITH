@@ -39,7 +39,7 @@ export default function ProfilePage() {
         {/* User Hero Banner */}
         <div className="rounded-xl bg-[#121215] border border-white/[0.08] p-6 flex flex-col sm:flex-row items-center sm:items-start gap-5">
           <img
-            src={user?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.username || 'mikey'}`}
+            src={user?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.username || 'scholar'}`}
             alt={user?.name}
             className="h-18 w-18 rounded-xl object-cover bg-zinc-800 border border-white/10 shadow-sm"
           />
@@ -47,8 +47,8 @@ export default function ProfilePage() {
           <div className="space-y-2 text-center sm:text-left flex-1">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h1 className="text-xl font-semibold text-white tracking-tight">{user?.name || 'Mikey'}</h1>
-                <p className="text-xs text-zinc-400">@{user?.username} • {user?.email}</p>
+                <h1 className="text-xl font-semibold text-white tracking-tight">{user?.name || 'Scholar'}</h1>
+                <p className="text-xs text-zinc-400">@{user?.username || 'user'} • {user?.email || 'Active Account'}</p>
               </div>
 
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/[0.03] border border-white/[0.08] text-zinc-300 text-xs font-medium self-center sm:self-auto">

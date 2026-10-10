@@ -19,7 +19,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAmbient } from '@/contexts/AmbientContext';
 
 export function Navbar() {
-  const { user, logout, demoLogin } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);

@@ -4,8 +4,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'trapbreaker-super-secret-jwt-key-2
 
 export interface TokenPayload {
   userId: string;
-  email: string;
+  email?: string;
   username: string;
+  phoneNumber?: string;
 }
 
 export function generateToken(payload: TokenPayload): string {

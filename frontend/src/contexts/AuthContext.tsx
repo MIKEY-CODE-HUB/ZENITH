@@ -3,15 +3,19 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { User } from '@/lib/types';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (loginIdentifier: string, password: string) => Promise<void>;
-  register: (data: { name: string; username: string; email: string; password: string; preferredActivity?: string }) => Promise<void>;
-  demoLogin: (username?: string) => Promise<void>;
-  logout: () => void;
+  register: (data: { name: string; username: string; email?: string; phoneNumber?: string; password: string; preferredActivity?: string }) => Promise<void>;
+  googleAuth: (data: { email: string; name?: string; googleId: string; avatarUrl?: string }) => Promise<void>;
+  sendPhoneOtp: (phoneNumber: string) => Promise<{ success: boolean; message: string; cooldownSeconds: number; devCode?: string }>;
+  verifyPhoneOtp: (phoneNumber: string, otpCode: string, name?: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; message: string; devToken?: string }>;
+  resetPassword: (resetToken: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -21,55 +25,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const router = useRouter();
-  const pathname = usePathname();
-
-  const createDemoUser = (username: string = 'mikey'): User => ({
-    id: `demo-${username}`,
-    name: 'Scholar Mikey',
-    username: username,
-    email: `${username}@zenith.app`,
-    avatarUrl: '',
-    preferredActivity: 'DSA & Engineering',
-    typicalDuration: 50,
-    cameraAccountability: false,
-    distractionWarnings: true,
-    streakTracking: true,
-    createdAt: new Date().toISOString(),
-  });
 
   const refreshUser = async () => {
     try {
-      if (typeof window !== 'undefined') {
-        const storedDemo = localStorage.getItem('zenith_demo_user');
-        if (storedDemo) {
-          try {
-            setUser(JSON.parse(storedDemo));
-            setLoading(false);
-            return;
-          } catch (e) {}
-        }
+      const token = typeof window !== 'undefined' ? localStorage.getItem('trapbreaker_token') : null;
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return;
       }
+
       const res = await api.getMe();
       if (res && res.success && res.user) {
         setUser(res.user);
       } else {
         setUser(null);
+        api.clearToken();
       }
     } catch (err) {
-      if (typeof window !== 'undefined') {
-        const storedDemo = localStorage.getItem('zenith_demo_user');
-        if (storedDemo) {
-          try {
-            setUser(JSON.parse(storedDemo));
-          } catch (e) {
-            setUser(null);
-          }
-        } else {
-          setUser(null);
-        }
-      } else {
-        setUser(null);
-      }
+      setUser(null);
+      api.clearToken();
     } finally {
       setLoading(false);
     }
@@ -80,78 +55,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (loginIdentifier: string, password: string) => {
-    try {
-      const res = await api.login({ loginIdentifier, password });
-      if (res && res.success && res.token) {
-        api.setToken(res.token);
-        setUser(res.user);
-        if (typeof window !== 'undefined') {
-          window.location.href = '/dashboard';
-        } else {
-          router.push('/dashboard');
-        }
-        return;
-      }
-    } catch (err: any) {
-      if (loginIdentifier.toLowerCase().includes('mikey') || loginIdentifier.toLowerCase().includes('demo') || !password) {
-        await demoLogin(loginIdentifier || 'mikey');
-        return;
-      }
-      throw err;
-    }
-  };
-
-  const register = async (data: { name: string; username: string; email: string; password: string; preferredActivity?: string }) => {
-    try {
-      const res = await api.register(data);
-      if (res && res.success && res.token) {
-        api.setToken(res.token);
-        setUser(res.user);
-        router.push('/onboarding');
-      }
-    } catch (err) {
-      // In standalone demo mode, create user locally
-      const demoUser = createDemoUser(data.username || 'mikey');
-      demoUser.name = data.name || demoUser.name;
-      demoUser.email = data.email || demoUser.email;
-      api.setToken('demo-token-zenith');
+    const res = await api.login({ loginIdentifier, password });
+    if (res && res.success && res.token) {
+      api.setToken(res.token);
+      setUser(res.user);
       if (typeof window !== 'undefined') {
-        localStorage.setItem('zenith_demo_user', JSON.stringify(demoUser));
+        window.location.href = '/dashboard';
+      } else {
+        router.push('/dashboard');
       }
-      setUser(demoUser);
-      router.push('/dashboard');
     }
   };
 
-  const demoLogin = async (username: string = 'mikey') => {
-    const demoUser = createDemoUser(username);
-    api.setToken('demo-token-zenith');
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('zenith_demo_user', JSON.stringify(demoUser));
-    }
-    setUser(demoUser);
-
-    // Sync in background if backend is online
-    api.demoLogin(username).catch(() => {});
-
-    // Instant redirect
-    if (typeof window !== 'undefined') {
-      window.location.href = '/dashboard';
-    } else {
-      router.push('/dashboard');
+  const register = async (data: { name: string; username: string; email?: string; phoneNumber?: string; password: string; preferredActivity?: string }) => {
+    const res = await api.register(data);
+    if (res && res.success && res.token) {
+      api.setToken(res.token);
+      setUser(res.user);
+      router.push('/onboarding');
     }
   };
 
-  const logout = () => {
-    api.clearToken();
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('zenith_demo_user');
+  const googleAuth = async (data: { email: string; name?: string; googleId: string; avatarUrl?: string }) => {
+    const res = await api.googleAuth(data);
+    if (res && res.success && res.token) {
+      api.setToken(res.token);
+      setUser(res.user);
+      if (typeof window !== 'undefined') {
+        window.location.href = '/dashboard';
+      } else {
+        router.push('/dashboard');
+      }
     }
+  };
+
+  const sendPhoneOtp = async (phoneNumber: string) => {
+    return await api.sendPhoneOtp({ phoneNumber });
+  };
+
+  const verifyPhoneOtp = async (phoneNumber: string, otpCode: string, name?: string) => {
+    const res = await api.verifyPhoneOtp({ phoneNumber, otpCode, name });
+    if (res && res.success && res.token) {
+      api.setToken(res.token);
+      setUser(res.user);
+      if (typeof window !== 'undefined') {
+        window.location.href = '/dashboard';
+      } else {
+        router.push('/dashboard');
+      }
+    }
+  };
+
+  const forgotPassword = async (email: string) => {
+    return await api.forgotPassword({ email });
+  };
+
+  const resetPassword = async (resetToken: string, newPassword: string) => {
+    return await api.resetPassword({ resetToken, newPassword });
+  };
+
+  const logout = async () => {
+    await api.logout();
     setUser(null);
     if (typeof window !== 'undefined') {
-      window.location.href = '/';
+      window.location.href = '/login';
     } else {
-      router.push('/');
+      router.push('/login');
     }
   };
 
@@ -162,7 +131,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         login,
         register,
-        demoLogin,
+        googleAuth,
+        sendPhoneOtp,
+        verifyPhoneOtp,
+        forgotPassword,
+        resetPassword,
         logout,
         refreshUser,
       }}

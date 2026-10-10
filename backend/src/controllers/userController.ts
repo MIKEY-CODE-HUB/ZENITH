@@ -79,6 +79,9 @@ export class UserController {
           distractionAlerts: distractionAlerts !== undefined ? Boolean(distractionAlerts) : undefined,
           sessionCompleteAlerts: sessionCompleteAlerts !== undefined ? Boolean(sessionCompleteAlerts) : undefined,
           streakReminders: streakReminders !== undefined ? Boolean(streakReminders) : undefined,
+          appearanceMode: req.body.appearanceMode || undefined,
+          customThemeUrl: req.body.customThemeUrl !== undefined ? req.body.customThemeUrl : undefined,
+          customThemeTarget: req.body.customThemeTarget || undefined,
         },
         create: {
           userId,
@@ -91,6 +94,9 @@ export class UserController {
           distractionAlerts: distractionAlerts !== undefined ? distractionAlerts : true,
           sessionCompleteAlerts: sessionCompleteAlerts !== undefined ? sessionCompleteAlerts : true,
           streakReminders: streakReminders !== undefined ? streakReminders : true,
+          appearanceMode: req.body.appearanceMode || 'dark',
+          customThemeUrl: req.body.customThemeUrl || null,
+          customThemeTarget: req.body.customThemeTarget || 'BOTH',
         },
       });
 

@@ -11,8 +11,20 @@ model User {
   id                  String            @id @default(uuid())
   name                String
   username            String            @unique
-  email               String            @unique
-  passwordHash        String
+  email               String?           @unique
+  phoneNumber         String?           @unique
+  passwordHash        String?
+  googleId            String?           @unique
+  isEmailVerified     Boolean           @default(true)
+  isPhoneVerified     Boolean           @default(false)
+  verificationToken   String?
+  verificationTokenExpiry DateTime?
+  otpCode             String?
+  otpExpiresAt        DateTime?
+  otpAttempts         Int               @default(0)
+  otpCooldownUntil    DateTime?
+  resetToken          String?
+  resetTokenExpiry    DateTime?
   avatarUrl           String?
   preferredActivity   String            @default("Coding")
   typicalDuration     Int               @default(50) // in minutes
@@ -58,6 +70,9 @@ model UserSettings {
   blockerMode             String   @default("BLOCK") // MONITOR, BLOCK, STRICT
   blockWebsitesEnabled    Boolean  @default(true)
   blockAppsEnabled        Boolean  @default(true)
+  appearanceMode          String   @default("dark") // dark, light, system
+  customThemeUrl          String?
+  customThemeTarget       String   @default("BOTH") // DASHBOARD, ROOMS, BOTH
   updatedAt               DateTime @updatedAt
 
   @@map("user_settings")

@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 
 export default function LandingPage() {
-  const { user, demoLogin } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
 
   const handleStart = () => {
@@ -40,11 +40,8 @@ export default function LandingPage() {
     }
   };
 
-  const [demoEntering, setDemoEntering] = useState(false);
-
-  const handleDemoClick = async () => {
-    setDemoEntering(true);
-    await demoLogin('mikey');
+  const handleExploreRooms = () => {
+    router.push('/rooms');
   };
 
   return (
@@ -82,18 +79,10 @@ export default function LandingPage() {
             </button>
 
             <button
-              onClick={handleDemoClick}
-              disabled={demoEntering}
+              onClick={handleExploreRooms}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-medium text-zinc-300 hover:text-white hover:bg-white/[0.08] transition-colors"
             >
-              {demoEntering ? (
-                <>
-                  <span className="h-3 w-3 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
-                  <span>Entering demo...</span>
-                </>
-              ) : (
-                <span>Explore live demo</span>
-              )}
+              <span>Explore silent rooms</span>
             </button>
           </div>
 
