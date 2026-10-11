@@ -58,7 +58,13 @@ class ApiClient {
       try {
         data = JSON.parse(text);
       } catch {
-        throw new Error(`API returned non-JSON response (${response.status})`);
+        if (response.status === 404) {
+          throw new Error('API endpoint not found (404). Please ensure the backend server is running or refresh the page.');
+        } else if (response.status === 502 || response.status === 503 || response.status === 504) {
+          throw new Error('Backend service is temporarily unavailable. Please try again in a few moments.');
+        } else {
+          throw new Error(`API request failed with status ${response.status}. Please check your connection.`);
+        }
       }
     }
 
