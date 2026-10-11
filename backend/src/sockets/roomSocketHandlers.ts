@@ -53,6 +53,13 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
 
     const roomParticipants = activeRooms.get(roomId)!;
 
+    // Clean up any stale or reconnecting socket for the same user in this room
+    for (const [existingSocketId, existingP] of roomParticipants.entries()) {
+      if (existingP.userId === userId && existingSocketId !== socket.id) {
+        roomParticipants.delete(existingSocketId);
+      }
+    }
+
     // Strict 6 participants enforcement for Interaction Rooms
     if (category === 'INTERACTION' && roomParticipants.size >= 6) {
       socket.emit('room_error', {

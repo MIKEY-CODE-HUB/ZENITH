@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "tsx --test tests/zenithEngine.test.ts tests/auth.test.ts",
+    "test": "tsx --test tests/zenithEngine.test.ts tests/auth.test.ts tests/roomPresence.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:seed": "tsx prisma/seed.ts"
@@ -29,6 +29,7 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20.17.6",
     "prisma": "^5.22.0",
+    "socket.io-client": "^4.8.4",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }

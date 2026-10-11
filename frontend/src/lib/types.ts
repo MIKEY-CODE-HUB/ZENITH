@@ -48,6 +48,9 @@ export interface UserSettings {
   blockerMode?: 'MONITOR' | 'BLOCK' | 'STRICT';
   blockWebsitesEnabled?: boolean;
   blockAppsEnabled?: boolean;
+  appearanceMode?: 'dark' | 'light' | string;
+  customThemeUrl?: string | null;
+  customThemeTarget?: 'BOTH' | 'ROOM' | 'DASHBOARD' | string;
 }
 
 export interface User {

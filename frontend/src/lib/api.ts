@@ -367,6 +367,10 @@ class ApiClient {
     return this.request<{ success: boolean; status: string; activeSession: any }>('/blocker/status');
   }
 
+  async getBlockerLiveStatus() {
+    return this.request<{ active: boolean; mode?: string; allowedWebsites?: string[]; blockedWebsites?: string[] }>('/blocker/live-status');
+  }
+
   async activateBlocker(focusSessionId: string, mode: 'MONITOR' | 'BLOCK' | 'STRICT' = 'BLOCK') {
     return this.request<{
       success: boolean;

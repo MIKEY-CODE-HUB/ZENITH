@@ -14,6 +14,9 @@ export default function SettingsPage() {
   const [autoStart, setAutoStart] = useState(false);
   const [cameraVisibility, setCameraVisibility] = useState('Participants');
   const [distractionAlerts, setDistractionAlerts] = useState(true);
+  const [appearanceMode, setAppearanceMode] = useState('dark');
+  const [customThemeUrl, setCustomThemeUrl] = useState('');
+  const [customThemeTarget, setCustomThemeTarget] = useState('BOTH');
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -24,6 +27,9 @@ export default function SettingsPage() {
       setAutoStart(user.settings.autoStartTimer || false);
       setCameraVisibility(user.settings.cameraVisibility || 'Participants');
       setDistractionAlerts(user.settings.distractionAlerts !== false);
+      setAppearanceMode(user.settings.appearanceMode || 'dark');
+      setCustomThemeUrl(user.settings.customThemeUrl || '');
+      setCustomThemeTarget(user.settings.customThemeTarget || 'BOTH');
     }
   }, [user]);
 
@@ -37,6 +43,9 @@ export default function SettingsPage() {
         autoStartTimer: autoStart,
         cameraVisibility,
         distractionAlerts,
+        appearanceMode,
+        customThemeUrl: customThemeUrl.trim() || undefined,
+        customThemeTarget,
       });
       await refreshUser();
       setSavedSuccess(true);
@@ -94,15 +103,25 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="p-3.5 rounded-lg bg-white/[0.02] border border-white/[0.05] space-y-2 text-xs text-zinc-300">
-            <p className="font-medium text-zinc-200">
-              Installation (Unpacked Extension):
-            </p>
+          <div className="p-3.5 rounded-lg bg-white/[0.02] border border-white/[0.05] space-y-3 text-xs text-zinc-300">
+            <div className="flex items-center justify-between">
+              <p className="font-medium text-zinc-200">
+                Installation (Chrome / Edge / Brave):
+              </p>
+              <a
+                href="/zenith-extension.zip"
+                download
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.08] hover:bg-white/[0.12] text-[11px] font-semibold text-white transition-colors"
+              >
+                <Download className="h-3 w-3" />
+                <span>Download Extension (.zip)</span>
+              </a>
+            </div>
             <ol className="list-decimal list-inside space-y-1 text-zinc-400 text-[11px] leading-relaxed">
               <li>Open <code className="text-zinc-200 font-mono">chrome://extensions</code> in your browser.</li>
               <li>Enable <strong>Developer mode</strong> in the top-right corner.</li>
               <li>Click <strong>Load unpacked</strong>.</li>
-              <li>Select: <code className="text-zinc-300 font-mono">/Users/mikey/Desktop/ZENITH/zenith-extension</code></li>
+              <li>Select your local <code className="text-zinc-300 font-mono">zenith-extension</code> folder.</li>
             </ol>
           </div>
         </div>
@@ -175,6 +194,51 @@ export default function SettingsPage() {
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* Theme & Atmosphere Section */}
+          <div className="rounded-xl bg-[#121215] border border-white/[0.07] p-5 space-y-4">
+            <div className="flex items-center gap-2 border-b border-white/[0.06] pb-3">
+              <Sparkles className="h-4 w-4 text-zinc-400" />
+              <h3 className="text-xs font-semibold text-white">Theme & Atmosphere</h3>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-zinc-300 block mb-2">Appearance Mode</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'dark', label: 'Dark Mode (OLED Focus)' },
+                  { id: 'light', label: 'Light Mode (High Contrast)' },
+                ].map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => setAppearanceMode(mode.id)}
+                    className={`py-2 rounded-lg text-xs font-medium transition-all ${
+                      appearanceMode === mode.id
+                        ? 'bg-white text-zinc-950 shadow-sm font-semibold'
+                        : 'bg-white/[0.02] text-zinc-400 border border-white/[0.06] hover:text-zinc-200'
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-zinc-300 block">Custom Background Wallpaper URL</label>
+              <input
+                type="url"
+                placeholder="https://images.unsplash.com/... or custom scenery image URL"
+                value={customThemeUrl}
+                onChange={(e) => setCustomThemeUrl(e.target.value)}
+                className="w-full rounded-lg bg-white/[0.03] border border-white/[0.08] px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/20"
+              />
+              <p className="text-[11px] text-zinc-500">
+                Personal ambient background for your dashboard and study sessions.
+              </p>
             </div>
           </div>
 

@@ -29,6 +29,7 @@ export function useWebRTC({
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const iceCandidateQueue = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -38,7 +39,12 @@ export function useWebRTC({
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+      { urls: 'stun:global.stun.twilio.com:3478' },
     ],
+    iceCandidatePoolSize: 10,
   };
 
   // 1. Initialize Local Media Stream
@@ -152,7 +158,27 @@ export function useWebRTC({
     }
   };
 
-  // 3. WebRTC Peer Connection Helper
+  // 3. Keep peer connections updated with local tracks when localStream updates
+  useEffect(() => {
+    if (!localStream) return;
+    peerConnections.current.forEach((pc) => {
+      const senders = pc.getSenders();
+      localStream.getTracks().forEach((track) => {
+        const sender = senders.find((s) => s.track?.kind === track.kind);
+        if (sender) {
+          sender.replaceTrack(track).catch((err) => console.warn('replaceTrack failed:', err));
+        } else {
+          try {
+            pc.addTrack(track, localStream);
+          } catch (err) {
+            console.warn('addTrack failed:', err);
+          }
+        }
+      });
+    });
+  }, [localStream]);
+
+  // 4. WebRTC Peer Connection Helper
   const createPeerConnection = useCallback(
     (remoteSocketId: string) => {
       const pc = new RTCPeerConnection(rtcConfig);
@@ -160,7 +186,11 @@ export function useWebRTC({
       // Add local stream tracks to PC
       if (localStream) {
         localStream.getTracks().forEach((track) => {
-          pc.addTrack(track, localStream);
+          try {
+            pc.addTrack(track, localStream);
+          } catch (e) {
+            console.warn('Error adding track to PC:', e);
+          }
         });
       }
 
@@ -176,16 +206,19 @@ export function useWebRTC({
 
       // Handle remote track arrival
       pc.ontrack = (event) => {
-        setRemoteStreams((prev) => {
-          const updated = new Map(prev);
-          updated.set(remoteSocketId, event.streams[0]);
-          return updated;
-        });
+        if (event.streams && event.streams[0]) {
+          setRemoteStreams((prev) => {
+            const updated = new Map(prev);
+            updated.set(remoteSocketId, event.streams[0]);
+            return updated;
+          });
+        }
       };
 
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
           peerConnections.current.delete(remoteSocketId);
+          iceCandidateQueue.current.delete(remoteSocketId);
           setRemoteStreams((prev) => {
             const updated = new Map(prev);
             updated.delete(remoteSocketId);
@@ -200,7 +233,7 @@ export function useWebRTC({
     [localStream, socket, roomId]
   );
 
-  // 4. Socket Signaling Listeners
+  // 5. Socket Signaling Listeners
   useEffect(() => {
     if (!socket) return;
 
@@ -211,49 +244,90 @@ export function useWebRTC({
         pc = createPeerConnection(data.fromSocketId);
       }
 
-      await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
 
-      socket.emit('webrtc_answer', {
-        toSocketId: data.fromSocketId,
-        fromUserId: userId,
-        answer,
-      });
+        // Drain buffered candidates
+        const queued = iceCandidateQueue.current.get(data.fromSocketId) || [];
+        for (const cand of queued) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (err) {
+            console.warn('Buffered ICE candidate addition failed:', err);
+          }
+        }
+        iceCandidateQueue.current.delete(data.fromSocketId);
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        socket.emit('webrtc_answer', {
+          toSocketId: data.fromSocketId,
+          fromUserId: userId,
+          answer,
+        });
+      } catch (err) {
+        console.error('Error handling webrtc_offer:', err);
+      }
     });
 
     // Incoming WebRTC Answer
     socket.on('webrtc_answer', async (data: { fromSocketId: string; answer: any }) => {
       const pc = peerConnections.current.get(data.fromSocketId);
       if (pc) {
-        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+
+          // Drain buffered candidates
+          const queued = iceCandidateQueue.current.get(data.fromSocketId) || [];
+          for (const cand of queued) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(cand));
+            } catch (err) {
+              console.warn('Buffered ICE candidate addition failed:', err);
+            }
+          }
+          iceCandidateQueue.current.delete(data.fromSocketId);
+        } catch (err) {
+          console.error('Error handling webrtc_answer:', err);
+        }
       }
     });
 
     // Incoming ICE Candidate
     socket.on('webrtc_ice_candidate', async (data: { fromSocketId: string; candidate: any }) => {
       const pc = peerConnections.current.get(data.fromSocketId);
-      if (pc && data.candidate) {
+      if (pc && pc.remoteDescription && pc.remoteDescription.type) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch (e) {
           console.warn('ICE candidate addition failed:', e);
         }
+      } else {
+        // Buffer candidate until remote description is set
+        if (!iceCandidateQueue.current.has(data.fromSocketId)) {
+          iceCandidateQueue.current.set(data.fromSocketId, []);
+        }
+        iceCandidateQueue.current.get(data.fromSocketId)!.push(data.candidate);
       }
     });
 
     // When another user joins, initiate an offer to them
     socket.on('user_joined', async (data: { participant: { socketId: string; userId: string } }) => {
       if (data.participant.socketId !== socket.id) {
-        const pc = createPeerConnection(data.participant.socketId);
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
+        try {
+          const pc = createPeerConnection(data.participant.socketId);
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
 
-        socket.emit('webrtc_offer', {
-          toSocketId: data.participant.socketId,
-          fromUserId: userId,
-          offer,
-        });
+          socket.emit('webrtc_offer', {
+            toSocketId: data.participant.socketId,
+            fromUserId: userId,
+            offer,
+          });
+        } catch (err) {
+          console.error('Error initiating WebRTC offer to new peer:', err);
+        }
       }
     });
 
@@ -264,6 +338,7 @@ export function useWebRTC({
         pc.close();
         peerConnections.current.delete(data.socketId);
       }
+      iceCandidateQueue.current.delete(data.socketId);
       setRemoteStreams((prev) => {
         const updated = new Map(prev);
         updated.delete(data.socketId);

@@ -210,53 +210,63 @@ export class RoomController {
       const userId = req.user!.userId;
       const { roomId } = req.params;
 
-      const room = await prisma.room.findUnique({
-        where: { id: roomId },
-        include: { participants: { where: { status: 'ACTIVE' } } },
-      });
-
-      if (!room) {
-        res.status(404).json({ success: false, error: 'Room not found' });
-        return;
-      }
-
-      // Hard enforcement of 6 participants maximum for interaction rooms
-      const effectiveCap = room.category === 'INTERACTION' ? 6 : room.maxParticipants;
-      if (room.participants.length >= effectiveCap) {
-        res.status(400).json({
-          success: false,
-          error: room.category === 'INTERACTION'
-            ? 'Interaction rooms have a strict maximum limit of 6 participants.'
-            : 'Room is currently full.',
+      const result = await prisma.$transaction(async (tx) => {
+        const room = await tx.room.findUnique({
+          where: { id: roomId },
+          include: { participants: { where: { status: 'ACTIVE' } } },
         });
-        return;
-      }
 
-      const participant = await prisma.roomParticipant.upsert({
-        where: {
-          roomId_userId: { roomId, userId },
-        },
-        update: {
-          status: 'ACTIVE',
-          leftAt: null,
-          joinedAt: new Date(),
-        },
-        create: {
-          roomId,
-          userId,
-          role: room.creatorId === userId ? 'HOST' : 'MEMBER',
-          status: 'ACTIVE',
-        },
-        include: {
-          user: {
-            select: { id: true, name: true, username: true, avatarUrl: true },
+        if (!room) {
+          throw new Error('ROOM_NOT_FOUND');
+        }
+
+        const isAlreadyActive = room.participants.some((p) => p.userId === userId);
+        const effectiveCap = room.category === 'INTERACTION' ? 6 : (room.maxParticipants || 10);
+
+        if (!isAlreadyActive && room.participants.length >= effectiveCap) {
+          const err: any = new Error(
+            room.category === 'INTERACTION'
+              ? 'Interaction rooms have a strict maximum limit of 6 participants.'
+              : 'Room is currently full.'
+          );
+          err.code = 'ROOM_FULL';
+          throw err;
+        }
+
+        const participant = await tx.roomParticipant.upsert({
+          where: {
+            roomId_userId: { roomId, userId },
           },
-        },
+          update: {
+            status: 'ACTIVE',
+            leftAt: null,
+            joinedAt: new Date(),
+          },
+          create: {
+            roomId,
+            userId,
+            role: room.creatorId === userId ? 'HOST' : 'MEMBER',
+            status: 'ACTIVE',
+          },
+          include: {
+            user: {
+              select: { id: true, name: true, username: true, avatarUrl: true },
+            },
+          },
+        });
+
+        return { participant, room };
       });
 
-      res.json({ success: true, participant, room });
+      res.json({ success: true, participant: result.participant, room: result.room });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message || 'Failed to join room' });
+      if (error.message === 'ROOM_NOT_FOUND') {
+        res.status(404).json({ success: false, error: 'Room not found' });
+      } else if (error.code === 'ROOM_FULL') {
+        res.status(400).json({ success: false, error: error.message });
+      } else {
+        res.status(500).json({ success: false, error: error.message || 'Failed to join room' });
+      }
     }
   }
 

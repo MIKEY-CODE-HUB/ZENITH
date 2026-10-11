@@ -27,6 +27,8 @@ export function Sidebar() {
     { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { label: 'Rooms', href: '/rooms', icon: Radio, badge: 'Live' },
     { label: 'Distraction Shield', href: '/blocker', icon: Shield },
+    { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
+    { label: 'Achievements', href: '/achievements', icon: Award },
     { label: 'Analytics', href: '/analytics', icon: BarChart3 },
     { label: 'History', href: '/history', icon: History },
     { label: 'Profile', href: '/profile', icon: User },

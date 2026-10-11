@@ -78,6 +78,8 @@ export default function LiveRoomPage() {
 
   const isInteractionRoom = category === 'INTERACTION';
 
+  const activeRoomId = room?.id || roomIdOrCode;
+
   // WebRTC Audio/Video Hook
   const {
     localStream,
@@ -90,7 +92,7 @@ export default function LiveRoomPage() {
     toggleMic,
   } = useWebRTC({
     socket,
-    roomId: roomIdOrCode,
+    roomId: activeRoomId,
     userId: user?.id || 'guest',
     enableCameraDefault: true,
     enableMicDefault: false,
@@ -225,7 +227,7 @@ export default function LiveRoomPage() {
     if (!socket || !room || !user) return;
 
     socket.emit('join_room', {
-      roomId: room.id,
+      roomId: activeRoomId,
       userId: user.id,
       name: user.name,
       username: user.username,
@@ -239,6 +241,27 @@ export default function LiveRoomPage() {
 
     socket.on('room_presence_list', (data: { participants: ParticipantPresence[] }) => {
       setParticipants(data.participants);
+    });
+
+    socket.on('participant_media_updated', (data: { socketId: string; userId: string; cameraOn: boolean; micOn: boolean }) => {
+      setParticipants((prev) =>
+        prev.map((p) =>
+          p.userId === data.userId || p.socketId === data.socketId
+            ? { ...p, cameraOn: data.cameraOn, micOn: data.micOn }
+            : p
+        )
+      );
+    });
+
+    socket.on('user_joined', (data: { participant: ParticipantPresence }) => {
+      setParticipants((prev) => {
+        const filtered = prev.filter((p) => p.socketId !== data.participant.socketId && p.userId !== data.participant.userId);
+        return [...filtered, data.participant];
+      });
+    });
+
+    socket.on('user_left', (data: { socketId: string; userId?: string }) => {
+      setParticipants((prev) => prev.filter((p) => p.socketId !== data.socketId && (!data.userId || p.userId !== data.userId)));
     });
 
     socket.on('participant_status_updated', (data: { socketId: string; userId: string; focusStatus: FocusStatus; focusStreakMinutes: number }) => {
@@ -262,12 +285,15 @@ export default function LiveRoomPage() {
     });
 
     return () => {
-      socket.emit('leave_room', { roomId: room.id });
+      socket.emit('leave_room', { roomId: activeRoomId });
       socket.off('room_presence_list');
+      socket.off('participant_media_updated');
+      socket.off('user_joined');
+      socket.off('user_left');
       socket.off('participant_status_updated');
       socket.off('participant_speaking');
     };
-  }, [socket, room, user, isCameraOn, isMicOn, activityName, category]);
+  }, [socket, activeRoomId, user?.id, activityName, category]);
 
   // Synchronized countdown timer
   const startTimeRef = useRef<number>(Date.now());

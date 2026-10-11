@@ -54,15 +54,12 @@ export default function BlockerDashboardPage() {
 
   async function checkLiveStatus() {
     try {
-      const res = await fetch('http://127.0.0.1:5001/api/blocker/live-status').catch(() => null);
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data.active) {
-          setActiveSession(data);
-          if (data.mode) setBlockerMode(data.mode);
-        } else {
-          setActiveSession(null);
-        }
+      const data = await api.getBlockerLiveStatus().catch(() => null);
+      if (data && data.active) {
+        setActiveSession(data);
+        if (data.mode) setBlockerMode(data.mode as any);
+      } else {
+        setActiveSession(null);
       }
     } catch (e) {}
   }

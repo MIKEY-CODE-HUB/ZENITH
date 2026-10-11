@@ -21,13 +21,26 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('trapbreaker_token') : null;
-    const socketUrl = typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:5001';
+    
+    // Resolve socket server URL: environment variable, or backend port 5001 on localhost/127.0.0.1
+    let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+    if (!socketUrl && typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        socketUrl = `http://${hostname}:5001`;
+      } else {
+        socketUrl = window.location.origin;
+      }
+    }
+    if (!socketUrl) {
+      socketUrl = 'http://localhost:5001';
+    }
 
     const socketInstance = io(socketUrl, {
       path: '/socket.io',
       auth: { token },
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 15,
       reconnectionDelay: 1000,
     });
 
