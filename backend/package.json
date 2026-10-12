@@ -32,5 +32,8 @@
     "socket.io-client": "^4.8.4",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

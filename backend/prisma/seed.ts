@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -718,20 +718,23 @@ async function main() {
   }
 
   // 6. Start Fresh: Ensure Clean Slate for new / existing users (0 fake points, 0 fake attempts)
-  await prisma.pointTransaction.deleteMany({});
-  await prisma.blockAttempt.deleteMany({});
-  await prisma.focusSession.deleteMany({});
+  await prisma.focusEvent.deleteMany({});
   await prisma.blockerSession.deleteMany({});
+  await prisma.blockAttempt.deleteMany({});
+  await prisma.pointTransaction.deleteMany({});
+  await prisma.focusSession.deleteMany({});
+  await prisma.interactionAuthorization.deleteMany({});
   await prisma.roomParticipant.deleteMany({});
 
   console.log('✅ Seed completed successfully: clean slate, 40 focus rooms (10 per category), 0 fake stats!');
 }
 
 main()
-  .catch((e) => {
-    console.error('❌ Seed error:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
+  .then(async () => {
     await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error('❌ Seed error:', e);
+    await prisma.$disconnect();
+    process.exit(1);
   });
