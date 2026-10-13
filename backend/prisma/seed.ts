@@ -70,9 +70,9 @@ async function main() {
   const passwordHash = await bcrypt.hash('password123', 10);
   const usersData = [
     {
-      username: 'mikey',
-      name: 'Mikey Anderson',
-      email: 'mikey@trapbreaker.com',
+      username: 'loki',
+      name: 'Loki Anderson',
+      email: 'loki@trapbreaker.com',
       avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop',
       preferredActivity: 'Coding',
       typicalDuration: 50,
@@ -174,14 +174,14 @@ async function main() {
     { type: 'WEBSITE', identifier: 'docs.google.com', displayName: 'Google Docs', category: 'CUSTOM', isAllowlist: true },
   ];
 
-  const mikey = createdUsers['mikey'];
+  const loki = createdUsers['loki'];
   const createdResources: Record<string, any> = {};
 
   for (const res of defaultResources) {
     const item = await prisma.blockedResource.upsert({
       where: {
         userId_type_identifier: {
-          userId: mikey.id,
+          userId: loki.id,
           type: res.type,
           identifier: res.identifier,
         },
@@ -193,7 +193,7 @@ async function main() {
         enabled: true,
       },
       create: {
-        userId: mikey.id,
+        userId: loki.id,
         type: res.type,
         identifier: res.identifier,
         displayName: res.displayName,
@@ -205,7 +205,7 @@ async function main() {
     createdResources[res.identifier] = item;
   }
 
-  // 4. Activity-Specific Block Lists for Mikey
+  // 4. Activity-Specific Block Lists for Loki
   const activityConfig: Record<string, string[]> = {
     Coding: ['youtube.com', 'instagram.com', 'reddit.com', 'netflix.com', 'twitter.com', 'Steam', 'Discord'],
     Study: ['youtube.com', 'instagram.com', 'reddit.com', 'netflix.com', 'tiktok.com', 'Spotify', 'Steam'],
@@ -220,14 +220,14 @@ async function main() {
         await prisma.activityBlockList.upsert({
           where: {
             userId_activityType_resourceId: {
-              userId: mikey.id,
+              userId: loki.id,
               activityType: act,
               resourceId: resource.id,
             },
           },
           update: { enabled: true },
           create: {
-            userId: mikey.id,
+            userId: loki.id,
             activityType: act,
             resourceId: resource.id,
             enabled: true,
@@ -260,7 +260,7 @@ async function main() {
       roomCode: 'EDU-FOCUS-02',
       defaultDuration: 50,
       maxParticipants: 10,
-      creatorId: createdUsers['mikey'].id,
+      creatorId: createdUsers['loki'].id,
     },
     {
       name: 'FORGE',
@@ -337,7 +337,7 @@ async function main() {
       roomCode: 'EDU-NEURON-09',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['mikey'].id,
+      creatorId: createdUsers['loki'].id,
     },
     {
       name: 'SCHOLAR',
@@ -361,7 +361,7 @@ async function main() {
       roomCode: 'EXE-BOOST-01',
       defaultDuration: 45,
       maxParticipants: 10,
-      creatorId: createdUsers['mikey'].id,
+      creatorId: createdUsers['loki'].id,
     },
     {
       name: 'MOMENTUM',
@@ -383,7 +383,7 @@ async function main() {
       roomCode: 'EXE-TITAN-03',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['mikey'].id,
+      creatorId: createdUsers['loki'].id,
     },
     {
       name: 'ENDURE',
@@ -438,7 +438,7 @@ async function main() {
       roomCode: 'EXE-IRON-08',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['mikey'].id,
+      creatorId: createdUsers['loki'].id,
     },
     {
       name: 'KINETIC',
@@ -518,7 +518,7 @@ async function main() {
       roomCode: 'SQ-BEAT-05',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['mikey'].id,
+      creatorId: createdUsers['loki'].id,
     },
     {
       name: 'SCRIPT',
@@ -573,7 +573,7 @@ async function main() {
       roomCode: 'SQ-FOUNDER-10',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['mikey'].id,
+      creatorId: createdUsers['loki'].id,
     },
 
     // ── INTERACTION ROOMS (10 Rooms, max 6 STRICT) ───────────────────────────
@@ -601,7 +601,7 @@ async function main() {
       defaultDuration: 30,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['mikey'].id,
+      creatorId: createdUsers['loki'].id,
     },
     {
       name: 'COLLAB',
@@ -640,7 +640,7 @@ async function main() {
       defaultDuration: 40,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['mikey'].id,
+      creatorId: createdUsers['loki'].id,
     },
     {
       name: 'DEBATE',
@@ -705,7 +705,7 @@ async function main() {
       defaultDuration: 30,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['mikey'].id,
+      creatorId: createdUsers['loki'].id,
     },
   ];
 

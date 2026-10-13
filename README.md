@@ -101,7 +101,7 @@ For quick review and presentation testing, you can use the **1-Click Demo Login*
 
 | Name | Username | Email | Password | Role / Specialty |
 |---|---|---|---|---|
-| **Mikey** | `mikey` | `mikey@trapbreaker.com` | `password123` | Full-Stack Developer |
+| **Loki** | `loki` | `loki@trapbreaker.com` | `password123` | Full-Stack Developer |
 | **Alex Chen** | `alexchen` | `alex@trapbreaker.com` | `password123` | CS Student / LeetCode |
 | **Sarah Jenkins** | `sarahj` | `sarah@trapbreaker.com` | `password123` | UI/UX Designer |
 | **Rahul Verma** | `rahulv` | `rahul@trapbreaker.com` | `password123` | Academic Researcher |
