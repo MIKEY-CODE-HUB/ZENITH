@@ -9,6 +9,9 @@ import { useWebRTC } from '@/hooks/useWebRTC';
 import { api } from '@/lib/api';
 import { ATMOSPHERES, getAtmosphereById, AtmosphereTheme } from '@/lib/atmospheres';
 import { AtmosphereCanvas } from '@/components/AtmosphereCanvas';
+import { RoomHeader } from '@/components/RoomHeader';
+import { AdaptiveVideoGallery, VideoLayoutMode } from '@/components/AdaptiveVideoGallery';
+import { FloatingControlDock } from '@/components/FloatingControlDock';
 import { SoundscapeMixerModal } from '@/components/SoundscapeMixerModal';
 import { MusicPlayerModal } from '@/components/MusicPlayerModal';
 import { AtmosphereSelectorModal } from '@/components/AtmosphereSelectorModal';
@@ -54,6 +57,25 @@ export default function LiveRoomPage() {
   const [remainingSeconds, setRemainingSeconds] = useState<number>(50 * 60);
   const [participants, setParticipants] = useState<ParticipantPresence[]>([]);
   const [ending, setEnding] = useState<boolean>(false);
+
+  // Video Layout Mode ('footer' [DEFAULT], 'header', 'middle', 'scattered')
+  const [videoLayout, setVideoLayout] = useState<VideoLayoutMode>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('zenith_video_layout');
+      if (stored && ['footer', 'header', 'middle', 'scattered'].includes(stored)) {
+        return stored as VideoLayoutMode;
+      }
+    }
+    return 'footer'; // DEFAULT
+  });
+
+  const handleVideoLayoutChange = (newLayout: VideoLayoutMode) => {
+    setVideoLayout(newLayout);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('zenith_video_layout', newLayout);
+    }
+    api.updateSettings({ videoLayout: newLayout }).catch(() => {});
+  };
 
   // Atmosphere State
   const [currentAtmosphere, setCurrentAtmosphere] = useState<AtmosphereTheme>(() => {
@@ -372,278 +394,58 @@ export default function LiveRoomPage() {
         accentColor={currentAtmosphere.accentColor}
       />
 
-      {/* ── SUBTLE NON-DOMINANT TIMER & ROOM NAME (TOP CENTER) ── */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none">
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/90 text-xs font-mono mb-1.5 shadow-lg">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-semibold tracking-wider">{room?.name || 'ZENITH'}</span>
-          <span>•</span>
-          <span className="text-zinc-400">{activityName}</span>
-        </div>
-        <div className="text-4xl sm:text-5xl font-extralight tracking-widest text-white/95 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] font-mono">
+      {/* ── LAYER A: UNOBTRUSIVE ROOM HEADER ── */}
+      <RoomHeader
+        roomName={room?.name || 'SEM Room'}
+        category={category}
+        participantCount={participants.length}
+        maxParticipants={category === 'INTERACTION' ? 6 : (room?.maxParticipants || 10)}
+        videoLayout={videoLayout}
+        onChangeVideoLayout={handleVideoLayoutChange}
+        onExit={() => setShowExitConfirm(true)}
+      />
+
+      {/* ── LAYER C: SUBTLE NON-DOMINANT TIMER (CENTER TOP) ── */}
+      <div className="absolute top-14 sm:top-16 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none">
+        <div className="text-3xl sm:text-5xl font-mono font-extralight tracking-widest text-white/90 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
           {formatSeconds(remainingSeconds)}
         </div>
       </div>
 
-      {/* ── TRANSLUCENT PARTICIPANT VIDEO & PRESENCE GRID ── */}
-      <div className="absolute inset-x-6 top-28 bottom-24 z-10 flex items-center justify-center pointer-events-none">
-        <div className="flex flex-wrap items-center justify-center gap-5 max-w-5xl pointer-events-auto">
-          {/* User's Own Camera Container */}
-          <div
-            className={`relative rounded-2xl overflow-hidden backdrop-blur-md border transition-all duration-300 shadow-2xl ${
-              isLocalSpeaking
-                ? 'border-sky-400 ring-2 ring-sky-400/50 shadow-sky-500/20'
-                : 'border-white/15 bg-black/30'
-            }`}
-            style={{ width: '240px', height: '145px' }}
-          >
-            {isCameraOn ? (
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover transform -scale-x-100"
-              />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-black/40 text-zinc-400 space-y-1">
-                <img
-                  src={user?.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.username || 'user'}`}
-                  alt="avatar"
-                  className="h-12 w-12 rounded-full border border-white/20"
-                />
-                <span className="text-[11px] font-medium text-zinc-300">Camera Off</span>
-              </div>
-            )}
+      {/* ── LAYER D: ADAPTIVE PARTICIPANT GALLERY (10 PEER LIVE MESH) ── */}
+      <AdaptiveVideoGallery
+        layoutMode={videoLayout}
+        localVideoRef={localVideoRef}
+        isCameraOn={isCameraOn}
+        isMicOn={isMicOn}
+        isLocalSpeaking={isLocalSpeaking}
+        user={user}
+        participants={participants}
+        remoteStreams={remoteStreams}
+        isInteractionRoom={isInteractionRoom}
+      />
 
-            {/* Glass Label Overlay */}
-            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[11px] px-2 py-1 rounded-lg bg-black/60 backdrop-blur-sm border border-white/10">
-              <span className="font-semibold text-white truncate max-w-[120px]">
-                {user?.name?.split(' ')[0] || 'You'} (You)
-              </span>
-              {isInteractionRoom && (
-                <div className="flex items-center gap-1.5">
-                  {isLocalSpeaking && (
-                    <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                  )}
-                  {isMicOn ? (
-                    <Mic className="h-3 w-3 text-emerald-400" />
-                  ) : (
-                    <MicOff className="h-3 w-3 text-zinc-500" />
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Remote Peer Containers */}
-          {participants
-            .filter((p) => p.userId !== user?.id)
-            .map((peer) => {
-              const remoteStream = remoteStreams.get(peer.socketId);
-              return (
-                <div
-                  key={peer.socketId}
-                  className={`relative rounded-2xl overflow-hidden backdrop-blur-md border transition-all duration-300 shadow-2xl ${
-                    peer.speaking
-                      ? 'border-emerald-400 ring-2 ring-emerald-400/50 shadow-emerald-500/20'
-                      : 'border-white/15 bg-black/30'
-                  }`}
-                  style={{ width: '240px', height: '145px' }}
-                >
-                  {remoteStream && peer.cameraOn ? (
-                    <video
-                      autoPlay
-                      playsInline
-                      ref={(el) => {
-                        if (el && el.srcObject !== remoteStream) {
-                          el.srcObject = remoteStream;
-                        }
-                      }}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-black/40 text-zinc-400 space-y-1">
-                      <img
-                        src={peer.avatarUrl}
-                        alt={peer.name}
-                        className="h-12 w-12 rounded-full border border-white/20"
-                      />
-                      <span className="text-[11px] font-medium text-zinc-300">{peer.name}</span>
-                    </div>
-                  )}
-
-                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[11px] px-2 py-1 rounded-lg bg-black/60 backdrop-blur-sm border border-white/10">
-                    <span className="font-semibold text-white truncate max-w-[120px]">
-                      {peer.name}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      {peer.speaking && (
-                        <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                      )}
-                      <span className="text-[9px] font-mono text-zinc-400">{peer.activityType}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      </div>
-
-      {/* ── EXPANDED SESSION PROGRESS PANEL ── */}
-      {isTapeExpanded && (
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 w-full max-w-md p-5 rounded-2xl bg-black/80 backdrop-blur-xl border border-white/15 shadow-2xl text-xs space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <h3 className="font-semibold text-white tracking-tight">Active Session Truth Progress</h3>
-            <button
-              onClick={() => setIsTapeExpanded(false)}
-              className="p-1 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white"
-            >
-              <ChevronDown className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 font-mono">
-            <div className="p-3 rounded-xl bg-white/[0.04] border border-white/5">
-              <span className="text-[10px] text-zinc-400 uppercase">Focused Time</span>
-              <div className="text-base font-bold text-emerald-400 mt-0.5">
-                {formatMinutesHuman(Math.round(focusedSeconds / 60))}
-              </div>
-            </div>
-            <div className="p-3 rounded-xl bg-white/[0.04] border border-white/5">
-              <span className="text-[10px] text-zinc-400 uppercase">Away / Distracted</span>
-              <div className="text-base font-bold text-rose-400 mt-0.5">
-                {formatMinutesHuman(Math.round(distractedSeconds / 60))}
-              </div>
-            </div>
-            <div className="p-3 rounded-xl bg-white/[0.04] border border-white/5">
-              <span className="text-[10px] text-zinc-400 uppercase">Focus Score</span>
-              <div className="text-base font-bold text-sky-400 mt-0.5">{currentFocusRate}%</div>
-            </div>
-            <div className="p-3 rounded-xl bg-white/[0.04] border border-white/5">
-              <span className="text-[10px] text-zinc-400 uppercase">Points Gained</span>
-              <div className="text-base font-bold text-amber-400 mt-0.5 flex items-center gap-1">
-                <span>+{estimatedPoints}</span>
-                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-              </div>
-            </div>
-          </div>
-
-          <p className="text-[10px] text-zinc-400 italic leading-relaxed">
-            Zenith Focus Score is an estimate derived from active tab visibility and user interaction signals.
-          </p>
-        </div>
-      )}
-
-      {/* ── PERSISTENT BOTTOM PROGRESS TAPE ── */}
-      <div className="absolute bottom-16 inset-x-0 z-20 flex justify-center px-4 pointer-events-none">
-        <button
-          onClick={() => setIsTapeExpanded(!isTapeExpanded)}
-          className="pointer-events-auto flex items-center gap-4 px-4 py-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/15 text-xs text-zinc-300 hover:text-white hover:border-white/30 transition-all shadow-xl font-mono"
-        >
-          <span className="flex items-center gap-1.5 font-sans font-semibold text-white">
-            <GraduationCap className="h-3.5 w-3.5 text-emerald-400" />
-            <span>{activityName}</span>
-          </span>
-          <span>•</span>
-          <span className="text-emerald-400">{Math.round(focusedSeconds / 60)}m Focused</span>
-          <span>•</span>
-          <div className="w-24 bg-zinc-800 rounded-lg h-1.5 overflow-hidden">
-            <div className="bg-sky-400 h-full rounded-lg" style={{ width: `${sessionProgressPercent}%` }} />
-          </div>
-          <span>•</span>
-          <span className="text-sky-300 font-semibold">{currentFocusRate}% Focus</span>
-          <span>•</span>
-          <span className="text-amber-400 font-semibold">+{estimatedPoints} ⭐</span>
-          {isTapeExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-        </button>
-      </div>
-
-      {/* ── AUTO-HIDING TRANSLUCENT FLOATING CONTROL BAR (BOTTOM) ── */}
-      <div
-        className={`absolute bottom-4 inset-x-0 z-30 flex justify-center px-4 transition-opacity duration-500 ${
-          controlsVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-      >
-        <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-black/75 backdrop-blur-xl border border-white/15 shadow-2xl">
-          {/* Atmosphere Picker */}
-          <button
-            onClick={() => setIsAtmosphereModalOpen(true)}
-            className="p-2.5 rounded-xl hover:bg-white/10 text-zinc-300 hover:text-white transition-colors"
-            title="Atmosphere"
-          >
-            <Palette className="h-4 w-4" />
-          </button>
-
-          {/* Music System */}
-          <button
-            onClick={() => setIsMusicModalOpen(true)}
-            className="p-2.5 rounded-xl hover:bg-white/10 text-zinc-300 hover:text-white transition-colors"
-            title="Zenith Music & Spotify"
-          >
-            <Music className="h-4 w-4" />
-          </button>
-
-          {/* Soundscape Mixer */}
-          <button
-            onClick={() => setIsSoundscapeModalOpen(true)}
-            className="p-2.5 rounded-xl hover:bg-white/10 text-zinc-300 hover:text-white transition-colors"
-            title="Layered Soundscape Mixer"
-          >
-            <Sliders className="h-4 w-4" />
-          </button>
-
-          {/* Mic Toggle: strictly available in Interaction Rooms ONLY */}
-          {isInteractionRoom && (
-            <>
-              <div className="h-5 w-px bg-white/15 mx-1" />
-              <button
-                onClick={toggleMic}
-                className={`p-2.5 rounded-xl transition-colors ${
-                  isMicOn
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : 'hover:bg-white/10 text-zinc-400 hover:text-white'
-                }`}
-                title={isMicOn ? 'Mute Mic' : 'Unmute Mic'}
-              >
-                {isMicOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-              </button>
-            </>
-          )}
-
-          {/* Camera Toggle */}
-          <button
-            onClick={toggleCamera}
-            className={`p-2.5 rounded-xl transition-colors ${
-              isCameraOn
-                ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-                : 'hover:bg-white/10 text-zinc-400 hover:text-white'
-            }`}
-            title={isCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
-          >
-            {isCameraOn ? <Camera className="h-4 w-4" /> : <CameraOff className="h-4 w-4" />}
-          </button>
-
-          <div className="h-5 w-px bg-white/15 mx-1" />
-
-          {/* Focus Protection Indicator */}
-          <button
-            className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-            title="Focus Protection Active (Strict Mode)"
-          >
-            <Shield className="h-4 w-4" />
-          </button>
-
-          {/* Leave / Complete Session */}
-          <button
-            onClick={() => setShowExitConfirm(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white border border-rose-500/30 transition-all font-semibold text-xs ml-1"
-          >
-            <LogOut className="h-4 w-4" />
-            <span>End Session</span>
-          </button>
-        </div>
-      </div>
+      {/* ── LAYER E: 5-BUTTON FLOATING BOTTOM CONTROL DOCK (320–420px) ── */}
+      <FloatingControlDock
+        currentAtmosphere={currentAtmosphere}
+        onSelectAtmosphere={(atm) => {
+          setCurrentAtmosphere(atm);
+          sessionStorage.setItem('active_session_atmosphere', atm.id);
+          api.updateSettings({ customThemeUrl: atm.bgImageUrl }).catch(() => {});
+        }}
+        isCameraOn={isCameraOn}
+        isMicOn={isMicOn}
+        toggleCamera={toggleCamera}
+        toggleMic={toggleMic}
+        isInteractionRoom={isInteractionRoom}
+        remainingSeconds={remainingSeconds}
+        plannedMinutes={plannedMinutes}
+        focusedSeconds={focusedSeconds}
+        distractedSeconds={distractedSeconds}
+        focusScore={currentFocusRate}
+        estimatedPoints={estimatedPoints}
+        onEndSession={() => setShowExitConfirm(true)}
+      />
 
       {/* ── DISTRACTION WARNING OVERLAY ── */}
       {isFrozen && (

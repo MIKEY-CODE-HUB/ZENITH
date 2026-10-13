@@ -491,6 +491,32 @@ export async function POST(req: NextRequest, { params }: { params: { path: strin
     return NextResponse.json({ success: true, message: 'Password reset successfully. You may now log in.' });
   }
 
+  // /api/rooms/allocate
+  if (pathStr === 'rooms/allocate') {
+    const category = (body.category || 'EDUCATION').toUpperCase();
+    const effectiveCap = category === 'INTERACTION' ? 6 : 10;
+    const matching = CANONICAL_ROOMS.filter((r) => r.category === category);
+    const candidate = matching[0] || CANONICAL_ROOMS[0];
+    const room = {
+      ...candidate,
+      maxParticipants: effectiveCap,
+      activeParticipantsCount: 1,
+    };
+    return NextResponse.json({
+      success: true,
+      room,
+      participant: {
+        id: `part-${Date.now()}`,
+        roomId: room.id,
+        userId: 'current-user',
+        role: 'MEMBER',
+        status: 'ACTIVE',
+      },
+      isNew: false,
+      alreadyMember: false,
+    });
+  }
+
   // /api/interaction/authorize
   if (pathStr === 'interaction/authorize') {
     return NextResponse.json({
@@ -578,6 +604,7 @@ export async function PUT(req: NextRequest, { params }: { params: { path: string
         appearanceMode: body.appearanceMode || 'dark',
         customThemeUrl: body.customThemeUrl || null,
         customThemeTarget: body.customThemeTarget || 'BOTH',
+        videoLayout: body.videoLayout || 'footer',
       },
     });
   }

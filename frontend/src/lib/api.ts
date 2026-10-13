@@ -175,6 +175,19 @@ class ApiClient {
     });
   }
 
+  async allocateRoom(body: { category?: string; activityType?: string; atmosphere?: string }) {
+    return this.request<{
+      success: boolean;
+      room: any;
+      participant: any;
+      isNew: boolean;
+      alreadyMember: boolean;
+    }>('/rooms/allocate', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
   async joinRoom(roomId: string) {
     return this.request<{ success: boolean; participant: any; room: any }>(`/rooms/${roomId}/join`, {
       method: 'POST',

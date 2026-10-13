@@ -381,6 +381,37 @@ export default function RoomsPage() {
     }
   };
 
+  const [matchmaking, setMatchmaking] = useState<boolean>(false);
+  const [matchmakeError, setMatchmakeError] = useState<string | null>(null);
+
+  const handleDynamicMatchmake = async (cat?: string) => {
+    try {
+      setMatchmaking(true);
+      setMatchmakeError(null);
+      const targetCategory = cat || (selectedCategory === 'All' ? 'EDUCATION' : selectedCategory);
+
+      if (targetCategory === 'INTERACTION') {
+        const quoteRes = await api.getInteractionQuote();
+        if (quoteRes.success && !quoteRes.quote.canAfford) {
+          setMatchmakeError(`Insufficient weekly points (requires ${quoteRes.quote.cost} ⭐).`);
+          return;
+        }
+      }
+
+      const res = await api.allocateRoom({ category: targetCategory });
+      if (res.success && res.room) {
+        router.push(`/focus/${res.room.id}`);
+      } else {
+        setMatchmakeError('Matchmaking allocation failed. Please retry.');
+      }
+    } catch (err: any) {
+      console.error('Matchmaking error:', err);
+      setMatchmakeError(err.message || 'Unable to allocate room.');
+    } finally {
+      setMatchmaking(false);
+    }
+  };
+
   return (
     <div className="flex min-h-[calc(100vh-4rem)] bg-[#09090b] text-zinc-100">
       <Sidebar />
@@ -399,13 +430,52 @@ export default function RoomsPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-zinc-950 text-xs font-semibold hover:bg-zinc-100 transition-colors shadow-sm"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create Room</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleDynamicMatchmake()}
+              disabled={matchmaking}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white text-xs font-semibold transition-all shadow-md disabled:opacity-50"
+            >
+              <span>{matchmaking ? 'Allocating Room...' : '⚡ Quick Matchmake'}</span>
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-zinc-950 text-xs font-semibold hover:bg-zinc-100 transition-colors shadow-sm"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Create Room</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Dynamic Matchmaking Feature Card */}
+        <div className="rounded-2xl p-5 bg-gradient-to-br from-sky-950/40 via-zinc-900/60 to-black border border-sky-500/20 backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-xs font-semibold text-sky-400">
+              <span className="h-2 w-2 rounded-full bg-sky-400 animate-ping" />
+              <span>Dynamic Matchmaking Engine</span>
+            </div>
+            <h3 className="text-base font-semibold text-white tracking-tight">
+              Instant 10-Person Study Room Allocation
+            </h3>
+            <p className="text-xs text-zinc-400 max-w-xl">
+              Server-authoritative atomic slot allocation. Automatically joins an active study room with available capacity or dynamically provisions an eligible new room.
+            </p>
+            {matchmakeError && <p className="text-xs text-rose-400 font-medium pt-1">{matchmakeError}</p>}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {(['EDUCATION', 'EXERCISE', 'SIDE_QUEST', 'INTERACTION'] as const).map((cat) => (
+              <button
+                key={cat}
+                onClick={() => handleDynamicMatchmake(cat)}
+                disabled={matchmaking}
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium border border-white/10 transition-colors capitalize disabled:opacity-50"
+              >
+                Join {cat.replace('_', ' ').toLowerCase()}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Category Tabs */}
