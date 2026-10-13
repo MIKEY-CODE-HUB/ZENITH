@@ -211,6 +211,9 @@ export class RoomController {
       const { roomId } = req.params;
 
       const result = await prisma.$transaction(async (tx) => {
+        // Concurrency protection: acquire transactional lock on roomId
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${roomId}))`;
+
         const room = await tx.room.findUnique({
           where: { id: roomId },
           include: { participants: { where: { status: 'ACTIVE' } } },
@@ -221,13 +224,13 @@ export class RoomController {
         }
 
         const isAlreadyActive = room.participants.some((p) => p.userId === userId);
-        const effectiveCap = room.category === 'INTERACTION' ? 6 : (room.maxParticipants || 10);
+        const effectiveCap = room.category === 'INTERACTION' ? 6 : Math.min(10, room.maxParticipants || 10);
 
         if (!isAlreadyActive && room.participants.length >= effectiveCap) {
           const err: any = new Error(
             room.category === 'INTERACTION'
               ? 'Interaction rooms have a strict maximum limit of 6 participants.'
-              : 'Room is currently full.'
+              : 'Focus rooms have a strict maximum limit of 10 participants.'
           );
           err.code = 'ROOM_FULL';
           throw err;
@@ -270,14 +273,215 @@ export class RoomController {
     }
   }
 
+  public static async allocateRoom(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const { category = 'EDUCATION', activityType = 'Deep Focus', atmosphere = 'Rainy Window' } = req.body;
+
+      const upperCategory = String(category).toUpperCase();
+      const effectiveCap = upperCategory === 'INTERACTION' ? 6 : 10;
+
+      // Atomic allocation transaction
+      const allocation = await prisma.$transaction(async (tx) => {
+        // Concurrency protection: serialize category allocation atomically
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'alloc_' + upperCategory}))`;
+
+        // 1. Check if user is already actively participating in an existing room of this category
+        const activeMembership = await tx.roomParticipant.findFirst({
+          where: {
+            userId,
+            status: 'ACTIVE',
+            room: {
+              category: upperCategory,
+              status: 'ACTIVE',
+            },
+          },
+          include: {
+            room: {
+              include: {
+                participants: {
+                  where: { status: 'ACTIVE' },
+                  include: {
+                    user: { select: { id: true, name: true, username: true, avatarUrl: true } },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        // Idempotent recovery: if user is already active in a room of this category, return it immediately
+        if (activeMembership && activeMembership.room) {
+          return {
+            room: {
+              ...activeMembership.room,
+              maxParticipants: effectiveCap,
+              activeParticipantsCount: activeMembership.room.participants.length,
+              participants: activeMembership.room.participants.map((p) => p.user),
+            },
+            participant: activeMembership,
+            isNew: false,
+            alreadyMember: true,
+          };
+        }
+
+        // Leave any prior rooms in other categories to maintain single-room presence
+        await tx.roomParticipant.updateMany({
+          where: { userId, status: 'ACTIVE' },
+          data: { status: 'LEFT', leftAt: new Date() },
+        });
+
+        // 2. Fetch candidate public rooms in this category with status ACTIVE
+        const candidateRooms = await tx.room.findMany({
+          where: {
+            category: upperCategory,
+            isPrivate: false,
+            status: 'ACTIVE',
+          },
+          include: {
+            participants: {
+              where: { status: 'ACTIVE' },
+              include: {
+                user: { select: { id: true, name: true, username: true, avatarUrl: true } },
+              },
+            },
+          },
+        });
+
+        // Prioritize rooms that already have occupants (< effectiveCap) first to fill existing capacity,
+        // followed by empty rooms (0 occupants)
+        const eligibleRooms = candidateRooms
+          .filter((r) => r.participants.length < effectiveCap)
+          .sort((a, b) => {
+            if (a.participants.length > 0 && b.participants.length === 0) return -1;
+            if (a.participants.length === 0 && b.participants.length > 0) return 1;
+            return b.participants.length - a.participants.length;
+          });
+
+        let selectedRoom: any = null;
+
+        for (const candidate of eligibleRooms) {
+          // Re-verify atomic count inside transaction to prevent concurrency overfill
+          const currentCount = await tx.roomParticipant.count({
+            where: { roomId: candidate.id, status: 'ACTIVE' },
+          });
+
+          if (currentCount < effectiveCap) {
+            selectedRoom = candidate;
+            break;
+          }
+        }
+
+        // 3. If no candidate room has available capacity, dynamically create a new room!
+        let isNew = false;
+        if (!selectedRoom) {
+          isNew = true;
+          const roomPrefix = upperCategory === 'INTERACTION' ? 'INT' : upperCategory.substring(0, 3);
+          const roomCount = await tx.room.count({ where: { category: upperCategory } });
+          const roomNumber = roomCount + 1;
+          const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+          const roomCode = `${roomPrefix}-${randomSuffix}`;
+          const roomName = `${upperCategory === 'EDUCATION' ? 'SEM' : upperCategory} Room #${roomNumber}`;
+
+          selectedRoom = await tx.room.create({
+            data: {
+              name: roomName,
+              description: `Dynamic ${upperCategory.toLowerCase()} study room created for concurrent student collaboration.`,
+              category: upperCategory,
+              activityType,
+              atmosphere,
+              isPrivate: false,
+              maxParticipants: effectiveCap,
+              creatorId: userId,
+              roomCode,
+              status: 'ACTIVE',
+              defaultDuration: 50,
+              defaultCamera: true,
+              defaultMic: upperCategory === 'INTERACTION',
+            },
+            include: {
+              participants: { where: { status: 'ACTIVE' } },
+            },
+          });
+        }
+
+        // 4. Allocate user to the selected room
+        const participant = await tx.roomParticipant.upsert({
+          where: {
+            roomId_userId: { roomId: selectedRoom.id, userId },
+          },
+          update: {
+            status: 'ACTIVE',
+            leftAt: null,
+            joinedAt: new Date(),
+          },
+          create: {
+            roomId: selectedRoom.id,
+            userId,
+            role: selectedRoom.creatorId === userId ? 'HOST' : 'MEMBER',
+            status: 'ACTIVE',
+          },
+          include: {
+            user: { select: { id: true, name: true, username: true, avatarUrl: true } },
+          },
+        });
+
+        // Refetch active participants
+        const activeParticipants = await tx.roomParticipant.findMany({
+          where: { roomId: selectedRoom.id, status: 'ACTIVE' },
+          include: {
+            user: { select: { id: true, name: true, username: true, avatarUrl: true } },
+          },
+        });
+
+        return {
+          room: {
+            ...selectedRoom,
+            maxParticipants: effectiveCap,
+            activeParticipantsCount: activeParticipants.length,
+            participants: activeParticipants.map((p) => p.user),
+          },
+          participant,
+          isNew,
+          alreadyMember: false,
+        };
+      });
+
+      res.json({
+        success: true,
+        room: allocation.room,
+        participant: allocation.participant,
+        isNew: allocation.isNew,
+        alreadyMember: allocation.alreadyMember,
+      });
+    } catch (error: any) {
+      console.error('Error in allocateRoom:', error);
+      res.status(500).json({ success: false, error: error.message || 'Matchmaking allocation failed' });
+    }
+  }
+
   public static async leaveRoom(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.userId;
       const { roomId } = req.params;
 
-      await prisma.roomParticipant.updateMany({
-        where: { roomId, userId, status: 'ACTIVE' },
-        data: { status: 'LEFT', leftAt: new Date() },
+      await prisma.$transaction(async (tx) => {
+        await tx.roomParticipant.updateMany({
+          where: { roomId, userId, status: 'ACTIVE' },
+          data: { status: 'LEFT', leftAt: new Date() },
+        });
+
+        const remainingActive = await tx.roomParticipant.count({
+          where: { roomId, status: 'ACTIVE' },
+        });
+
+        // When all participants have left, ensure room is marked ACTIVE & reusable for subsequent cohorts
+        if (remainingActive === 0) {
+          await tx.room.update({
+            where: { id: roomId },
+            data: { status: 'ACTIVE', updatedAt: new Date() },
+          });
+        }
       });
 
       res.json({ success: true, message: 'Left room successfully' });

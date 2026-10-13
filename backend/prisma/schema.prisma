@@ -73,6 +73,7 @@ model UserSettings {
   appearanceMode          String   @default("dark") // dark, light, system
   customThemeUrl          String?
   customThemeTarget       String   @default("BOTH") // DASHBOARD, ROOMS, BOTH
+  videoLayout             String   @default("footer") // footer, header, middle, scattered
   updatedAt               DateTime @updatedAt
 
   @@map("user_settings")
@@ -89,12 +90,13 @@ model Room {
   creator             User              @relation("CreatedRooms", fields: [creatorId], references: [id], onDelete: Cascade)
   roomCode            String            @unique
   isPrivate           Boolean           @default(false)
-  maxParticipants     Int               @default(12)
+  maxParticipants     Int               @default(10)
   defaultDuration     Int               @default(50)
   defaultCamera       Boolean           @default(true)
   defaultMic          Boolean           @default(false)
   atmosphere          String?           @default("Rainy Window")
   isSharedAtmosphere  Boolean           @default(false)
+  status              String            @default("ACTIVE") // ACTIVE, REUSABLE, INACTIVE
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -102,6 +104,8 @@ model Room {
   focusSessions       FocusSession[]
   interactionAuthorizations InteractionAuthorization[]
 
+  @@index([category, status])
+  @@index([isPrivate, status])
   @@map("rooms")
 }
 
@@ -117,6 +121,8 @@ model RoomParticipant {
   leftAt    DateTime?
 
   @@unique([roomId, userId])
+  @@index([roomId, status])
+  @@index([userId, status])
   @@map("room_participants")
 }
 

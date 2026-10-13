@@ -82,6 +82,7 @@ export class UserController {
           appearanceMode: req.body.appearanceMode || undefined,
           customThemeUrl: req.body.customThemeUrl !== undefined ? req.body.customThemeUrl : undefined,
           customThemeTarget: req.body.customThemeTarget || undefined,
+          videoLayout: req.body.videoLayout || undefined,
         },
         create: {
           userId,
@@ -97,6 +98,7 @@ export class UserController {
           appearanceMode: req.body.appearanceMode || 'dark',
           customThemeUrl: req.body.customThemeUrl || null,
           customThemeTarget: req.body.customThemeTarget || 'BOTH',
+          videoLayout: req.body.videoLayout || 'footer',
         },
       });
 
