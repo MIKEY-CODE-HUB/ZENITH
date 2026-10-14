@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS, isDomainInList } from '../config/shieldDomains.js';
+import { ZenithPolicyEngine } from './policyEngine.js';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'trapbreaker_super_secret_jwt_key_2026';
@@ -8,14 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'trapbreaker_super_secret_jwt_key_2
 export class BlockerService {
   // Normalize domain names (e.g. m.youtube.com, www.youtube.com -> youtube.com)
   static normalizeDomain(input: string): string {
-    if (!input) return '';
-    let domain = input.trim().toLowerCase();
-    domain = domain.replace(/^https?:\/\//, '');
-    domain = domain.replace(/^www\./, '');
-    domain = domain.replace(/^m\./, '');
-    domain = domain.split('/')[0];
-    domain = domain.split('?')[0];
-    return domain;
+    return ZenithPolicyEngine.normalizeDomain(input);
   }
 
   static async getDefaultUserId(): Promise<string> {
@@ -25,11 +19,10 @@ export class BlockerService {
     return user?.id || '';
   }
 
-  // 1. Get Blocked Resources & Allowlists for User (with fallback)
+  // 1. Get Blocked Resources & Allowlists for User (strictly isolated)
   static async getResources(userId?: string) {
-    let resources: any[] = [];
     if (userId) {
-      resources = await prisma.blockedResource.findMany({
+      return prisma.blockedResource.findMany({
         where: {
           OR: [{ userId }, { userId: null }],
         },
@@ -37,14 +30,11 @@ export class BlockerService {
       });
     }
 
-    // Fallback: If user has no specific resources or is unauthenticated, fetch all configured resources
-    if (!resources || resources.length === 0) {
-      resources = await prisma.blockedResource.findMany({
-        orderBy: [{ isAllowlist: 'asc' }, { category: 'asc' }, { displayName: 'asc' }],
-      });
-    }
-
-    return resources;
+    // Unauthenticated: only return system-wide default resources (userId === null)
+    return prisma.blockedResource.findMany({
+      where: { userId: null },
+      orderBy: [{ isAllowlist: 'asc' }, { category: 'asc' }, { displayName: 'asc' }],
+    });
   }
 
   // 2. Add New Custom Blocked Resource or Allowed Resource
@@ -59,11 +49,10 @@ export class BlockerService {
     const targetUserId = userId || (await this.getDefaultUserId());
     const cleanIdentifier = data.type === 'WEBSITE' ? this.normalizeDomain(data.identifier) : data.identifier.trim();
 
-    // Prevent blocking of protected essential learning and problem-solving tools
-    if (data.type === 'WEBSITE' && !data.isAllowlist) {
-      if (isDomainInList(cleanIdentifier, ALWAYS_ALLOWED_DOMAINS)) {
-        throw new Error(`Cannot block protected tool: ${cleanIdentifier} is always allowed in Zenith.`);
-      }
+    // Authoritative policy validation and conflict check
+    const validation = ZenithPolicyEngine.validateCustomRule(cleanIdentifier, data.type, !!data.isAllowlist);
+    if (!validation.valid) {
+      throw new Error(validation.error || 'Invalid rule configuration.');
     }
 
     const resource = await prisma.blockedResource.upsert({

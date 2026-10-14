@@ -7,14 +7,18 @@ import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS } from '../config/shield
 
 const router = Router();
 
-// Public health/status check for desktop blocker agent
-router.get('/live-status', async (req, res) => {
+// User-scoped health/status check for extension and desktop agent
+router.get('/live-status', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const now = new Date();
+    const targetUserId = req.user?.userId || (req.query.userId as string);
 
     // Auto-expire any stale active sessions whose planned time has passed
     const activeSessions = await prisma.blockerSession.findMany({
-      where: { status: 'ACTIVE' },
+      where: {
+        status: 'ACTIVE',
+        ...(targetUserId ? { userId: targetUserId } : {}),
+      },
       include: { focusSession: true },
     });
 
@@ -34,8 +38,15 @@ router.get('/live-status', async (req, res) => {
       }
     }
 
+    if (!targetUserId) {
+      return res.json({
+        active: false,
+        message: 'Authentication required for user-scoped active focus session',
+      });
+    }
+
     const activeSession = await prisma.blockerSession.findFirst({
-      where: { status: 'ACTIVE' },
+      where: { status: 'ACTIVE', userId: targetUserId },
       include: {
         focusSession: {
           include: {
@@ -50,7 +61,7 @@ router.get('/live-status', async (req, res) => {
     if (!activeSession) {
       return res.json({
         active: false,
-        message: 'No active focus session',
+        message: 'No active focus session for authenticated user',
       });
     }
 

@@ -35,7 +35,9 @@ export const ALWAYS_BLOCKED_DOMAINS: ShieldDomain[] = [
  * These are NEVER blocked and cannot be accidentally blocked.
  */
 export const ALWAYS_ALLOWED_DOMAINS: ShieldDomain[] = [
+  { name: 'Google Search', domain: 'google.com', category: 'Search & Research', description: 'Web search and learning queries' },
   { name: 'GitHub', domain: 'github.com', category: 'Development', description: 'Source code & repositories' },
+  { name: 'GitHub Dev', domain: 'github.dev', category: 'Development', description: 'Web-based code editor' },
   { name: 'LeetCode', domain: 'leetcode.com', category: 'DSA Practice', description: 'Algorithms & coding interview prep' },
   { name: 'Codeforces', domain: 'codeforces.com', category: 'Competitive Programming', description: 'Contests & algorithmic problem set' },
   { name: 'CodeChef', domain: 'codechef.com', category: 'Competitive Programming', description: 'Competitive coding practice' },
@@ -46,6 +48,9 @@ export const ALWAYS_ALLOWED_DOMAINS: ShieldDomain[] = [
   { name: 'Stack Overflow', domain: 'stackoverflow.com', category: 'Developer Q&A', description: 'Programming questions & answers' },
   { name: 'W3Schools', domain: 'w3schools.com', category: 'Learning', description: 'Web reference tutorials' },
   { name: 'GeeksforGeeks', domain: 'geeksforgeeks.org', category: 'CS Education', description: 'Data structures & algorithms articles' },
+  { name: 'Google Docs', domain: 'docs.google.com', category: 'Productivity', description: 'Notes, papers, and document editing' },
+  { name: 'Google Drive', domain: 'drive.google.com', category: 'Productivity', description: 'Academic files and resources' },
+  { name: 'VS Code Web', domain: 'vscode.dev', category: 'Development', description: 'Web editor for coding' },
   { name: 'Zenith App', domain: 'localhost', category: 'Core Platform', description: 'Zenith focus & accountability workspace' },
 ];
 
