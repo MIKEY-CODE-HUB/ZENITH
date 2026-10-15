@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { api } from '@/lib/api';
 import { BlockedResource, BlockerStatistics } from '@/lib/types';
 import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS } from '@/lib/shieldDomains';
+import { ZenithPolicyEngine } from '@/lib/policyEngine';
 import { useRouter } from 'next/navigation';
 import {
   Shield,
@@ -39,9 +40,11 @@ export default function BlockerDashboardPage() {
   const [blockerMode, setBlockerMode] = useState<'MONITOR' | 'BLOCK' | 'STRICT'>('STRICT');
   const [shieldToggling, setShieldToggling] = useState<boolean>(false);
 
-  // Form State for Tier 3 Custom Distraction: ONLY Link/App + Display Name
+  // Form State for Tier 3 Custom Rules
   const [newIdentifier, setNewIdentifier] = useState('');
   const [newDisplayName, setNewDisplayName] = useState('');
+  const [newIsAllowlist, setNewIsAllowlist] = useState<boolean>(false);
+  const [activeCustomTab, setActiveCustomTab] = useState<'blocklist' | 'allowlist'>('blocklist');
   const [submitting, setSubmitting] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -178,7 +181,7 @@ export default function BlockerDashboardPage() {
     }
   };
 
-  // Tier 3: ONLY 2 inputs (Paste Link or App Name & Display Name)
+  // Tier 3: Add Custom Distraction or Allowed Platform
   const handleAddCustom = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -189,34 +192,45 @@ export default function BlockerDashboardPage() {
       const raw = newIdentifier.trim();
       const isWebsite = raw.includes('.') || raw.startsWith('http') || raw.includes('/');
       const resourceType = isWebsite ? 'WEBSITE' : 'APPLICATION';
-      const cleanIdent = isWebsite ? raw.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] : raw;
+      const cleanIdent = isWebsite ? ZenithPolicyEngine.normalizeDomain(raw) : raw;
       const name = newDisplayName.trim() || (isWebsite ? cleanIdent.split('.')[0].toUpperCase() : cleanIdent);
+
+      // Pre-validation and conflict check using authoritative policy engine
+      const validation = ZenithPolicyEngine.validateCustomRule(cleanIdent, resourceType, newIsAllowlist);
+      if (!validation.valid) {
+        setErrorMessage(validation.error || 'Invalid rule configuration.');
+        setSubmitting(false);
+        return;
+      }
 
       const res = await api.createBlockerResource({
         type: resourceType,
         identifier: cleanIdent,
         displayName: name,
         category: 'CUSTOM',
-        isAllowlist: false,
+        isAllowlist: newIsAllowlist,
         enabled: true,
       });
 
       if (res.success) {
-        setResources((prev) => [...prev, res.resource]);
+        setResources((prev) => [...prev.filter((r) => r.id !== res.resource.id), res.resource]);
         setNewIdentifier('');
         setNewDisplayName('');
-        setNotification(`Added "${name}" to My Blocklist (${resourceType === 'WEBSITE' ? 'Web Domain' : 'Desktop App'})`);
+        setNotification(
+          `Added "${name}" to ${newIsAllowlist ? 'My Allowlists' : 'My Blocklist'} (${resourceType === 'WEBSITE' ? 'Web Domain' : 'Desktop App'})`
+        );
         setTimeout(() => setNotification(null), 4000);
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to add resource to blocklist');
+      setErrorMessage(err.message || 'Failed to save custom rule');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // User-defined custom blocklist items (Tier 3)
+  // User-defined custom rules (Tier 3)
   const myBlocklist = resources.filter((r) => !r.isAllowlist);
+  const myAllowlist = resources.filter((r) => r.isAllowlist);
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] bg-[#07080b] text-zinc-100">
@@ -427,7 +441,7 @@ export default function BlockerDashboardPage() {
             </div>
           </div>
 
-          {/* TIER 3: MY BLOCKLIST (User-Controlled) */}
+          {/* TIER 3: PERSONAL CUSTOMIZATION (Allow & Block Rules) */}
           <div className="rounded-3xl bg-gradient-to-b from-[#1a1712] to-[#121215] border border-amber-500/25 p-6 sm:p-7 space-y-6 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
 
@@ -438,36 +452,82 @@ export default function BlockerDashboardPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Tier 3: My Blocklist</h2>
+                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Tier 3: Personal Customization</h2>
                     <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                      Personal Customization
+                      User Rules
                     </span>
                   </div>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Target your personal distraction weaknesses (forums, shopping, desktop apps). Works across web and macOS applications.
+                    Add custom domains or applications to either your personal blocklist or allowlist. Protected Tier 1 &amp; Tier 2 rules always take precedence.
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-mono text-amber-400 font-semibold self-start sm:self-center">
-                {myBlocklist.filter((m) => m.enabled).length} active of {myBlocklist.length}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setActiveCustomTab('blocklist')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                    activeCustomTab === 'blocklist'
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
+                      : 'bg-white/[0.03] text-zinc-400 hover:text-white border border-white/5'
+                  }`}
+                >
+                  Blocklist ({myBlocklist.length})
+                </button>
+                <button
+                  onClick={() => setActiveCustomTab('allowlist')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                    activeCustomTab === 'allowlist'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                      : 'bg-white/[0.03] text-zinc-400 hover:text-white border border-white/5'
+                  }`}
+                >
+                  Allowlists ({myAllowlist.length})
+                </button>
+              </div>
             </div>
 
-            {/* Add Custom Entry Form - ONLY 2 INPUTS: Paste Link/App Name & Display Name */}
+            {/* Add Custom Entry Form */}
             <form onSubmit={handleAddCustom} className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                  <Plus className="h-3.5 w-3.5 text-amber-400" />
-                  <span>Add Distraction to Block</span>
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <Plus className="h-3.5 w-3.5 text-amber-400" />
+                    <span>Create Custom Rule</span>
+                  </span>
+                  {/* Action Segmented Toggle */}
+                  <div className="flex items-center gap-1 p-0.5 rounded-lg bg-[#09090b] border border-white/10 ml-2">
+                    <button
+                      type="button"
+                      onClick={() => setNewIsAllowlist(false)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                        !newIsAllowlist
+                          ? 'bg-rose-500 text-white shadow-sm'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      Block
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewIsAllowlist(true)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                        newIsAllowlist
+                          ? 'bg-emerald-500 text-zinc-950 shadow-sm'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      Allow
+                    </button>
+                  </div>
+                </div>
                 <span className="text-[11px] text-zinc-500">Auto-detects web domain or desktop application</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                <div className="sm:col-span-7">
+                <div className="sm:col-span-6">
                   <input
                     type="text"
-                    placeholder="Paste link or app name (e.g. reddit.com or Discord)"
+                    placeholder="Enter link or app (e.g. news.ycombinator.com or Discord)"
                     value={newIdentifier}
                     onChange={(e) => setNewIdentifier(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl bg-[#09090b] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400 transition-colors font-mono"
@@ -485,77 +545,107 @@ export default function BlockerDashboardPage() {
                   />
                 </div>
 
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-3">
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95 disabled:opacity-50"
+                    className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95 disabled:opacity-50 ${
+                      newIsAllowlist
+                        ? 'bg-emerald-400 hover:bg-emerald-300 text-zinc-950'
+                        : 'bg-rose-500 hover:bg-rose-400 text-white'
+                    }`}
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>Add</span>
+                    <span>{newIsAllowlist ? 'Add to Allowlist' : 'Add to Blocklist'}</span>
                   </button>
                 </div>
               </div>
             </form>
 
-            {/* List of User Custom Distractions */}
-            {myBlocklist.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {myBlocklist.map((item) => {
-                  const isApp = item.type === 'APPLICATION';
+            {/* List of Custom Rules Filtered by Tab */}
+            {(() => {
+              const currentList = activeCustomTab === 'blocklist' ? myBlocklist : myAllowlist;
 
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => handleToggleResource(item)}
-                      className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer select-none transition-all ${
-                        item.enabled
-                          ? 'bg-white/[0.03] border-white/[0.08] hover:border-amber-500/30 text-zinc-200'
-                          : 'bg-transparent border-white/[0.04] text-zinc-600 line-through opacity-50'
-                      }`}
-                    >
-                      <div className="min-w-0 pr-2">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`h-2 w-2 rounded-full shrink-0 ${
-                              item.enabled ? 'bg-amber-400' : 'bg-zinc-700'
-                            }`}
-                          />
-                          <p className="text-xs font-semibold truncate">{item.displayName}</p>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-zinc-500 font-mono truncate">
-                            {item.identifier}
-                          </span>
-                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-white/5 flex items-center gap-1">
-                            {isApp ? <Smartphone className="h-2.5 w-2.5" /> : <Globe className="h-2.5 w-2.5" />}
-                            <span>{isApp ? 'App' : 'Web'}</span>
-                          </span>
-                        </div>
-                      </div>
+              if (currentList.length === 0) {
+                return (
+                  <div className="p-8 text-center rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-1.5">
+                    <p className="text-xs text-zinc-400 font-medium">
+                      {activeCustomTab === 'blocklist' ? 'Your custom blocklist is empty.' : 'Your custom allowlist is empty.'}
+                    </p>
+                    <p className="text-[11px] text-zinc-500">
+                      {activeCustomTab === 'blocklist'
+                        ? 'Zenith core protections (Tier 1) are active automatically. Add specific websites or macOS applications above.'
+                        : 'Essential tools (Tier 2) are always allowed. Add additional platforms you need for your study sessions above.'}
+                    </p>
+                  </div>
+                );
+              }
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteResource(item.id);
-                        }}
-                        className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors ml-2"
-                        title="Remove from blocklist"
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {currentList.map((item) => {
+                    const isApp = item.type === 'APPLICATION';
+                    const isAllowed = item.isAllowlist;
+
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleToggleResource(item)}
+                        className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer select-none transition-all ${
+                          item.enabled
+                            ? isAllowed
+                              ? 'bg-emerald-500/[0.04] border-emerald-500/20 hover:border-emerald-500/40 text-zinc-200'
+                              : 'bg-white/[0.03] border-white/[0.08] hover:border-amber-500/30 text-zinc-200'
+                            : 'bg-transparent border-white/[0.04] text-zinc-600 line-through opacity-50'
+                        }`}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="p-8 text-center rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-1.5">
-                <p className="text-xs text-zinc-400 font-medium">Your custom blocklist is currently empty.</p>
-                <p className="text-[11px] text-zinc-500">
-                  Zenith core protections (Tier 1) are active automatically. Add specific websites or macOS applications above.
-                </p>
-              </div>
-            )}
+                        <div className="min-w-0 pr-2">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-2 w-2 rounded-full shrink-0 ${
+                                item.enabled
+                                  ? isAllowed
+                                    ? 'bg-emerald-400'
+                                    : 'bg-rose-400'
+                                  : 'bg-zinc-700'
+                              }`}
+                            />
+                            <p className="text-xs font-semibold truncate">{item.displayName}</p>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] text-zinc-500 font-mono truncate">
+                              {item.identifier}
+                            </span>
+                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border flex items-center gap-1 ${
+                              isAllowed
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                            }`}>
+                              <span>{isAllowed ? 'Allow' : 'Block'}</span>
+                            </span>
+                            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-white/5 flex items-center gap-1">
+                              {isApp ? <Smartphone className="h-2.5 w-2.5" /> : <Globe className="h-2.5 w-2.5" />}
+                              <span>{isApp ? 'App' : 'Web'}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteResource(item.id);
+                          }}
+                          className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors ml-2"
+                          title="Remove custom rule"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
         </div>

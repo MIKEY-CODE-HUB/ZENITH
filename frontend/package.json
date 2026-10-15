@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "sync:extension": "node -e \"const { execSync } = require('child_process'); const path = require('path'); const extDir = path.resolve('../zenith-extension'); const targetZip = path.resolve('public/zenith-extension.zip'); execSync('rm -f \\\"' + targetZip + '\\\"'); execSync('cd \\\"' + extDir + '\\\" && zip -r \\\"' + targetZip + '\\\" manifest.json background.js content.js content.css blocked.html popup.html popup.js README.md'); console.log('Synchronized extension bundle.');\"",
+    "build": "npm run sync:extension && next build",
     "start": "next start -p 3000",
     "lint": "next lint"
   },

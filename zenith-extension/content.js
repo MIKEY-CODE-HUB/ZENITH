@@ -1,61 +1,36 @@
-// ZENITH Universal Content Guardian v14.0
-// Production Allowlist-First Content Script
+// ═══════════════════════════════════════════════════════════════════════════════
+// ZENITH Universal Content Guardian v15.0
+// Manifest V3 Content Script — Origin-Validated Handshake
+// ═══════════════════════════════════════════════════════════════════════════════
 
 (function () {
   if (window !== window.top) return;
 
   const currentUrl = window.location.href;
 
-  const ALWAYS_ALLOWED_DOMAINS = [
-    'github.com',
-    'github.dev',
-    'githubusercontent.com',
-    'githubassets.com',
-    'gist.github.com',
-    'leetcode.com',
-    'leetcode.cn',
-    'codeforces.com',
-    'codeforces.org',
-    'codechef.com',
-    'hackerrank.com',
-    'chess.com',
-    'lichess.org',
-    'developer.mozilla.org',
-    'stackoverflow.com',
-    'stackexchange.com',
-    'sstatic.net',
-    'w3schools.com',
-    'geeksforgeeks.org',
-    'docs.google.com',
-    'drive.google.com',
-    'vscode.dev',
-    'localhost',
-    '127.0.0.1',
-  ];
-
-  function extractHostname(url) {
-    if (!url) return '';
-    try {
-      const parsed = new URL(url);
-      return parsed.hostname.toLowerCase().trim().replace(/^www\./, '');
-    } catch (e) {
-      try {
-        const parsed = new URL('https://' + url);
-        return parsed.hostname.toLowerCase().trim().replace(/^www\./, '');
-      } catch (e2) {
-        return '';
-      }
-    }
+  function normalizeDomain(input) {
+    if (!input) return '';
+    let domain = input.trim().toLowerCase();
+    domain = domain.replace(/^https?:\/\//, '');
+    domain = domain.replace(/^www\./, '');
+    domain = domain.replace(/^m\./, '');
+    domain = domain.split('/')[0];
+    domain = domain.split('?')[0];
+    domain = domain.split('#')[0];
+    domain = domain.split(':')[0];
+    return domain.trim();
   }
 
   function matchesDomainPattern(hostname, targetDomain) {
     if (!hostname || !targetDomain) return false;
-    const h = hostname.toLowerCase().trim().replace(/^www\./, '');
-    const d = targetDomain.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].split(':')[0];
-    
+    const h = normalizeDomain(hostname);
+    const d = normalizeDomain(targetDomain);
+
+    if (!h || !d) return false;
     if (h === d) return true;
     if (h.endsWith('.' + d)) return true;
     if (d === 'localhost' && (h === '127.0.0.1' || h === 'localhost')) return true;
+
     return false;
   }
 
@@ -64,34 +39,27 @@
     if (url.includes('/blocker/blocked') || url.includes('blocked.html')) {
       return true;
     }
-    try {
-      const parsed = new URL(url);
-      const host = parsed.hostname.toLowerCase().trim().replace(/^www\./, '');
+    const host = normalizeDomain(url);
+    if (!host) return false;
 
-      if (host === 'localhost' || host === '127.0.0.1') {
-        return true;
-      }
-      if (
-        host === 'zenith.com' ||
-        host.endsWith('.zenith.com') ||
-        host === 'zenith.app' ||
-        host.endsWith('.zenith.app') ||
-        host === 'zenith-focus.com' ||
-        host.endsWith('.zenith-focus.com') ||
-        host === 'zenith.io' ||
-        host.endsWith('.zenith.io') ||
-        host === 'zenith.dev' ||
-        host.endsWith('.zenith.dev') ||
-        host === 'zenith-dusky-theta.vercel.app' ||
-        (host.endsWith('.vercel.app') && (host.includes('zenith') || host.includes('trapbreaker'))) ||
-        host.includes('zenith')
-      ) {
-        return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
+    if (host === 'localhost' || host === '127.0.0.1') return true;
+    if (
+      host === 'zenith.com' ||
+      host.endsWith('.zenith.com') ||
+      host === 'zenith.app' ||
+      host.endsWith('.zenith.app') ||
+      host === 'zenith-focus.com' ||
+      host.endsWith('.zenith-focus.com') ||
+      host === 'zenith.io' ||
+      host.endsWith('.zenith.io') ||
+      host === 'zenith.dev' ||
+      host.endsWith('.zenith.dev') ||
+      host === 'zenith-dusky-theta.vercel.app' ||
+      (host.endsWith('.vercel.app') && (host.includes('zenith') || host.includes('trapbreaker')))
+    ) {
+      return true;
     }
+    return false;
   }
 
   const isZenithSite = isZenithUrl(currentUrl);
@@ -107,52 +75,65 @@
         !href.includes('/blocked')
       );
       let isShieldActive = false;
+      let token = null;
       try {
         isShieldActive = localStorage.getItem('zenith_shield_active') === 'true';
+        token = sessionStorage.getItem('blocker_token') || localStorage.getItem('token');
       } catch (e) {}
 
       if (isRoom || isShieldActive) {
         chrome.storage.local.set({
           isFocusSessionActive: true,
           zenithFocusUrl: href,
+          blockerToken: token || null,
           lastActiveTime: Date.now(),
         });
         chrome.runtime.sendMessage({
           type: 'ZENITH_ROOM_ACTIVE',
           roomUrl: href,
+          blockerToken: token,
         }).catch(() => {});
       } else if (href.includes('/summary')) {
-        chrome.storage.local.set({ isFocusSessionActive: false, zenithFocusUrl: null });
+        chrome.storage.local.set({ isFocusSessionActive: false, zenithFocusUrl: null, blockerToken: null });
         chrome.runtime.sendMessage({ type: 'ZENITH_ROOM_ENDED' }).catch(() => {});
       }
     }
 
     checkZenithState();
-    setInterval(checkZenithState, 800);
+    setInterval(checkZenithState, 1000);
 
-    // Listen for postMessage from React components
+    // Origin-validated postMessage listener
     window.addEventListener('message', (event) => {
       if (!event.data) return;
+      // Strict origin validation
+      if (event.origin && !isZenithUrl(event.origin)) return;
+
       if (event.data.type === 'ZENITH_ROOM_ACTIVE' || event.data.type === 'ZENITH_BLOCKER_ACTIVATE') {
         const url = event.data.roomUrl || window.location.href;
+        const token = event.data.blockerToken;
         chrome.storage.local.set({
           isFocusSessionActive: true,
           zenithFocusUrl: url,
+          blockerToken: token || null,
           lastActiveTime: Date.now(),
         });
         chrome.runtime.sendMessage({
           type: 'ZENITH_ROOM_ACTIVE',
           roomUrl: url,
+          blockerToken: token,
+          focusSessionId: event.data.focusSessionId,
+          mode: event.data.mode || 'STRICT',
+          config: event.data.config,
         }).catch(() => {});
       } else if (event.data.type === 'ZENITH_ROOM_ENDED') {
-        chrome.storage.local.set({ isFocusSessionActive: false, zenithFocusUrl: null });
+        chrome.storage.local.set({ isFocusSessionActive: false, zenithFocusUrl: null, blockerToken: null });
         chrome.runtime.sendMessage({ type: 'ZENITH_ROOM_ENDED' }).catch(() => {});
       } else if (event.data.type === 'ZENITH_SNAP_BACK') {
         chrome.runtime.sendMessage({ type: 'ZENITH_SNAP_BACK' }).catch(() => {});
       }
     });
 
-    // Forward distraction attempt alerts to React window
+    // Forward distraction alerts from background to React UI
     chrome.runtime.onMessage.addListener((msg) => {
       if (msg && msg.type === 'ZENITH_DISTRACTION_ATTEMPT') {
         window.postMessage({
@@ -169,31 +150,30 @@
   if (!isZenithSite && !currentUrl.startsWith('chrome://') && !currentUrl.startsWith('chrome-extension://')) {
     chrome.storage.local.get(['isFocusSessionActive', 'zenithFocusUrl', 'allowedWebsites'], (data) => {
       if (data && data.isFocusSessionActive) {
-        const host = extractHostname(currentUrl);
+        const host = normalizeDomain(currentUrl);
         if (!host) return;
 
-        // Check against allowlist
-        let isAllowed = false;
-        for (const item of ALWAYS_ALLOWED_DOMAINS) {
-          if (matchesDomainPattern(host, item)) {
-            isAllowed = true;
-            break;
+        // Quick check against standard allowed platforms
+        const TIER_2_ALWAYS_ALLOWED = [
+          'google.com', 'google.co.in', 'google.co.uk',
+          'github.com', 'github.dev', 'leetcode.com', 'codeforces.com',
+          'codechef.com', 'hackerrank.com', 'chess.com', 'lichess.org',
+          'developer.mozilla.org', 'stackoverflow.com', 'w3schools.com',
+          'geeksforgeeks.org', 'docs.google.com', 'drive.google.com',
+          'vscode.dev', 'localhost', '127.0.0.1'
+        ];
+
+        for (const allowed of TIER_2_ALWAYS_ALLOWED) {
+          if (matchesDomainPattern(host, allowed)) return;
+        }
+
+        if (data.allowedWebsites) {
+          for (const custom of data.allowedWebsites) {
+            if (matchesDomainPattern(host, custom)) return;
           }
         }
 
-        if (!isAllowed && data.allowedWebsites) {
-          for (const item of data.allowedWebsites) {
-            if (matchesDomainPattern(host, item)) {
-              isAllowed = true;
-              break;
-            }
-          }
-        }
-
-        // Allowed destination: grant normal navigation
-        if (isAllowed) return;
-
-        // DEFAULT-DENY: Block and redirect immediately
+        // Freeze distracting media immediately
         try {
           document.querySelectorAll('video, audio').forEach((m) => m.pause());
           if (document.body) {
@@ -201,32 +181,17 @@
           }
         } catch (e) {}
 
-        // Notify background to snap user back to Zenith
-        chrome.runtime.sendMessage({
-          type: 'EXTERNAL_TAB_SWITCH',
-          url: currentUrl,
-        }).catch(() => {});
-
-        // Redirect to Zenith blocked countdown page
         const returnUrl = data.zenithFocusUrl || 'https://zenith-dusky-theta.vercel.app/dashboard';
         let targetOrigin = 'https://zenith-dusky-theta.vercel.app';
         try {
           targetOrigin = new URL(returnUrl).origin;
         } catch (e) {}
 
-        try {
-          const domain = host;
-          const blockedPageUrl = (targetOrigin.includes('localhost') || targetOrigin.includes('127.0.0.1') || targetOrigin.includes('vercel.app'))
-            ? `${targetOrigin}/blocker/blocked?domain=${encodeURIComponent(domain)}&url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(returnUrl)}`
-            : chrome.runtime.getURL(`blocked.html?domain=${encodeURIComponent(domain)}&url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(returnUrl)}`);
-          
-          window.location.replace(blockedPageUrl);
-        } catch (e) {
-          const extUrl = chrome.runtime.getURL(
-            `blocked.html?url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(returnUrl)}`
-          );
-          window.location.replace(extUrl);
-        }
+        const blockedPageUrl = (targetOrigin.includes('localhost') || targetOrigin.includes('127.0.0.1') || targetOrigin.includes('vercel.app'))
+          ? `${targetOrigin}/blocker/blocked?domain=${encodeURIComponent(host)}&url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(returnUrl)}`
+          : chrome.runtime.getURL(`blocked.html?domain=${encodeURIComponent(host)}&url=${encodeURIComponent(currentUrl)}&room=${encodeURIComponent(returnUrl)}`);
+
+        window.location.replace(blockedPageUrl);
       }
     });
   }

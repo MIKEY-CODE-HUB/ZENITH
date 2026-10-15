@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ZenithPolicyEngine } from '@/lib/policyEngine';
 
 // 40 Canonical Focus & Interaction Rooms
 const CANONICAL_ROOMS = [
@@ -303,6 +304,9 @@ export async function POST(req: NextRequest, { params }: { params: { path: strin
     body = await req.json();
   } catch (e) {}
 
+  const authHeader = req.headers.get('authorization');
+  const tokenPayload = parseToken(authHeader);
+
   // ── AUTHENTICATION HANDLERS ────────────────────────────────────────────────
   // Google OAuth (/api/auth/google)
   if (pathStr === 'auth/google') {
@@ -568,6 +572,30 @@ export async function POST(req: NextRequest, { params }: { params: { path: strin
   // Blocker attempt
   if (pathStr === 'blocker/attempt') {
     return NextResponse.json({ success: true, attempt: { id: `att-${Date.now()}`, ...body } });
+  }
+
+  // Create custom blocked/allowed resource
+  if (pathStr === 'blocker/resources') {
+    const cleanIdent = body.type === 'WEBSITE' ? ZenithPolicyEngine.normalizeDomain(body.identifier) : (body.identifier || '').trim();
+    const validation = ZenithPolicyEngine.validateCustomRule(cleanIdent, body.type || 'WEBSITE', !!body.isAllowlist);
+    if (!validation.valid) {
+      return NextResponse.json({ success: false, error: validation.error }, { status: 400 });
+    }
+    return NextResponse.json({
+      success: true,
+      resource: {
+        id: `res-${Date.now()}`,
+        userId: tokenPayload?.userId || 'guest',
+        type: body.type || 'WEBSITE',
+        identifier: cleanIdent,
+        displayName: body.displayName || cleanIdent,
+        category: body.category || 'CUSTOM',
+        enabled: body.enabled !== false,
+        isAllowlist: !!body.isAllowlist,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    }, { status: 201 });
   }
 
   // Activate / deactivate blocker
