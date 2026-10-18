@@ -54,6 +54,56 @@ export const ALWAYS_ALLOWED_DOMAINS: ShieldDomain[] = [
   { name: 'Zenith App', domain: 'localhost', category: 'Core Platform', description: 'Zenith focus & accountability workspace' },
 ];
 
+export interface ShieldApp {
+  name: string;
+  category: string;
+  description?: string;
+}
+
+/**
+ * TIER 1 — ALWAYS BLOCKED DESKTOP APPS (Zenith Core Protection)
+ * High-distraction desktop applications intercepted during active focus sessions.
+ */
+export const ALWAYS_BLOCKED_APPS: ShieldApp[] = [
+  { name: 'Discord', category: 'Chat & Gaming', description: 'Discord chat & voice' },
+  { name: 'Spotify', category: 'Media Streaming', description: 'Music & podcasts' },
+  { name: 'Steam', category: 'Gaming', description: 'Steam game client' },
+  { name: 'Telegram', category: 'Messaging', description: 'Instant messaging' },
+  { name: 'WhatsApp', category: 'Messaging', description: 'WhatsApp desktop' },
+  { name: 'Slack', category: 'Messaging', description: 'Work & community chat' },
+  { name: 'Epic Games', category: 'Gaming', description: 'Epic Games launcher' },
+  { name: 'Battle.net', category: 'Gaming', description: 'Blizzard game client' },
+  { name: 'LeagueClient', category: 'Gaming', description: 'League of Legends client' },
+  { name: 'RiotClientServices', category: 'Gaming', description: 'Riot Games launcher' },
+  { name: 'Twitch', category: 'Streaming', description: 'Twitch desktop application' },
+  { name: 'TikTok', category: 'Short Video', description: 'TikTok desktop application' },
+];
+
+/**
+ * TIER 2 — ALWAYS ALLOWED DESKTOP APPS (Essential Tools)
+ * Essential development environments, browsers, and productivity tools.
+ */
+export const ALWAYS_ALLOWED_APPS: ShieldApp[] = [
+  { name: 'Google Chrome', category: 'Browser', description: 'Web browser' },
+  { name: 'Brave Browser', category: 'Browser', description: 'Web browser' },
+  { name: 'Arc', category: 'Browser', description: 'Web browser' },
+  { name: 'Safari', category: 'Browser', description: 'Web browser' },
+  { name: 'Terminal', category: 'Development', description: 'Command line terminal' },
+  { name: 'iTerm2', category: 'Development', description: 'Enhanced terminal' },
+  { name: 'Code', category: 'Development', description: 'Visual Studio Code' },
+  { name: 'Cursor', category: 'Development', description: 'AI code editor' },
+  { name: 'Windsurf', category: 'Development', description: 'AI code editor' },
+  { name: 'Xcode', category: 'Development', description: 'Apple developer IDE' },
+  { name: 'Android Studio', category: 'Development', description: 'Android IDE' },
+  { name: 'IntelliJ IDEA', category: 'Development', description: 'JetBrains Java IDE' },
+  { name: 'WebStorm', category: 'Development', description: 'JetBrains Web IDE' },
+  { name: 'PyCharm', category: 'Development', description: 'JetBrains Python IDE' },
+  { name: 'Sublime Text', category: 'Development', description: 'Code & text editor' },
+  { name: 'Finder', category: 'System', description: 'macOS file manager' },
+  { name: 'Zenith', category: 'Core Platform', description: 'Zenith focus & accountability workspace' },
+  { name: 'Antigravity', category: 'Core Platform', description: 'Antigravity coding assistant' },
+];
+
 export function isDomainInList(hostname: string, domainList: ShieldDomain[] | string[]): boolean {
   if (!hostname) return false;
   const cleanHost = hostname.toLowerCase().trim().replace(/^www\./, '');
@@ -68,3 +118,16 @@ export function isDomainInList(hostname: string, domainList: ShieldDomain[] | st
   }
   return false;
 }
+
+export function isAppInList(appName: string, appList: (ShieldApp | string)[]): boolean {
+  if (!appName) return false;
+  const cleanApp = appName.toLowerCase().trim();
+  for (const item of appList) {
+    const target = (typeof item === 'string' ? item : item.name).toLowerCase().trim();
+    if (cleanApp === target || cleanApp.includes(target) || target.includes(cleanApp)) {
+      return true;
+    }
+  }
+  return false;
+}
+

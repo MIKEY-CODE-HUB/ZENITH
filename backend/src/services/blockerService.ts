@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
-import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS, isDomainInList } from '../config/shieldDomains.js';
+import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS, ALWAYS_BLOCKED_APPS, ALWAYS_ALLOWED_APPS, isDomainInList } from '../config/shieldDomains.js';
 import { ZenithPolicyEngine } from './policyEngine.js';
 
 const prisma = new PrismaClient();
@@ -161,12 +161,15 @@ export class BlockerService {
     // Fetch active block list and allow list
     const resources = await this.getResources(targetUserId);
     const customBlocked = resources.filter(r => r.type === 'WEBSITE' && !r.isAllowlist && r.enabled).map(r => r.identifier);
-    const blockedApps = resources.filter(r => r.type === 'APPLICATION' && !r.isAllowlist && r.enabled).map(r => r.identifier);
     const customAllowed = resources.filter(r => r.type === 'WEBSITE' && r.isAllowlist && r.enabled).map(r => r.identifier);
+    const customBlockedApps = resources.filter(r => r.type === 'APPLICATION' && !r.isAllowlist && r.enabled).map(r => r.identifier);
+    const customAllowedApps = resources.filter(r => r.type === 'APPLICATION' && r.isAllowlist && r.enabled).map(r => r.identifier);
 
     // Merge Tier 1 (Always Blocked) and Tier 2 (Always Allowed)
     const blockedWebsites = Array.from(new Set([...ALWAYS_BLOCKED_DOMAINS.map(d => d.domain), ...customBlocked]));
     const allowedWebsites = Array.from(new Set([...ALWAYS_ALLOWED_DOMAINS.map(d => d.domain), ...customAllowed]));
+    const blockedApps = Array.from(new Set([...ALWAYS_BLOCKED_APPS.map(a => a.name), ...customBlockedApps]));
+    const allowedApps = Array.from(new Set([...ALWAYS_ALLOWED_APPS.map(a => a.name), ...customAllowedApps]));
 
     return {
       success: true,
@@ -177,6 +180,7 @@ export class BlockerService {
         blockedWebsites,
         blockedApps,
         allowedWebsites,
+        allowedApps,
       },
     };
   }

@@ -603,6 +603,21 @@ export async function POST(req: NextRequest, { params }: { params: { path: strin
     return NextResponse.json({ success: true });
   }
 
+  // Blocker desktop attempt
+  if (pathStr === 'blocker/desktop-attempt') {
+    return NextResponse.json({ success: true, attempt: { id: `att-desktop-${Date.now()}`, ...body } });
+  }
+
+  // Blocker companion pairing token
+  if (pathStr === 'blocker/pair-token') {
+    return NextResponse.json({
+      success: true,
+      token: tokenPayload?.userId ? `zenith_pair_${tokenPayload.userId}_${Date.now()}` : `zenith_pair_demo_${Date.now()}`,
+      userId: tokenPayload?.userId || 'guest',
+      expiresIn: '7d',
+    });
+  }
+
   return NextResponse.json({ success: true });
 }
 

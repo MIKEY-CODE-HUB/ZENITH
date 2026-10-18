@@ -1,4 +1,4 @@
-import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS, ShieldDomain, isDomainInList } from './shieldDomains';
+import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS, ALWAYS_BLOCKED_APPS, ALWAYS_ALLOWED_APPS, ShieldDomain, ShieldApp, isDomainInList, isAppInList } from './shieldDomains';
 
 export interface UserCustomRule {
   id?: string;
@@ -16,6 +16,14 @@ export interface PolicyContext {
   customAllowedWebsites?: string[];
   customBlockedWebsites?: string[];
   activeRoomUrl?: string | null;
+}
+
+export interface ApplicationPolicyContext {
+  isSessionActive: boolean;
+  sessionMode?: 'MONITOR' | 'BLOCK' | 'STRICT';
+  userRules?: UserCustomRule[];
+  customAllowedApps?: string[];
+  customBlockedApps?: string[];
 }
 
 export interface PolicyEvaluation {
@@ -51,6 +59,13 @@ export class ZenithPolicyEngine {
     if (d === 'localhost' && (h === '127.0.0.1' || h === 'localhost')) return true;
 
     return false;
+  }
+
+  public static matchesAppPattern(appName: string, targetName: string): boolean {
+    if (!appName || !targetName) return false;
+    const a = appName.toLowerCase().trim();
+    const t = targetName.toLowerCase().trim();
+    return a === t || a.includes(t) || t.includes(a);
   }
 
   public static isSystemOrBrowserUrl(url: string): boolean {
@@ -152,12 +167,29 @@ export class ZenithPolicyEngine {
         }
       }
     } else {
-      const systemProtectedApps = ['google chrome', 'brave browser', 'arc', 'safari', 'terminal', 'iterm2', 'finder', 'zenith', 'antigravity'];
-      if (systemProtectedApps.includes(clean.toLowerCase()) && !isAllowlist) {
-        return {
-          valid: false,
-          error: `Cannot block essential system application: "${clean}".`,
-        };
+      // Application conflict validation
+      if (isAllowlist) {
+        for (const blocked of ALWAYS_BLOCKED_APPS) {
+          if (this.matchesAppPattern(clean, blocked.name)) {
+            return {
+              valid: false,
+              conflictTier: 'TIER_1',
+              error: `Conflict with Tier 1: ${blocked.name} is a core distraction application and cannot be added to allowlist.`,
+            };
+          }
+        }
+      }
+
+      if (!isAllowlist) {
+        for (const allowed of ALWAYS_ALLOWED_APPS) {
+          if (this.matchesAppPattern(clean, allowed.name)) {
+            return {
+              valid: false,
+              conflictTier: 'TIER_2',
+              error: `Conflict with Tier 2: ${allowed.name} is an essential tool and cannot be blocked in Zenith.`,
+            };
+          }
+        }
       }
     }
 
@@ -281,6 +313,119 @@ export class ZenithPolicyEngine {
       tier: 'UNKNOWN',
       cleanIdentifier: host,
       reason: 'Standard Mode: Destination is not explicitly blocked.',
+    };
+  }
+
+  public static evaluateApplication(appName: string, context: ApplicationPolicyContext): PolicyEvaluation {
+    if (!appName || !appName.trim()) {
+      return { action: 'ALLOW', tier: 'SYSTEM', reason: 'Empty application name' };
+    }
+
+    const cleanApp = appName.trim();
+
+    if (!context.isSessionActive) {
+      return {
+        action: 'ALLOW',
+        tier: 'SYSTEM',
+        reason: 'Focus session is not active (Enforcement Standby)',
+      };
+    }
+
+    for (const item of ALWAYS_ALLOWED_APPS) {
+      if (this.matchesAppPattern(cleanApp, item.name)) {
+        return {
+          action: 'ALLOW',
+          tier: 'TIER_2',
+          matchedRule: item.name,
+          cleanIdentifier: cleanApp,
+          reason: `Tier 2: ${item.name} is a protected productivity application.`,
+        };
+      }
+    }
+
+    for (const item of ALWAYS_BLOCKED_APPS) {
+      if (this.matchesAppPattern(cleanApp, item.name)) {
+        return {
+          action: 'BLOCK',
+          tier: 'TIER_1',
+          matchedRule: item.name,
+          cleanIdentifier: cleanApp,
+          reason: `Tier 1: ${item.name} is a protected distraction application.`,
+        };
+      }
+    }
+
+    if (context.userRules && context.userRules.length > 0) {
+      const matchingAllow = context.userRules.find(
+        (r) => r.enabled && r.isAllowlist && r.type === 'APPLICATION' && this.matchesAppPattern(cleanApp, r.identifier)
+      );
+      if (matchingAllow) {
+        return {
+          action: 'ALLOW',
+          tier: 'TIER_3',
+          matchedRule: matchingAllow.identifier,
+          cleanIdentifier: cleanApp,
+          reason: `Tier 3: Allowed by user custom rule (${matchingAllow.displayName || matchingAllow.identifier}).`,
+        };
+      }
+
+      const matchingBlock = context.userRules.find(
+        (r) => r.enabled && !r.isAllowlist && r.type === 'APPLICATION' && this.matchesAppPattern(cleanApp, r.identifier)
+      );
+      if (matchingBlock) {
+        return {
+          action: 'BLOCK',
+          tier: 'TIER_3',
+          matchedRule: matchingBlock.identifier,
+          cleanIdentifier: cleanApp,
+          reason: `Tier 3: Blocked by user custom rule (${matchingBlock.displayName || matchingBlock.identifier}).`,
+        };
+      }
+    }
+
+    if (context.customAllowedApps) {
+      for (const allowed of context.customAllowedApps) {
+        if (this.matchesAppPattern(cleanApp, allowed)) {
+          return {
+            action: 'ALLOW',
+            tier: 'TIER_3',
+            matchedRule: allowed,
+            cleanIdentifier: cleanApp,
+            reason: `Tier 3: Allowed by user custom configuration.`,
+          };
+        }
+      }
+    }
+
+    if (context.customBlockedApps) {
+      for (const blocked of context.customBlockedApps) {
+        if (this.matchesAppPattern(cleanApp, blocked)) {
+          return {
+            action: 'BLOCK',
+            tier: 'TIER_3',
+            matchedRule: blocked,
+            cleanIdentifier: cleanApp,
+            reason: `Tier 3: Blocked by user custom configuration.`,
+          };
+        }
+      }
+    }
+
+    const mode = context.sessionMode || 'STRICT';
+    if (mode === 'STRICT') {
+      return {
+        action: 'BLOCK',
+        tier: 'UNKNOWN',
+        cleanIdentifier: cleanApp,
+        reason: 'Strict Focus Mode: Unapproved application blocked under default-deny policy.',
+      };
+    }
+
+    return {
+      action: 'ALLOW',
+      tier: 'UNKNOWN',
+      cleanIdentifier: cleanApp,
+      reason: 'Standard Mode: Application is not explicitly blocked.',
     };
   }
 }

@@ -387,7 +387,21 @@ class ApiClient {
   }
 
   async getBlockerLiveStatus() {
-    return this.request<{ active: boolean; mode?: string; allowedWebsites?: string[]; blockedWebsites?: string[] }>('/blocker/live-status');
+    return this.request<{
+      active: boolean;
+      sessionId?: string;
+      mode?: string;
+      allowedWebsites?: string[];
+      blockedWebsites?: string[];
+      allowedApps?: string[];
+      blockedApps?: string[];
+    }>('/blocker/live-status');
+  }
+
+  async getDesktopPairToken() {
+    return this.request<{ success: boolean; token: string; user?: any; expiresIn: string }>('/blocker/pair-token', {
+      method: 'POST',
+    });
   }
 
   async activateBlocker(focusSessionId: string, mode: 'MONITOR' | 'BLOCK' | 'STRICT' = 'BLOCK') {

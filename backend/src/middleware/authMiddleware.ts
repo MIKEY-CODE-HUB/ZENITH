@@ -11,6 +11,10 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
+  } else if (req.headers['x-zenith-token']) {
+    token = req.headers['x-zenith-token'] as string;
+  } else if (req.query && req.query.token) {
+    token = req.query.token as string;
   } else if (req.cookies && req.cookies.token) {
     token = req.cookies.token;
   }
@@ -36,6 +40,12 @@ export function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response,
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
+  } else if (req.headers['x-zenith-token']) {
+    token = req.headers['x-zenith-token'] as string;
+  } else if (req.query && req.query.token) {
+    token = req.query.token as string;
+  } else if (req.cookies && req.cookies.token) {
+    token = req.cookies.token;
   }
 
   if (token) {

@@ -29,6 +29,9 @@ import {
   Eye,
   Layers,
   ArrowRight,
+  Terminal,
+  Copy,
+  Key,
 } from 'lucide-react';
 
 export default function BlockerDashboardPage() {
@@ -39,6 +42,11 @@ export default function BlockerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [blockerMode, setBlockerMode] = useState<'MONITOR' | 'BLOCK' | 'STRICT'>('STRICT');
   const [shieldToggling, setShieldToggling] = useState<boolean>(false);
+
+  // Desktop Blocker Pairing Token State
+  const [pairingToken, setPairingToken] = useState<string | null>(null);
+  const [generatingToken, setGeneratingToken] = useState<boolean>(false);
+  const [copiedToken, setCopiedToken] = useState<boolean>(false);
 
   // Form State for Tier 3 Custom Rules
   const [newIdentifier, setNewIdentifier] = useState('');
@@ -155,6 +163,34 @@ export default function BlockerDashboardPage() {
 
     const returnUrl = typeof window !== 'undefined' ? window.location.href : '/blocker';
     router.push(`/blocker/blocked?domain=instagram.com&url=https://instagram.com&room=${encodeURIComponent(returnUrl)}`);
+  };
+
+  const handleGeneratePairToken = async () => {
+    try {
+      setGeneratingToken(true);
+      const res = await api.getDesktopPairToken();
+      if (res.success && res.token) {
+        setPairingToken(res.token);
+        setNotification('Desktop Companion Pairing Token generated successfully!');
+        setTimeout(() => setNotification(null), 4000);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to generate desktop companion token');
+    } finally {
+      setGeneratingToken(false);
+    }
+  };
+
+  const handleCopyPairCommand = () => {
+    if (!pairingToken) return;
+    const cmd = `npm run blocker -- --pair ${pairingToken}`;
+    navigator.clipboard.writeText(cmd);
+    setCopiedToken(true);
+    setNotification('Copied pairing command to clipboard!');
+    setTimeout(() => {
+      setCopiedToken(false);
+      setNotification(null);
+    }, 3000);
   };
 
   const handleToggleResource = async (res: BlockedResource) => {
@@ -646,6 +682,124 @@ export default function BlockerDashboardPage() {
                 </div>
               );
             })()}
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════
+              NATIVE DESKTOP BLOCKER COMPANION (PHASE 2)
+          ═══════════════════════════════════════════════════════ */}
+          <div className="rounded-3xl bg-gradient-to-b from-[#131622] to-[#111218] border border-indigo-500/25 p-6 sm:p-7 space-y-5 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.07] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-inner">
+                  <Laptop className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Native Desktop Blocker Daemon</h2>
+                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                      Phase 2 Companion
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Operates alongside the Chrome extension to intercept native apps (Discord, Spotify, Steam, Games) and refocus Zenith in &lt;400ms.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleGeneratePairToken}
+                disabled={generatingToken}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 shrink-0"
+              >
+                <Key className="h-3.5 w-3.5" />
+                <span>{generatingToken ? 'Generating...' : pairingToken ? 'Regenerate Pairing Token' : 'Generate Pairing Token'}</span>
+              </button>
+            </div>
+
+            {/* Pairing Token Terminal Snippet */}
+            {pairingToken ? (
+              <div className="p-4 rounded-2xl bg-black/60 border border-indigo-500/30 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300">
+                    <Terminal className="h-4 w-4 text-indigo-400" />
+                    <span>One-Line Pairing Command (Terminal)</span>
+                  </div>
+                  <button
+                    onClick={handleCopyPairCommand}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-xs font-medium text-indigo-200 transition-colors"
+                  >
+                    {copiedToken ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="text-emerald-300">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>Copy Command</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="p-3 rounded-xl bg-zinc-950 font-mono text-[11px] text-emerald-400 border border-white/5 overflow-x-auto whitespace-nowrap">
+                  npm run blocker -- --pair {pairingToken}
+                </div>
+
+                <p className="text-[11px] text-zinc-400">
+                  Run this command once in your terminal. It pairs your local desktop blocker with your authenticated Zenith session and saves credentials securely to <code className="text-zinc-200 font-mono bg-zinc-800 px-1 py-0.5 rounded">~/.zenith/desktop-token.json</code>.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-zinc-400">
+                <div className="space-y-1">
+                  <p className="font-semibold text-zinc-200">How to launch the Desktop Companion:</p>
+                  <ol className="list-decimal list-inside space-y-0.5 text-zinc-400 text-[11px]">
+                    <li>Click <strong>Generate Pairing Token</strong> above to get your authenticated 7-day key.</li>
+                    <li>Open your Terminal in the Zenith repository.</li>
+                    <li>Run <code className="text-emerald-400 font-mono bg-black/40 px-1 py-0.5 rounded">npm run blocker</code> to start the guardian.</li>
+                  </ol>
+                </div>
+                <div className="shrink-0 p-3 rounded-xl bg-black/40 border border-white/5 font-mono text-[11px] text-zinc-300">
+                  npm run blocker
+                </div>
+              </div>
+            )}
+
+            {/* Architecture & Guarantees */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-[11px]">
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1">
+                <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                  Multi-User Isolated
+                </span>
+                <p className="text-zinc-500">
+                  Strictly synchronized with your individual account. Telemetry is attributed only to your session.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1">
+                <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5 text-indigo-400" />
+                  Non-Destructive Hiding
+                </span>
+                <p className="text-zinc-500">
+                  Hides distracting apps safely using macOS System Events. Never terminates processes or causes data loss.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1">
+                <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-blue-400" />
+                  Zero Lingering Locks
+                </span>
+                <p className="text-zinc-500">
+                  Exits gracefully on Ctrl+C (SIGINT/SIGTERM) with instant standby when your focus room session concludes.
+                </p>
+              </div>
+            </div>
           </div>
 
         </div>

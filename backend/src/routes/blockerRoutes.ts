@@ -1,13 +1,51 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
-import { authMiddleware, optionalAuthMiddleware } from '../middleware/authMiddleware.js';
+import { authMiddleware, optionalAuthMiddleware, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { BlockerController } from '../controllers/blockerController.js';
 import { BlockerService } from '../services/blockerService.js';
-import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS } from '../config/shieldDomains.js';
+import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS, ALWAYS_BLOCKED_APPS, ALWAYS_ALLOWED_APPS } from '../config/shieldDomains.js';
+import { generateToken } from '../utils/jwt.js';
 
 const router = Router();
 
-// User-scoped health/status check for extension and desktop agent
+// 1. Generate Authenticated Pairing Token for Desktop Companion Daemon
+router.post('/pair-token', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
+  try {
+    const targetUserId = req.user?.userId || (req.query.userId as string);
+    if (!targetUserId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required to generate desktop companion pairing token',
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, username: true, email: true, name: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const token = generateToken({
+      userId: user.id,
+      username: user.username,
+      email: user.email,
+    });
+
+    return res.json({
+      success: true,
+      token,
+      user,
+      expiresIn: '7d',
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. User-scoped health/status check for extension and desktop agent
 router.get('/live-status', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const now = new Date();
@@ -66,12 +104,15 @@ router.get('/live-status', optionalAuthMiddleware, async (req: AuthenticatedRequ
     }
 
     const resources = await BlockerService.getResources(activeSession.userId);
-    const customBlocked = resources.filter(r => r.type === 'WEBSITE' && !r.isAllowlist && r.enabled).map(r => r.identifier);
-    const blockedApps = resources.filter(r => r.type === 'APPLICATION' && !r.isAllowlist && r.enabled).map(r => r.identifier);
-    const customAllowed = resources.filter(r => r.type === 'WEBSITE' && r.isAllowlist && r.enabled).map(r => r.identifier);
+    const customBlockedWebsites = resources.filter(r => r.type === 'WEBSITE' && !r.isAllowlist && r.enabled).map(r => r.identifier);
+    const customAllowedWebsites = resources.filter(r => r.type === 'WEBSITE' && r.isAllowlist && r.enabled).map(r => r.identifier);
+    const customBlockedApps = resources.filter(r => r.type === 'APPLICATION' && !r.isAllowlist && r.enabled).map(r => r.identifier);
+    const customAllowedApps = resources.filter(r => r.type === 'APPLICATION' && r.isAllowlist && r.enabled).map(r => r.identifier);
 
-    const blockedWebsites = Array.from(new Set([...ALWAYS_BLOCKED_DOMAINS.map(d => d.domain), ...customBlocked]));
-    const allowedWebsites = Array.from(new Set([...ALWAYS_ALLOWED_DOMAINS.map(d => d.domain), ...customAllowed]));
+    const blockedWebsites = Array.from(new Set([...ALWAYS_BLOCKED_DOMAINS.map(d => d.domain), ...customBlockedWebsites]));
+    const allowedWebsites = Array.from(new Set([...ALWAYS_ALLOWED_DOMAINS.map(d => d.domain), ...customAllowedWebsites]));
+    const blockedApps = Array.from(new Set([...ALWAYS_BLOCKED_APPS.map(a => a.name), ...customBlockedApps]));
+    const allowedApps = Array.from(new Set([...ALWAYS_ALLOWED_APPS.map(a => a.name), ...customAllowedApps]));
 
     return res.json({
       active: true,
@@ -84,21 +125,35 @@ router.get('/live-status', optionalAuthMiddleware, async (req: AuthenticatedRequ
       blockedWebsites,
       blockedApps,
       allowedWebsites,
+      allowedApps,
     });
   } catch (err: any) {
     return res.status(500).json({ active: false, error: err.message });
   }
 });
 
-// Record desktop app distraction attempt
-router.post('/desktop-attempt', async (req, res) => {
+// 3. Record desktop app distraction attempt (Multi-User Isolated)
+router.post('/desktop-attempt', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const { sessionId, appName } = req.body;
+    const targetUserId = req.user?.userId || (req.query.userId as string);
+
+    if (!targetUserId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required to attribute desktop attempt to user',
+      });
+    }
+
     const active = await prisma.blockerSession.findFirst({
-      where: { status: 'ACTIVE' },
+      where: {
+        status: 'ACTIVE',
+        userId: targetUserId,
+      },
     });
+
     if (active) {
-      const attempt = await BlockerService.recordAttempt(active.userId, {
+      const attempt = await BlockerService.recordAttempt(targetUserId, {
         sessionId: sessionId || active.focusSessionId,
         resourceType: 'APPLICATION',
         resourceIdentifier: appName || 'Distracting Desktop App',
@@ -106,7 +161,7 @@ router.post('/desktop-attempt', async (req, res) => {
       });
       return res.status(201).json({ success: true, attempt });
     }
-    return res.json({ success: false, message: 'No active session' });
+    return res.json({ success: false, message: 'No active focus session for authenticated user' });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
