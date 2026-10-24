@@ -173,6 +173,44 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
     });
   }
 
+  // /api/analytics and /api/analytics/rewarding
+  if (pathStr === 'analytics' || pathStr === 'analytics/rewarding') {
+    return NextResponse.json({
+      success: true,
+      data: {
+        overview: {
+          totalFocusedMinutes: 0,
+          totalSessions: 0,
+          avgSessionMinutes: 0,
+          focusRate: 0,
+        },
+        dayOfWeekDistribution: [
+          { short: 'Mon', full: 'Monday', focusedMinutes: 0, sessionsCount: 0 },
+          { short: 'Tue', full: 'Tuesday', focusedMinutes: 0, sessionsCount: 0 },
+          { short: 'Wed', full: 'Wednesday', focusedMinutes: 0, sessionsCount: 0 },
+          { short: 'Thu', full: 'Thursday', focusedMinutes: 0, sessionsCount: 0 },
+          { short: 'Fri', full: 'Friday', focusedMinutes: 0, sessionsCount: 0 },
+          { short: 'Sat', full: 'Saturday', focusedMinutes: 0, sessionsCount: 0 },
+          { short: 'Sun', full: 'Sunday', focusedMinutes: 0, sessionsCount: 0 },
+        ],
+        streaks: { currentStreak: 0, longestStreak: 0 },
+        weekOverWeek: { thisWeekMinutes: 0, lastWeekMinutes: 0, percentDelta: '0%', isImprovement: false },
+        topDistractions: [],
+        personalRecords: {
+          longestSessionMinutes: 0,
+          bestFocusDay: { date: 'Pending', minutes: 0 },
+          bestWeekMinutes: 0,
+        },
+        personalizedInsight: {
+          title: 'First Session Pending',
+          window: 'Awaiting Data',
+          avgScore: 0,
+          recommendation: 'Complete your first focus block in any room to begin tracking genuine deep work telemetry.',
+        },
+      },
+    });
+  }
+
   // /api/analytics/dashboard
   if (pathStr === 'analytics/dashboard') {
     return NextResponse.json({

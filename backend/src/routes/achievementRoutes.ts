@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { AchievementController } from '../controllers/achievementController.js';
-import { authMiddleware } from '../middleware/authMiddleware.js';
+import { optionalAuthMiddleware } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
-router.get('/', authMiddleware, AchievementController.getAchievements);
+router.get('/', optionalAuthMiddleware, AchievementController.getAchievements);
 
 export default router;

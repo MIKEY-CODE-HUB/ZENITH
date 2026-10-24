@@ -135,6 +135,10 @@ export class PointService {
     roomId: string
   ): Promise<{ authorizationId: string; pointsDeducted: number; remainingWeeklyPoints: number }> {
     return await prisma.$transaction(async (tx) => {
+      // Concurrency protection: Lock both the room (for 6-participant limit) and the user (for 30% weekly XP ledger deduction)
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'room_' + roomId}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'xp_' + userId}))`;
+
       // 1. Verify Room exists and enforce strict 6 participants cap
       const room = await tx.room.findUnique({
         where: { id: roomId },
@@ -164,11 +168,19 @@ export class PointService {
       });
 
       if (existingAuth) {
-        const { weeklyPoints } = await this.getUserPointSummary(userId);
+        const startOfWeek = this.getStartOfWeekUTC();
+        const weeklyAggregate = await tx.pointTransaction.aggregate({
+          where: {
+            userId,
+            createdAt: { gte: startOfWeek },
+          },
+          _sum: { amount: true },
+        });
+        const currentWeekly = Math.max(0, weeklyAggregate._sum.amount || 0);
         return {
           authorizationId: existingAuth.id,
           pointsDeducted: 0,
-          remainingWeeklyPoints: weeklyPoints,
+          remainingWeeklyPoints: currentWeekly,
         };
       }
 

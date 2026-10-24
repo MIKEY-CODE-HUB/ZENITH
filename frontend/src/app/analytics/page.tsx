@@ -84,7 +84,7 @@ export default function AnalyticsPage() {
               totalFocusedMinutes: 0,
               totalSessions: 0,
               avgSessionMinutes: 0,
-              focusRate: 100,
+              focusRate: 0,
             },
             dayOfWeekDistribution: [
               { short: 'Mon', full: 'Monday', focusedMinutes: 0, sessionsCount: 0 },
@@ -433,14 +433,14 @@ export default function AnalyticsPage() {
                   <h2 className="text-sm font-semibold text-white">Personalized Focus Pattern</h2>
                 </div>
                 <span className="text-[11px] font-mono text-emerald-400/90">
-                  {insight?.avgScore || 94}% avg efficiency
+                  {overview && overview.totalSessions > 0 ? `${insight?.avgScore || 0}% avg efficiency` : 'Awaiting data'}
                 </span>
               </div>
 
               <div className="mt-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
                 <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300">
                   <Clock className="h-3.5 w-3.5" />
-                  <span>Optimal Focus Window: {insight?.window || 'Morning'}</span>
+                  <span>Optimal Focus Window: {overview && overview.totalSessions > 0 ? (insight?.window || 'Afternoon') : (insight?.window || 'Awaiting Data')}</span>
                 </div>
                 <p className="text-xs text-zinc-300 leading-relaxed">
                   {insight?.recommendation}

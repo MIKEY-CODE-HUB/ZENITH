@@ -265,7 +265,7 @@ export class AnalyticsService {
     const totalSessions = allCompletedSessions.length;
     const totalFocusedMinutes = Math.round(totalFocusedSeconds / 60);
     const avgSessionMinutes = totalSessions > 0 ? Math.round(totalFocusedMinutes / totalSessions) : 0;
-    const focusRate = totalTimeTracked > 0 ? Math.min(100, Math.round((totalFocusedSeconds / totalTimeTracked) * 100)) : 92;
+    const focusRate = totalTimeTracked > 0 ? Math.min(100, Math.round((totalFocusedSeconds / totalTimeTracked) * 100)) : 0;
 
     // 1. STREAKS (Current vs Longest)
     const { StreakAchievementService } = await import('./streakAchievementService.js');

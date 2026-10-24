@@ -60,11 +60,15 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
       }
     }
 
-    // Strict 6 participants enforcement for Interaction Rooms
-    if (category === 'INTERACTION' && roomParticipants.size >= 6) {
+    // Strict room capacity enforcement: 6 participants for Interaction, 10 for Focus rooms
+    const effectiveCap = category === 'INTERACTION' ? 6 : 10;
+    if (roomParticipants.size >= effectiveCap) {
       socket.emit('room_error', {
         code: 'ROOM_FULL',
-        message: 'Interaction rooms have a strict maximum capacity of 6 participants.',
+        message:
+          category === 'INTERACTION'
+            ? 'Interaction rooms have a strict maximum capacity of 6 participants.'
+            : 'Focus rooms have a strict maximum capacity of 10 participants.',
       });
       return;
     }

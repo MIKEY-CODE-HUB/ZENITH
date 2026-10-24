@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "tsx --test tests/zenithEngine.test.ts tests/auth.test.ts tests/roomPresence.test.ts tests/matchmaking.test.ts tests/policyEngine.test.ts tests/blockerIsolation.test.ts tests/desktopBlocker.test.ts",
+    "test": "tsx --test tests/zenithEngine.test.ts tests/auth.test.ts tests/roomPresence.test.ts tests/matchmaking.test.ts tests/policyEngine.test.ts tests/blockerIsolation.test.ts tests/desktopBlocker.test.ts tests/masterQAE2E.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:seed": "tsx prisma/seed.ts"

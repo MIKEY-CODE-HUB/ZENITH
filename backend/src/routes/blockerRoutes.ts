@@ -31,7 +31,7 @@ router.post('/pair-token', optionalAuthMiddleware, async (req: AuthenticatedRequ
     const token = generateToken({
       userId: user.id,
       username: user.username,
-      email: user.email,
+      email: user.email || undefined,
     });
 
     return res.json({

@@ -19,7 +19,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreated }: CreateRoomModalP
   const [activityType, setActivityType] = useState<ActivityType>('Coding');
   const [duration, setDuration] = useState(50);
   const [isPrivate, setIsPrivate] = useState(false);
-  const [maxParticipants, setMaxParticipants] = useState(12);
+  const [maxParticipants, setMaxParticipants] = useState(10);
   const [camera, setCamera] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -66,7 +66,7 @@ export class RoomController {
           isSharedAtmosphere: room.isSharedAtmosphere,
           roomCode: room.roomCode,
           isPrivate: room.isPrivate,
-          maxParticipants: room.category === 'INTERACTION' ? 6 : room.maxParticipants,
+          maxParticipants: room.category === 'INTERACTION' ? 6 : Math.min(10, room.maxParticipants || 10),
           defaultDuration: room.defaultDuration,
           defaultCamera: room.defaultCamera,
           defaultMic: room.defaultMic,
@@ -124,6 +124,7 @@ export class RoomController {
         success: true,
         room: {
           ...room,
+          maxParticipants: room.category === 'INTERACTION' ? 6 : Math.min(10, room.maxParticipants || 10),
           activeParticipantsCount: room.participants.length,
           averageFocusScore: avgScore,
         },
@@ -146,7 +147,7 @@ export class RoomController {
         isSharedAtmosphere = false,
         duration = 50,
         isPrivate = false,
-        maxParticipants = 12,
+        maxParticipants = 10,
         camera = true,
         mic = false,
       } = req.body;
@@ -156,8 +157,9 @@ export class RoomController {
         return;
       }
 
-      // Hard enforcement: Interaction rooms CANNOT exceed 6 participants
-      const finalMaxParticipants = category === 'INTERACTION' ? Math.min(6, parseInt(maxParticipants, 10) || 6) : parseInt(maxParticipants, 10) || 12;
+      // Hard enforcement: Interaction rooms CANNOT exceed 6 participants; Focus rooms CANNOT exceed 10
+      const effectiveCap = category === 'INTERACTION' ? 6 : 10;
+      const finalMaxParticipants = Math.min(effectiveCap, parseInt(maxParticipants, 10) || effectiveCap);
 
       // Generate room code like GRN-4821 or INT-1234
       const prefix = (category === 'INTERACTION' ? 'INT' : name.substring(0, 3)).toUpperCase();
