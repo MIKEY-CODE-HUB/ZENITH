@@ -73,6 +73,8 @@ function parseToken(token?: string | null): any {
 
 // In-memory user store for serverless resilience
 const userStore = new Map<string, any>();
+const serverlessIncidents = new Map<string, any>();
+const serverlessRestrictions = new Map<string, any>();
 
 async function proxyToBackend(req: NextRequest, pathStr: string): Promise<Response | null> {
   const backendBase = process.env.BACKEND_URL || (process.env.VERCEL ? null : 'http://127.0.0.1:5001/api');
@@ -322,6 +324,27 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
         { id: 'usr-3', name: 'Rahul Verma', username: 'rahulv', avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150', score: 92, totalMinutes: 940, currentStreak: 7 },
       ],
     });
+  }
+
+  // /api/moderation/active/[roomId]
+  if (pathStr.startsWith('moderation/active/')) {
+    const roomId = pathArr[2];
+    const incident = serverlessIncidents.get(roomId);
+    if (incident && incident.status === 'VOTING' && new Date() < new Date(incident.votingExpiresAt)) {
+      return NextResponse.json({ activeBallot: incident });
+    }
+    return NextResponse.json({ activeBallot: null });
+  }
+
+  // /api/moderation/restriction/[roomId]
+  if (pathStr.startsWith('moderation/restriction/')) {
+    const roomId = pathArr[2];
+    const userId = tokenPayload?.userId || 'guest';
+    const restriction = serverlessRestrictions.get(`${userId}:${roomId}`);
+    if (restriction && new Date() < new Date(restriction.expiresAt)) {
+      return NextResponse.json({ isRestricted: true, reason: restriction.reason, expiresAt: restriction.expiresAt });
+    }
+    return NextResponse.json({ isRestricted: false });
   }
 
   return NextResponse.json({ success: false, error: `Endpoint not found: /api/${pathStr}` }, { status: 404 });
@@ -654,6 +677,76 @@ export async function POST(req: NextRequest, { params }: { params: { path: strin
       userId: tokenPayload?.userId || 'guest',
       expiresIn: '7d',
     });
+  }
+
+  // /api/moderation/report
+  if (pathStr === 'moderation/report') {
+    const { roomId, accusedId, reason, details } = body;
+    const reporterId = tokenPayload?.userId || 'guest';
+    if (reporterId === accusedId) {
+      return NextResponse.json({ error: 'SELF_REPORT_FORBIDDEN: You cannot report yourself.' }, { status: 403 });
+    }
+    const incident = {
+      id: `inc-${Date.now()}`,
+      roomId,
+      reporterId,
+      accusedId,
+      accusedName: 'Reported Participant',
+      reason,
+      details,
+      status: 'VOTING',
+      eligibleVoters: [reporterId, 'voter-1', 'voter-2', 'voter-3'],
+      requiredVotes: 2,
+      totalEligible: 3,
+      votingExpiresAt: new Date(Date.now() + 60000).toISOString(),
+    };
+    serverlessIncidents.set(roomId, incident);
+    return NextResponse.json({ message: 'Moderation ballot successfully opened.', incident }, { status: 201 });
+  }
+
+  // /api/moderation/vote
+  if (pathStr === 'moderation/vote') {
+    const { incidentId, decision } = body;
+    return NextResponse.json({
+      message: 'Vote recorded successfully',
+      resolution: {
+        incidentId,
+        status: 'VOTING',
+        kicked: false,
+        yesVotes: decision === 'YES' ? 1 : 0,
+        noVotes: decision === 'NO' ? 1 : 0,
+      },
+    });
+  }
+
+  // /api/users/theme-proposal
+  if (pathStr === 'users/theme-proposal') {
+    const activity = String(body.activityPreference || 'Coding').toLowerCase();
+    let proposal = {
+      themeId: 'tokyo-night',
+      name: 'Tokyo Night',
+      category: 'TECH',
+      bgImageUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1920&q=80&auto=format&fit=crop',
+      effectType: 'cyber-grid',
+      gradientOverlay: 'radial-gradient(ellipse at center, rgba(12,10,24,0.55) 0%, rgba(6,4,14,0.92) 100%)',
+      accentColor: '#818cf8',
+      recommendedSound: 'lofi',
+      rationale: 'Optimized for high-concentration programming sessions with subdued neon contrast.',
+    };
+    if (activity.includes('study') || activity.includes('read')) {
+      proposal = {
+        themeId: 'oxford-library',
+        name: 'Oxford Cathedral Library',
+        category: 'LIBRARY / STUDY',
+        bgImageUrl: 'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=1920&q=80&auto=format&fit=crop',
+        effectType: 'particles',
+        gradientOverlay: 'radial-gradient(ellipse at center, rgba(18,12,6,0.6) 0%, rgba(8,5,2,0.95) 100%)',
+        accentColor: '#d97706',
+        recommendedSound: 'fireplace',
+        rationale: 'Warm acoustic atmosphere suited for deep reading and conceptual study.',
+      };
+    }
+    return NextResponse.json({ success: true, proposal });
   }
 
   return NextResponse.json({ success: true });
