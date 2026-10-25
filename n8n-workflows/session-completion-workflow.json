@@ -1,0 +1,116 @@
+{
+  "name": "Zenith - Session Completion Digest & AI Advice",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zenith-session-completed",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Validate HMAC signature and parse payload\nconst signature = $headers['x-zenith-signature'];\nconst payload = $json.body;\n\nreturn [{\n  json: {\n    userId: payload.data.userId,\n    sessionId: payload.data.sessionId,\n    duration: payload.data.focusedDuration,\n    score: payload.data.focusScore,\n    timestamp: payload.timestamp\n  }\n}];"
+      },
+      "name": "Validate & Extract",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.score}}",
+              "operation": "largerEqual",
+              "value2": 90
+            }
+          ]
+        }
+      },
+      "name": "High Performance Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "recommendation",
+              "value": "Outstanding flow state observed! Take a restorative 5-minute break before initiating another session."
+            }
+          ]
+        }
+      },
+      "name": "High Score Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "recommendation",
+              "value": "Distraction events detected during mid-session. Try activating strict blocker mode for your next deep work interval."
+            }
+          ]
+        }
+      },
+      "name": "Coaching Advice",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate & Extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Extract": {
+      "main": [
+        [
+          {
+            "node": "High Performance Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High Performance Check": {
+      "main": [
+        [
+          {
+            "node": "High Score Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Coaching Advice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

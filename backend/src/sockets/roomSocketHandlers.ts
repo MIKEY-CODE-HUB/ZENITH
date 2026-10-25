@@ -1,4 +1,5 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import { ModerationService } from '../services/moderationService.js';
 
 export interface ParticipantPresence {
   socketId: string;
@@ -19,6 +20,9 @@ export interface ParticipantPresence {
 
 // In-memory active room presence map: roomId -> Map<socketId, ParticipantPresence>
 const activeRooms = new Map<string, Map<string, ParticipantPresence>>();
+
+// In-memory fast cache for room restrictions: "userId:roomId" -> expiresAt timestamp
+const localRestrictions = new Map<string, number>();
 
 export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
   // Join Room
@@ -47,6 +51,17 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
       withSimulatedPeers = false,
     } = data;
 
+    // Fast synchronous check for active room restriction
+    const restrictionKey = `${userId}:${roomId}`;
+    const memExpiry = localRestrictions.get(restrictionKey);
+    if (memExpiry && Date.now() < memExpiry) {
+      socket.emit('room_error', {
+        code: 'ROOM_RESTRICTED',
+        message: 'You are temporarily restricted from this room due to a community vote.',
+      });
+      return;
+    }
+
     if (!activeRooms.has(roomId)) {
       activeRooms.set(roomId, new Map());
     }
@@ -72,6 +87,27 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
       });
       return;
     }
+
+    // Async DB restriction check to catch cross-process/persistent restrictions
+    ModerationService.checkRoomRestriction(userId, roomId)
+      .then((restriction) => {
+        if (restriction.isRestricted) {
+          localRestrictions.set(restrictionKey, restriction.expiresAt!.getTime());
+          socket.emit('room_error', {
+            code: 'ROOM_RESTRICTED',
+            message: `You are temporarily restricted from this room (${restriction.reason}).`,
+          });
+          roomParticipants.delete(socket.id);
+          socket.leave(roomId);
+          const updatedList = Array.from(roomParticipants.values());
+          io.to(roomId).emit('room_presence_list', {
+            roomId,
+            participants: updatedList,
+            totalCount: updatedList.length,
+          });
+        }
+      })
+      .catch(() => {});
 
     socket.join(roomId);
 
@@ -260,6 +296,105 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
       type,
       timestamp: new Date().toISOString(),
     });
+  });
+
+  // ══════════════════════════════════════════════════════════
+  // COMMUNITY MODERATION SOCKET PROTOCOL
+  // ══════════════════════════════════════════════════════════
+
+  // Report participant inside active room
+  socket.on('report_participant', async (data: {
+    roomId: string;
+    reporterId: string;
+    accusedId: string;
+    reason: string;
+    details?: string;
+  }) => {
+    try {
+      const { roomId, reporterId, accusedId, reason, details } = data;
+      const incident = await ModerationService.createIncident({
+        roomId,
+        reporterId,
+        accusedId,
+        reason,
+        details,
+      });
+
+      // Broadcast moderation ballot alert to all participants in the room
+      io.to(roomId).emit('moderation_incident_started', {
+        incidentId: incident.id,
+        roomId: incident.roomId,
+        accusedId: incident.accusedId,
+        accusedName: incident.accused.name,
+        reason: incident.reason,
+        eligibleVoters: incident.eligibleVoters,
+        requiredVotes: incident.requiredVotes,
+        totalEligible: incident.totalVotersCount,
+        votingExpiresAt: incident.votingExpiresAt,
+      });
+    } catch (err: any) {
+      socket.emit('moderation_error', {
+        message: err.message || 'Failed to submit report',
+      });
+    }
+  });
+
+  // Cast vote on active moderation ballot
+  socket.on('cast_moderation_vote', async (data: {
+    incidentId: string;
+    voterId: string;
+    decision: 'YES' | 'NO';
+  }) => {
+    try {
+      const { incidentId, voterId, decision } = data;
+      const resolution = await ModerationService.castVote({
+        incidentId,
+        voterId,
+        decision,
+      });
+
+      // If ballot resolved with confirmed kick
+      if (resolution.status === 'CONFIRMED' && resolution.kicked) {
+        localRestrictions.set(`${resolution.accusedId}:${resolution.roomId}`, Date.now() + 30 * 60 * 1000);
+        const room = activeRooms.get(resolution.roomId);
+        if (room) {
+          // Find accused socket
+          for (const [sId, p] of room.entries()) {
+            if (p.userId === resolution.accusedId) {
+              const targetSocket = io.sockets.sockets.get(sId);
+              if (targetSocket) {
+                targetSocket.emit('participant_kicked', {
+                  roomId: resolution.roomId,
+                  reason: resolution.reason,
+                  cooldownMinutes: 30,
+                  message: `You have been removed from this room by community vote (${resolution.reason}).`,
+                });
+                handleUserLeave(io, targetSocket, resolution.roomId);
+              }
+              break;
+            }
+          }
+        }
+
+        // Notify remaining participants in the room
+        io.to(resolution.roomId).emit('moderation_incident_resolved', {
+          incidentId: resolution.incidentId,
+          status: 'CONFIRMED',
+          kickedUserId: resolution.accusedId,
+          reason: resolution.reason,
+        });
+      } else if (resolution.status === 'REJECTED') {
+        io.to(resolution.roomId).emit('moderation_incident_resolved', {
+          incidentId: resolution.incidentId,
+          status: 'REJECTED',
+          reason: 'Insufficient votes to meet majority threshold.',
+        });
+      }
+    } catch (err: any) {
+      socket.emit('moderation_error', {
+        message: err.message || 'Failed to record vote',
+      });
+    }
   });
 
   // Leave room

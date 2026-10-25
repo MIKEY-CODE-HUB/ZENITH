@@ -67,6 +67,27 @@ export class UserController {
         streakReminders,
       } = req.body;
 
+      // Validate customThemeTarget
+      const allowedTargets = ['DASHBOARD', 'ROOMS', 'BOTH'];
+      if (req.body.customThemeTarget && !allowedTargets.includes(req.body.customThemeTarget)) {
+        res.status(400).json({ success: false, error: 'customThemeTarget must be DASHBOARD, ROOMS, or BOTH' });
+        return;
+      }
+
+      // Validate customThemeUrl against script injection
+      if (req.body.customThemeUrl) {
+        const themeUrl = String(req.body.customThemeUrl).trim();
+        if (
+          themeUrl.startsWith('javascript:') ||
+          themeUrl.startsWith('data:text/html') ||
+          themeUrl.includes('<script>') ||
+          themeUrl.includes('onerror=')
+        ) {
+          res.status(400).json({ success: false, error: 'Invalid or unsafe theme URL detected' });
+          return;
+        }
+      }
+
       const settings = await prisma.userSettings.upsert({
         where: { userId },
         update: {
@@ -160,6 +181,74 @@ export class UserController {
         success: true,
         metric,
         leaderboard: sorted.slice(0, 20),
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  public static async generateThemeProposal(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { activityPreference, mood = 'calm' } = req.body;
+      const activity = String(activityPreference || 'Coding').toLowerCase();
+
+      let proposal = {
+        themeId: 'tokyo-night',
+        name: 'Tokyo Night',
+        tagline: 'Quiet Tokyo high-rise desk overlooking neon twilight',
+        category: 'TECH',
+        bgImageUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1920&q=80&auto=format&fit=crop',
+        effectType: 'cyber-grid',
+        gradientOverlay: 'radial-gradient(ellipse at center, rgba(12,10,24,0.55) 0%, rgba(6,4,14,0.92) 100%)',
+        accentColor: '#818cf8',
+        recommendedSound: 'lofi',
+        rationale: 'Optimized for high-concentration programming sessions with subdued neon contrast.',
+      };
+
+      if (activity.includes('study') || activity.includes('read') || activity.includes('math')) {
+        proposal = {
+          themeId: 'oxford-library',
+          name: 'Oxford Cathedral Library',
+          tagline: 'Vaulted oak arches and centuries of scholastic heritage',
+          category: 'LIBRARY / STUDY',
+          bgImageUrl: 'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=1920&q=80&auto=format&fit=crop',
+          effectType: 'particles',
+          gradientOverlay: 'radial-gradient(ellipse at center, rgba(18,12,6,0.6) 0%, rgba(8,5,2,0.95) 100%)',
+          accentColor: '#d97706',
+          recommendedSound: 'fireplace',
+          rationale: 'Warm acoustic atmosphere suited for deep reading and conceptual study.',
+        };
+      } else if (activity.includes('gym') || activity.includes('exercise') || activity.includes('workout')) {
+        proposal = {
+          themeId: 'energy-grid',
+          name: 'Energy Grid',
+          tagline: 'High-intensity athletic cyber grid designed for workouts',
+          category: 'TECH',
+          bgImageUrl: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1920&q=80&auto=format&fit=crop',
+          effectType: 'cyber-grid',
+          gradientOverlay: 'radial-gradient(ellipse at center, rgba(20,8,8,0.5) 0%, rgba(6,2,2,0.94) 100%)',
+          accentColor: '#ef4444',
+          recommendedSound: 'lofi',
+          rationale: 'High contrast dynamic environment designed to support physical momentum.',
+        };
+      } else if (activity.includes('nature') || activity.includes('calm') || mood === 'nature') {
+        proposal = {
+          themeId: 'alpine-lake',
+          name: 'Alpine Lake & Pine Forest',
+          tagline: 'Still emerald waters framed by mist-covered mountain peaks',
+          category: 'NATURE',
+          bgImageUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1920&q=80&auto=format&fit=crop',
+          effectType: 'ambient',
+          gradientOverlay: 'radial-gradient(ellipse at center, rgba(6,16,14,0.5) 0%, rgba(2,8,7,0.95) 100%)',
+          accentColor: '#059669',
+          recommendedSound: 'wind',
+          rationale: 'Restorative natural landscape reducing cognitive fatigue during extended sessions.',
+        };
+      }
+
+      res.json({
+        success: true,
+        proposal,
       });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });

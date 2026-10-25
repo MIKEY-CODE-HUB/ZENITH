@@ -1,0 +1,64 @@
+{
+  "name": "Zenith - Weekly Productivity Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 * * 1"
+            }
+          ]
+        }
+      },
+      "name": "Monday 00:00 UTC Cron Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5001/api/analytics/weekly-digest",
+        "options": {}
+      },
+      "name": "Fetch Aggregated Telemetry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format weekly summary email or push notification\nconst items = $json.data || [];\nreturn items.map(userDigest => ({\n  json: {\n    userId: userDigest.userId,\n    totalFocusedHours: (userDigest.totalMinutes / 60).toFixed(1),\n    totalPointsEarned: userDigest.points,\n    averageFocusRate: userDigest.avgRate + '%'\n  }\n}));"
+      },
+      "name": "Format Weekly Digest",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Monday 00:00 UTC Cron Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Aggregated Telemetry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Aggregated Telemetry": {
+      "main": [
+        [
+          {
+            "node": "Format Weekly Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

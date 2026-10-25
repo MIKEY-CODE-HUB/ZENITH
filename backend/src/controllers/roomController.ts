@@ -225,6 +225,23 @@ export class RoomController {
           throw new Error('ROOM_NOT_FOUND');
         }
 
+        // Check active moderation restriction (cooldown from kick)
+        const activeRestriction = await tx.roomRestriction.findFirst({
+          where: {
+            userId,
+            roomId,
+            expiresAt: { gt: new Date() },
+          },
+        });
+
+        if (activeRestriction) {
+          const err: any = new Error(
+            `You are temporarily restricted from joining this room until ${activeRestriction.expiresAt.toLocaleTimeString()} (${activeRestriction.reason})`
+          );
+          err.code = 'ROOM_RESTRICTED';
+          throw err;
+        }
+
         const isAlreadyActive = room.participants.some((p) => p.userId === userId);
         const effectiveCap = room.category === 'INTERACTION' ? 6 : Math.min(10, room.maxParticipants || 10);
 
@@ -267,6 +284,8 @@ export class RoomController {
     } catch (error: any) {
       if (error.message === 'ROOM_NOT_FOUND') {
         res.status(404).json({ success: false, error: 'Room not found' });
+      } else if (error.code === 'ROOM_RESTRICTED') {
+        res.status(403).json({ success: false, error: error.message, restricted: true });
       } else if (error.code === 'ROOM_FULL') {
         res.status(400).json({ success: false, error: error.message });
       } else {
@@ -350,10 +369,20 @@ export class RoomController {
           },
         });
 
+        // Query any active room restrictions for this user to avoid matching into restricted rooms
+        const activeRestrictions = await tx.roomRestriction.findMany({
+          where: {
+            userId,
+            expiresAt: { gt: new Date() },
+          },
+          select: { roomId: true },
+        });
+        const restrictedRoomIds = new Set(activeRestrictions.map((r) => r.roomId));
+
         // Prioritize rooms that already have occupants (< effectiveCap) first to fill existing capacity,
-        // followed by empty rooms (0 occupants)
+        // followed by empty rooms (0 occupants), excluding restricted rooms
         const eligibleRooms = candidateRooms
-          .filter((r) => r.participants.length < effectiveCap)
+          .filter((r) => !restrictedRoomIds.has(r.id) && r.participants.length < effectiveCap)
           .sort((a, b) => {
             if (a.participants.length > 0 && b.participants.length === 0) return -1;
             if (a.participants.length === 0 && b.participants.length > 0) return 1;

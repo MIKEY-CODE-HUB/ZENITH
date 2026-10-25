@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ParticipantPresence } from '@/lib/types';
-import { CameraOff, Mic, MicOff, Maximize2, Minimize2, User as UserIcon } from 'lucide-react';
+import { CameraOff, Mic, MicOff, Maximize2, Minimize2, User as UserIcon, Flag } from 'lucide-react';
 
 export type VideoLayoutMode = 'footer' | 'header' | 'middle' | 'scattered';
 
@@ -16,6 +16,7 @@ interface AdaptiveVideoGalleryProps {
   participants: ParticipantPresence[];
   remoteStreams: Map<string, MediaStream>;
   isInteractionRoom?: boolean;
+  onReportPeer?: (peer: ParticipantPresence) => void;
 }
 
 // Scattered positions (10 non-overlapping ambient floating coordinates)
@@ -42,6 +43,7 @@ export function AdaptiveVideoGallery({
   participants,
   remoteStreams,
   isInteractionRoom = false,
+  onReportPeer,
 }: AdaptiveVideoGalleryProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
@@ -151,6 +153,20 @@ export function AdaptiveVideoGallery({
             </div>
           )}
         </div>
+
+        {/* Report Flag Trigger */}
+        {onReportPeer && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onReportPeer(peer);
+            }}
+            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md bg-black/80 hover:bg-rose-500 text-zinc-400 hover:text-white border border-white/10 shadow"
+            title={`Report ${peer.name || peer.username} for community violation`}
+          >
+            <Flag className="h-2.5 w-2.5" />
+          </button>
+        )}
       </div>
     );
   };

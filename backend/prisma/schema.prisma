@@ -50,6 +50,10 @@ model User {
   reportsReceived     UserReport[]       @relation("ReportedUser")
   blockedUsers        UserBlock[]        @relation("BlockedBy")
   blockedByUsers      UserBlock[]        @relation("BlockedUser")
+  moderationReportsFiled     ModerationIncident[] @relation("ModerationReportedBy")
+  moderationIncidentsAgainst ModerationIncident[] @relation("ModerationAccusedUser")
+  moderationVotes            ModerationVote[]
+  roomRestrictions           RoomRestriction[]
 
   @@map("users")
 }
@@ -103,6 +107,8 @@ model Room {
   participants        RoomParticipant[]
   focusSessions       FocusSession[]
   interactionAuthorizations InteractionAuthorization[]
+  moderationIncidents ModerationIncident[]
+  roomRestrictions    RoomRestriction[]
 
   @@index([category, status])
   @@index([isPrivate, status])
@@ -333,4 +339,66 @@ model UserBlock {
 
   @@unique([blockerId, blockedId])
   @@map("user_blocks")
+}
+
+// ══════════════════════════════════════════════════════════
+// COMMUNITY MODERATION & AUTOMATIC KICK ENGINE
+// ══════════════════════════════════════════════════════════
+
+model ModerationIncident {
+  id               String           @id @default(uuid())
+  roomId           String
+  room             Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reporterId       String
+  reporter         User             @relation("ModerationReportedBy", fields: [reporterId], references: [id], onDelete: Cascade)
+  accusedId        String
+  accused          User             @relation("ModerationAccusedUser", fields: [accusedId], references: [id], onDelete: Cascade)
+  reason           String
+  details          String?
+  status           String           @default("VOTING") // OPEN, VOTING, CONFIRMED, REJECTED, INCONCLUSIVE, CLOSED
+  eligibleVoters   String[]         // Snapshot of eligible voter user IDs (max 8)
+  requiredVotes    Int              // floor(eligible/2) + 1 for strictly >50%
+  minQuorum        Int              @default(1)
+  yesVotesCount    Int              @default(0)
+  noVotesCount     Int              @default(0)
+  totalVotersCount Int              @default(0)
+  votingExpiresAt  DateTime
+  resolvedAt       DateTime?
+  resolutionReason String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  votes            ModerationVote[]
+
+  @@index([roomId, status])
+  @@index([accusedId, status])
+  @@map("moderation_incidents")
+}
+
+model ModerationVote {
+  id         String             @id @default(uuid())
+  incidentId String
+  incident   ModerationIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  voterId    String
+  voter      User               @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  decision   String             // YES, NO
+  createdAt  DateTime           @default(now())
+
+  @@unique([incidentId, voterId])
+  @@map("moderation_votes")
+}
+
+model RoomRestriction {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roomId     String
+  room       Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reason     String
+  incidentId String?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([userId, roomId, expiresAt])
+  @@map("room_restrictions")
 }

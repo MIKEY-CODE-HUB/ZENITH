@@ -16,6 +16,12 @@ import { SoundscapeMixerModal } from '@/components/SoundscapeMixerModal';
 import { MusicPlayerModal } from '@/components/MusicPlayerModal';
 import { AtmosphereSelectorModal } from '@/components/AtmosphereSelectorModal';
 import { DistractionOverlay } from '@/components/DistractionOverlay';
+import {
+  ReportParticipantModal,
+  ModerationBallotBanner,
+  KickedNoticeModal,
+  ActiveBallotState,
+} from '@/components/ModerationModal';
 import { ParticipantPresence, FocusStatus, Room, ActivityCategory } from '@/lib/types';
 import { formatSeconds, formatMinutesHuman } from '@/lib/utils';
 import {
@@ -93,6 +99,15 @@ export default function LiveRoomPage() {
   const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
   const [isTapeExpanded, setIsTapeExpanded] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  // Community Moderation State
+  const [reportingPeer, setReportingPeer] = useState<ParticipantPresence | null>(null);
+  const [activeBallot, setActiveBallot] = useState<ActiveBallotState | null>(null);
+  const [kickedNotice, setKickedNotice] = useState<{ isOpen: boolean; reason: string }>({
+    isOpen: false,
+    reason: '',
+  });
+  const [moderationNotification, setModerationNotification] = useState<string | null>(null);
 
   // Auto-hide controls state
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -306,6 +321,31 @@ export default function LiveRoomPage() {
       );
     });
 
+    socket.on('moderation_incident_started', (data: ActiveBallotState) => {
+      setActiveBallot(data);
+    });
+
+    socket.on('moderation_incident_resolved', (data: { incidentId: string; status: string; kickedUserId?: string; reason?: string }) => {
+      setActiveBallot(null);
+      if (data.status === 'CONFIRMED') {
+        setModerationNotification(`Participant was removed from the room by community vote (${data.reason}).`);
+      } else {
+        setModerationNotification('Moderation ballot concluded without removal.');
+      }
+      setTimeout(() => setModerationNotification(null), 6000);
+    });
+
+    socket.on('participant_kicked', (data: { roomId: string; reason: string; message: string }) => {
+      setKickedNotice({ isOpen: true, reason: data.reason });
+    });
+
+    socket.on('room_error', (data: { code: string; message: string }) => {
+      if (data.code === 'ROOM_RESTRICTED') {
+        alert(data.message);
+        router.push('/rooms');
+      }
+    });
+
     return () => {
       socket.emit('leave_room', { roomId: activeRoomId });
       socket.off('room_presence_list');
@@ -314,6 +354,10 @@ export default function LiveRoomPage() {
       socket.off('user_left');
       socket.off('participant_status_updated');
       socket.off('participant_speaking');
+      socket.off('moderation_incident_started');
+      socket.off('moderation_incident_resolved');
+      socket.off('participant_kicked');
+      socket.off('room_error');
     };
   }, [socket, activeRoomId, user?.id, activityName, category]);
 
@@ -363,6 +407,31 @@ export default function LiveRoomPage() {
     } catch (err) {
       console.error('End session error:', err);
       router.push('/dashboard');
+    }
+  };
+
+  // Community Moderation Actions
+  const handleFileReport = async (data: { accusedId: string; reason: string; details?: string }) => {
+    if (socket && user) {
+      socket.emit('report_participant', {
+        roomId: activeRoomId,
+        reporterId: user.id,
+        accusedId: data.accusedId,
+        reason: data.reason,
+        details: data.details,
+      });
+      setModerationNotification('Report submitted. Corroboration ballot initiated across eligible peers.');
+      setTimeout(() => setModerationNotification(null), 5000);
+    }
+  };
+
+  const handleCastBallotVote = (decision: 'YES' | 'NO') => {
+    if (socket && user && activeBallot) {
+      socket.emit('cast_moderation_vote', {
+        incidentId: activeBallot.incidentId,
+        voterId: user.id,
+        decision,
+      });
     }
   };
 
@@ -423,6 +492,7 @@ export default function LiveRoomPage() {
         participants={participants}
         remoteStreams={remoteStreams}
         isInteractionRoom={isInteractionRoom}
+        onReportPeer={(peer) => setReportingPeer(peer)}
       />
 
       {/* ── LAYER E: 5-BUTTON FLOATING BOTTOM CONTROL DOCK (320–420px) ── */}
@@ -509,6 +579,39 @@ export default function LiveRoomPage() {
         isOpen={isMusicModalOpen}
         onClose={() => setIsMusicModalOpen(false)}
       />
+
+      {/* ── COMMUNITY MODERATION SUITE ── */}
+      {activeBallot && user && (
+        <ModerationBallotBanner
+          ballot={activeBallot}
+          currentUserId={user.id}
+          onCastVote={handleCastBallotVote}
+        />
+      )}
+
+      {reportingPeer && (
+        <ReportParticipantModal
+          isOpen={Boolean(reportingPeer)}
+          onClose={() => setReportingPeer(null)}
+          accusedPeer={reportingPeer}
+          onSubmitReport={handleFileReport}
+        />
+      )}
+
+      <KickedNoticeModal
+        isOpen={kickedNotice.isOpen}
+        reason={kickedNotice.reason}
+        onAcknowledge={() => {
+          setKickedNotice({ isOpen: false, reason: '' });
+          router.push('/dashboard');
+        }}
+      />
+
+      {moderationNotification && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-xl bg-black/85 border border-white/20 text-xs text-zinc-200 shadow-2xl backdrop-blur-md animate-in fade-in duration-300">
+          ⚖️ {moderationNotification}
+        </div>
+      )}
     </div>
   );
 }

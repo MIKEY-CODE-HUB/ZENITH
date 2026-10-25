@@ -13,6 +13,7 @@ import userRoutes from './routes/userRoutes.js';
 import blockerRoutes from './routes/blockerRoutes.js';
 import interactionRoutes from './routes/interactionRoutes.js';
 import pointRoutes from './routes/pointRoutes.js';
+import moderationRoutes from './routes/moderationRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeSocket } from './sockets/socketManager.js';
 
@@ -50,6 +51,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/blocker', blockerRoutes);
 app.use('/api/interaction', interactionRoutes);
 app.use('/api/points', pointRoutes);
+app.use('/api/moderation', moderationRoutes);
 
 // Global Error Handler
 app.use(errorHandler);
