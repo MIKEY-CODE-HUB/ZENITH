@@ -10,7 +10,7 @@ interface AuthContextType {
   loading: boolean;
   login: (loginIdentifier: string, password: string) => Promise<void>;
   register: (data: { name: string; username: string; email?: string; phoneNumber?: string; password: string; preferredActivity?: string }) => Promise<void>;
-  googleAuth: (data: { email: string; name?: string; googleId: string; avatarUrl?: string }) => Promise<void>;
+  googleAuth: (data: { idToken?: string; credential?: string }) => Promise<void>;
   sendPhoneOtp: (phoneNumber: string) => Promise<{ success: boolean; message: string; cooldownSeconds: number; devCode?: string }>;
   verifyPhoneOtp: (phoneNumber: string, otpCode: string, name?: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<{ success: boolean; message: string; devToken?: string }>;
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const googleAuth = async (data: { email: string; name?: string; googleId: string; avatarUrl?: string }) => {
+  const googleAuth = async (data: { idToken?: string; credential?: string }) => {
     const res = await api.googleAuth(data);
     if (res && res.success && res.token) {
       api.setToken(res.token);

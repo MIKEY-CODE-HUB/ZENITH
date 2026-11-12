@@ -16,6 +16,10 @@ import pointRoutes from './routes/pointRoutes.js';
 import moderationRoutes from './routes/moderationRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeSocket } from './sockets/socketManager.js';
+import { validateJwtSecret } from './utils/jwt.js';
+
+// Enforce strong JWT secret configuration
+validateJwtSecret();
 
 const app = express();
 const server = http.createServer(app);

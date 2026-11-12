@@ -717,16 +717,7 @@ async function main() {
     });
   }
 
-  // 6. Start Fresh: Ensure Clean Slate for new / existing users (0 fake points, 0 fake attempts)
-  await prisma.focusEvent.deleteMany({});
-  await prisma.blockerSession.deleteMany({});
-  await prisma.blockAttempt.deleteMany({});
-  await prisma.pointTransaction.deleteMany({});
-  await prisma.focusSession.deleteMany({});
-  await prisma.interactionAuthorization.deleteMany({});
-  await prisma.roomParticipant.deleteMany({});
-
-  console.log('✅ Seed completed successfully: clean slate, 40 focus rooms (10 per category), 0 fake stats!');
+  console.log('✅ Idempotent catalog seed completed successfully: 40 focus rooms and achievement catalog preserved.');
 }
 
 main()

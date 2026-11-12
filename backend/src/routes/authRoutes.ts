@@ -1,23 +1,24 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/authController.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
+import { googleOnlyAuthGuard } from '../middleware/googleOnlyAuthGuard.js';
 
 const router = Router();
 
-// Credential-based Auth
-router.post('/register', AuthController.register);
-router.post('/login', AuthController.login);
-
-// Google OAuth
+// Google OAuth (Authoritative Identity Provider)
 router.post('/google', AuthController.googleAuth);
 
-// Phone OTP Auth
-router.post('/otp/send', AuthController.sendPhoneOtp);
-router.post('/otp/verify', AuthController.verifyPhoneOtp);
+// Credential-based Auth (Guarded in production)
+router.post('/register', googleOnlyAuthGuard, AuthController.register);
+router.post('/login', googleOnlyAuthGuard, AuthController.login);
 
-// Password Recovery
-router.post('/forgot-password', AuthController.forgotPassword);
-router.post('/reset-password', AuthController.resetPassword);
+// Phone OTP Auth (Guarded in production)
+router.post('/otp/send', googleOnlyAuthGuard, AuthController.sendPhoneOtp);
+router.post('/otp/verify', googleOnlyAuthGuard, AuthController.verifyPhoneOtp);
+
+// Password Recovery (Guarded in production)
+router.post('/forgot-password', googleOnlyAuthGuard, AuthController.forgotPassword);
+router.post('/reset-password', googleOnlyAuthGuard, AuthController.resetPassword);
 
 // Session & Profile
 router.post('/logout', AuthController.logout);

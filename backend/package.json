@@ -7,10 +7,11 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "tsx --test tests/zenithEngine.test.ts tests/auth.test.ts tests/roomPresence.test.ts tests/matchmaking.test.ts tests/policyEngine.test.ts tests/blockerIsolation.test.ts tests/desktopBlocker.test.ts tests/masterQAE2E.test.ts tests/moderation.test.ts tests/n8nAndTheme.test.ts",
+    "test": "node --import tsx --test --test-timeout=18000 --test-concurrency=1 tests/*.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:seed:reset-dev": "tsx prisma/seed-reset-dev.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

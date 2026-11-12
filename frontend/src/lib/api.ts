@@ -89,7 +89,7 @@ class ApiClient {
     });
   }
 
-  async googleAuth(body: { email: string; name?: string; googleId: string; avatarUrl?: string }) {
+  async googleAuth(body: { idToken?: string; credential?: string }) {
     return this.request<{ success: boolean; user: any; token: string }>('/auth/google', {
       method: 'POST',
       body: JSON.stringify(body),

@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { prisma } from '../config/prisma.js';
 import { generateToken } from '../utils/jwt.js';
 import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { verifyGoogleIdToken } from '../utils/googleAuth.js';
 
 export function validatePasswordStrength(password: string): { valid: boolean; message?: string } {
   if (!password || password.length < 8) {
@@ -179,58 +180,94 @@ export class AuthController {
   // ── 3. GOOGLE OAUTH / ID TOKEN AUTHENTICATION ────────────────────────────
   public static async googleAuth(req: Request, res: Response): Promise<void> {
     try {
-      const { email, name, googleId, avatarUrl } = req.body;
+      const { idToken, credential } = req.body;
+      const rawToken = idToken || credential;
 
-      if (!email || !googleId) {
-        res.status(400).json({ success: false, error: 'Email and Google ID are required for Google authentication.' });
+      if (!rawToken || typeof rawToken !== 'string') {
+        res.status(400).json({
+          success: false,
+          error: 'Google ID token (idToken or credential) is required for Google authentication.',
+        });
         return;
       }
 
-      const cleanEmail = email.trim().toLowerCase();
+      // Verify Google ID token and obtain cryptographic claims
+      const verified = await verifyGoogleIdToken(rawToken);
+      const googleId = verified.googleId;
+      const cleanEmail = verified.email;
+      const name = verified.name;
+      const avatarUrl = verified.avatarUrl;
 
-      let user = await prisma.user.findFirst({
-        where: {
-          OR: [{ googleId }, { email: cleanEmail }],
-        },
+      // 1. Look up by verified googleId first
+      let user = await prisma.user.findUnique({
+        where: { googleId },
         include: { settings: true },
       });
 
       if (user) {
-        // Link googleId if not already linked
-        if (!user.googleId) {
+        // Update avatar if provided and not set
+        if (avatarUrl && !user.avatarUrl) {
           user = await prisma.user.update({
             where: { id: user.id },
-            data: { googleId, isEmailVerified: true },
+            data: { avatarUrl, isEmailVerified: true },
             include: { settings: true },
           });
         }
       } else {
-        // Create new user from Google profile
-        const baseUsername = cleanEmail.split('@')[0].replace(/[^a-z0-9_]/g, '').slice(0, 18) || 'user';
-        let uniqueUsername = baseUsername;
-        let counter = 1;
-        while (await prisma.user.findUnique({ where: { username: uniqueUsername } })) {
-          uniqueUsername = `${baseUsername}${counter++}`;
-        }
-
-        user = await prisma.user.create({
-          data: {
-            name: (name || cleanEmail.split('@')[0]).trim(),
-            username: uniqueUsername,
-            email: cleanEmail,
-            googleId,
-            isEmailVerified: true,
-            avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${uniqueUsername}`,
-            settings: {
-              create: {
-                idleThresholdSeconds: 60,
-                warningThresholdSeconds: 10,
-                appearanceMode: 'dark',
-              },
-            },
-          },
+        // 2. Check if an account already exists with this verified email
+        const existingEmailUser = await prisma.user.findFirst({
+          where: { email: cleanEmail },
           include: { settings: true },
         });
+
+        if (existingEmailUser) {
+          // If already linked to a different Google account, refuse account hijacking
+          if (existingEmailUser.googleId && existingEmailUser.googleId !== googleId) {
+            res.status(409).json({
+              success: false,
+              error: 'This email is already associated with another verified Google account.',
+            });
+            return;
+          }
+
+          // Link verified googleId to existing user
+          user = await prisma.user.update({
+            where: { id: existingEmailUser.id },
+            data: {
+              googleId,
+              isEmailVerified: true,
+              avatarUrl: existingEmailUser.avatarUrl || avatarUrl,
+            },
+            include: { settings: true },
+          });
+        } else {
+          // 3. Create new user from verified Google profile
+          const baseUsername = cleanEmail.split('@')[0].replace(/[^a-z0-9_]/g, '').slice(0, 18) || 'scholar';
+          let uniqueUsername = baseUsername;
+          let counter = 1;
+          while (await prisma.user.findUnique({ where: { username: uniqueUsername } })) {
+            uniqueUsername = `${baseUsername}${counter++}`;
+          }
+
+          user = await prisma.user.create({
+            data: {
+              name: (name || cleanEmail.split('@')[0]).trim(),
+              username: uniqueUsername,
+              email: cleanEmail,
+              googleId,
+              isEmailVerified: true,
+              avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${uniqueUsername}`,
+              settings: {
+                create: {
+                  idleThresholdSeconds: 60,
+                  warningThresholdSeconds: 10,
+                  appearanceMode: 'dark',
+                },
+              },
+            },
+            include: { settings: true },
+          });
+        }
       }
 
       const token = generateToken({
@@ -242,7 +279,7 @@ export class AuthController {
       res.json({ success: true, user: sanitizeUser(user), token });
     } catch (error: any) {
       console.error('Google auth error:', error);
-      res.status(500).json({ success: false, error: error.message || 'Google authentication failed' });
+      res.status(401).json({ success: false, error: error.message || 'Google authentication failed' });
     }
   }
 
