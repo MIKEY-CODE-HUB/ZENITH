@@ -87,44 +87,56 @@ app.use(errorHandler);
 
 const io = initializeSocket(server);
 
-const reconciliation = cron.schedule('* * * * *', async () => {
-  try {
-    await prisma.$transaction(async (tx) => {
-      const [lock] = await tx.$queryRaw<{ acquired: boolean }[]>`
-        SELECT pg_try_advisory_xact_lock(hashtext('zenith.reconcile.expired_blockers')) AS acquired
-      `;
-      if (!lock.acquired) return;
-      const expiredSessions = await tx.$executeRaw`
-        UPDATE focus_sessions SET status = 'ABANDONED', "endTime" = NOW(), "updatedAt" = NOW()
-        WHERE status = 'ACTIVE'
-          AND NOW() > "startTime" + (GREATEST(30, "plannedDuration") + 15) * INTERVAL '1 minute'
-      `;
-      const updated = await tx.$executeRaw`
-        UPDATE blocker_sessions AS blocker
-        SET status = 'COMPLETED', "endedAt" = NOW()
-        FROM focus_sessions AS focus
-        WHERE blocker."focusSessionId" = focus.id AND blocker.status = 'ACTIVE'
-          AND (focus.status <> 'ACTIVE'
-            OR NOW() > focus."startTime" + (GREATEST(30, focus."plannedDuration") + 15) * INTERVAL '1 minute')
-      `;
-      const releasedSeats = await tx.$executeRaw`
-        UPDATE room_participants AS member SET status = 'LEFT', "leftAt" = NOW()
-        WHERE member.status = 'ACTIVE' AND member."joinedAt" < NOW() - INTERVAL '5 minutes'
-          AND NOT EXISTS (
-            SELECT 1 FROM focus_sessions AS focus
-            WHERE focus."userId" = member."userId" AND focus."roomId" = member."roomId"
-              AND focus.status = 'ACTIVE'
-          )
-      `;
-      if (updated || expiredSessions || releasedSeats) {
-        logger.info('sessions.reconciled', { completedBlockers: updated, expiredSessions, releasedSeats });
-      }
-    });
-  } catch (err) {
-    logger.error('blocker.reconciliation_failed', { errorType: err instanceof Error ? err.name : 'UnknownError' });
-  }
-}, { noOverlap: true });
+let reconciliation: cron.ScheduledTask | null = null;
+if (process.env.NODE_ENV !== 'test') {
+  reconciliation = cron.schedule('* * * * *', async () => {
+    try {
+      await prisma.$transaction(async (tx) => {
+        const [lock] = await tx.$queryRaw<{ acquired: boolean }[]>`
+          SELECT pg_try_advisory_xact_lock(hashtext('zenith.reconcile.expired_blockers')) AS acquired
+        `;
+        if (!lock.acquired) return;
+        const expiredSessions = await tx.$executeRaw`
+          UPDATE focus_sessions SET status = 'ABANDONED', "endTime" = NOW(), "updatedAt" = NOW()
+          WHERE status = 'ACTIVE'
+            AND NOW() > "startTime" + (GREATEST(30, "plannedDuration") + 15) * INTERVAL '1 minute'
+        `;
+        const updated = await tx.$executeRaw`
+          UPDATE blocker_sessions AS blocker
+          SET status = 'COMPLETED', "endedAt" = NOW()
+          FROM focus_sessions AS focus
+          WHERE blocker."focusSessionId" = focus.id AND blocker.status = 'ACTIVE'
+            AND (focus.status <> 'ACTIVE'
+              OR NOW() > focus."startTime" + (GREATEST(30, focus."plannedDuration") + 15) * INTERVAL '1 minute')
+        `;
+        const releasedSeats = await tx.$executeRaw`
+          UPDATE room_participants AS member SET status = 'LEFT', "leftAt" = NOW()
+          WHERE member.status = 'ACTIVE' AND member."joinedAt" < NOW() - INTERVAL '5 minutes'
+            AND NOT EXISTS (
+              SELECT 1 FROM focus_sessions AS focus
+              WHERE focus."userId" = member."userId" AND focus."roomId" = member."roomId"
+                AND focus.status = 'ACTIVE'
+            )
+        `;
+        const expiredBallots = await tx.$executeRaw`
+          UPDATE moderation_incidents
+          SET status = 'INCONCLUSIVE', "resolvedAt" = NOW(),
+              "resolutionReason" = 'Voting window expired without satisfying quorum or majority threshold.'
+          WHERE status IN ('OPEN', 'VOTING') AND "votingExpiresAt" <= NOW()
+        `;
+        if (updated || expiredSessions || releasedSeats || expiredBallots) {
+          logger.info('sessions.reconciled', { completedBlockers: updated, expiredSessions, releasedSeats, expiredBallots });
+        }
+      });
+    } catch (err) {
+      logger.error('blocker.reconciliation_failed', { errorType: err instanceof Error ? err.name : 'UnknownError' });
+    }
+  }, { noOverlap: true });
 
-server.listen(PORT, () => logger.info('server.started', { port: PORT }));
-server.on('close', () => { void reconciliation.stop(); });
+  server.listen(PORT, () => logger.info('server.started', { port: PORT }));
+}
+
+server.on('close', () => { if (reconciliation) void reconciliation.stop(); });
 process.once('SIGTERM', () => io.close());
+
+export { app, server, io };

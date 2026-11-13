@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "node --import tsx --test --test-timeout=18000 --test-concurrency=1 tests/*.test.ts",
+    "test": "NODE_ENV=test node --import tsx --test --test-timeout=18000 --test-concurrency=1 tests/*.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:seed": "tsx prisma/seed.ts",
