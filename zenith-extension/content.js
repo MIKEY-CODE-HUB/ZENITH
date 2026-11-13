@@ -1,10 +1,18 @@
 const trustedOrigins = new Set([
   'https://zenith-dusky-theta.vercel.app',
+  'https://zenith-git-fix-zenith-room-re-944e0c-mikey-sketch-hubs-projects.vercel.app',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
 ]);
 
-if (trustedOrigins.has(location.origin)) {
+function isTrustedOrigin(origin) {
+  if (!origin) return false;
+  if (trustedOrigins.has(origin)) return true;
+  if (/^https:\/\/zenith-[a-z0-9-]+-mikey-sketch-hubs-projects\.vercel\.app$/.test(origin)) return true;
+  return false;
+}
+
+if (isTrustedOrigin(location.origin)) {
   window.addEventListener('message', async (event) => {
     if (event.source !== window || event.origin !== location.origin) return;
     const message = event.data;

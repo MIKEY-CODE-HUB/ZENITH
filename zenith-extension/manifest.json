@@ -20,6 +20,8 @@
     {
       "matches": [
         "https://zenith-dusky-theta.vercel.app/*",
+        "https://zenith-git-fix-zenith-room-re-944e0c-mikey-sketch-hubs-projects.vercel.app/*",
+        "https://*-mikey-sketch-hubs-projects.vercel.app/*",
         "http://localhost/*",
         "http://127.0.0.1/*"
       ],
