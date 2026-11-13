@@ -82,6 +82,9 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
   const [step, setStep] = useState<number>(1);
   const [selectedCategory, setSelectedCategory] = useState<ActivityCategory>('EDUCATION');
   const [selectedActivity, setSelectedActivity] = useState<string>('Coding');
+  const [task, setTask] = useState('');
+  const [entryMode, setEntryMode] = useState<'solo' | 'match' | 'room'>('solo');
+  const [launchError, setLaunchError] = useState<string | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
   const [selectedAtmosphere, setSelectedAtmosphere] = useState<string>('rainy-window');
   const [durationMinutes, setDurationMinutes] = useState<number>(50);
@@ -107,13 +110,18 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
   // Fetch Interaction Quote when category is INTERACTION
   useEffect(() => {
     if (selectedCategory === 'INTERACTION' && isOpen) {
+      if (entryMode === 'solo') setEntryMode('match');
+      let cancelled = false;
       api.getInteractionQuote()
         .then((res) => {
-          if (res.success) setInteractionQuote(res.quote);
+          if (!cancelled && res.success) setInteractionQuote(res.quote);
         })
-        .catch(() => {});
+        .catch(() => {
+          if (!cancelled) setLaunchError('Could not load the Interaction entry cost. Reopen Start Focus to retry.');
+        });
+      return () => { cancelled = true; };
     }
-  }, [selectedCategory, isOpen]);
+  }, [selectedCategory, isOpen, entryMode]);
 
   // Set default room selection when availableRooms changes
   useEffect(() => {
@@ -130,6 +138,7 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
   const handleLaunch = async () => {
     try {
       setLoading(true);
+      setLaunchError(null);
 
       // Save smart defaults
       localStorage.setItem(
@@ -151,25 +160,32 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
       sessionStorage.setItem('active_session_category', selectedCategory);
       sessionStorage.setItem('active_session_activity', selectedActivity);
 
-      // If Interaction room, verify and authorize deduction first!
-      const targetRoomId = selectedRoomId;
-
-
-      if (selectedCategory === 'INTERACTION') {
-        if (!targetRoomId) {
-          throw new Error('Please select an Interaction Room.');
-        }
-        await api.authorizeInteraction(targetRoomId);
+      let targetRoomId = selectedRoomId;
+      if (selectedCategory === 'INTERACTION' && (entryMode === 'solo' || !interactionQuote || interactionQuote.cost <= 0)) {
+        throw new Error('You need weekly points and a valid entry quote to join Interaction.');
       }
-
-      if (targetRoomId) await api.joinRoom(targetRoomId);
+      if (entryMode === 'match') {
+        const allocation = await api.allocateRoom({
+          category: selectedCategory,
+          activityType: selectedActivity,
+          atmosphere: selectedAtmosphere,
+          confirmInteraction: selectedCategory === 'INTERACTION',
+        });
+        targetRoomId = allocation.room.id;
+      } else if (entryMode === 'room') {
+        if (!targetRoomId) throw new Error('Choose a room first.');
+        if (selectedCategory === 'INTERACTION') await api.authorizeInteraction(targetRoomId);
+        await api.joinRoom(targetRoomId);
+      } else {
+        targetRoomId = '';
+      }
 
       // Start Session on backend
       const res = await api.startSession({
         roomId: targetRoomId || null,
         category: selectedCategory,
         activityType: selectedActivity,
-        specificActivity: selectedActivity,
+        specificActivity: task.trim() || selectedActivity,
         atmosphere: selectedAtmosphere,
         plannedDuration: durationMinutes,
         protectionEnabled,
@@ -181,7 +197,7 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
         router.push(`/focus/${targetRoomId || res.session.id}`);
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to start session');
+      setLaunchError(err instanceof Error ? err.message : 'Could not start your session.');
     } finally {
       setLoading(false);
     }
@@ -226,6 +242,8 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
                     onClick={() => {
                       setSelectedCategory(cat.id);
                       setSelectedActivity(cat.activities[0]);
+                      setInteractionQuote(null);
+                      if (cat.id === 'INTERACTION' && entryMode === 'solo') setEntryMode('match');
                     }}
                     className={`p-3.5 rounded-xl border text-left transition-all ${
                       isSelected
@@ -254,6 +272,12 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
               </div>
             )}
 
+            <label className="block space-y-1 text-sm text-zinc-200">
+              <span>What are you working on?</span>
+              <input value={task} onChange={event => setTask(event.target.value)} maxLength={120}
+                placeholder="e.g. Finish two graph problems"
+                className="block w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" />
+            </label>
             <div className="space-y-2 pt-2">
               <span className="text-xs font-medium text-zinc-300">Select Specific Activity</span>
               <div className="flex flex-wrap gap-2">
@@ -278,10 +302,16 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
         {/* STEP 2: Choose Room */}
         {step === 2 && (
           <div className="space-y-4">
-            <p className="text-xs text-zinc-400">
-              Select one of the canonical rooms. All rooms are shared spaces where participants work together.
-            </p>
-            <div className="grid grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
+            <div role="group" aria-label="How to focus" className="flex flex-wrap gap-2">
+              {([{ id: 'solo', label: 'Focus solo' }, { id: 'match', label: 'Find a room' }, { id: 'room', label: 'Choose a room' }] as const)
+                .filter(option => option.id !== 'solo' || selectedCategory !== 'INTERACTION')
+                .map(option => (
+                  <button key={option.id} type="button" aria-pressed={entryMode === option.id}
+                    className="rounded-lg border border-white/10 px-3 py-2 text-sm aria-pressed:bg-sky-500/20 aria-pressed:border-sky-400"
+                    onClick={() => setEntryMode(option.id)}>{option.label}</button>
+                ))}
+            </div>
+            {entryMode === 'room' && <div className="grid grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
               {availableRooms.filter((room) => room.category === selectedCategory).map((room) => {
                 const isSelected = selectedRoomId === room.id;
                 return (
@@ -307,7 +337,7 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
                   </button>
                 );
               })}
-            </div>
+            </div>}
           </div>
         )}
 
@@ -385,6 +415,8 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
                   </div>
                 </div>
                 <button
+                  aria-label="Distraction Shield"
+                  aria-pressed={protectionEnabled}
                   onClick={() => setProtectionEnabled(!protectionEnabled)}
                   className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
                     protectionEnabled ? 'bg-emerald-500' : 'bg-zinc-700'
@@ -413,6 +445,7 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
           </div>
         )}
 
+        {launchError && <p role="alert" className="text-sm text-rose-300">{launchError}</p>}
         {/* Footer Navigation */}
         <div className="flex items-center justify-between border-t border-white/10 pt-4">
           {step > 1 ? (
@@ -438,11 +471,11 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
           ) : (
             <button
               onClick={handleLaunch}
-              disabled={loading}
+              disabled={loading || (selectedCategory === 'INTERACTION' && (!interactionQuote || interactionQuote.cost <= 0))}
               className="flex items-center gap-2 px-5 py-2 rounded-lg bg-sky-500 text-white text-xs font-semibold hover:bg-sky-400 transition-colors shadow-lg disabled:opacity-50"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              <span>{loading ? 'Entering Zenith...' : 'Enter Zenith Room'}</span>
+              <span>{loading ? 'Starting…' : selectedCategory === 'INTERACTION' && interactionQuote ? `Join for ${interactionQuote.cost} points` : 'Start Focus'}</span>
             </button>
           )}
         </div>

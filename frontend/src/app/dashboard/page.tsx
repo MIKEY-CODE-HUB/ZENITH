@@ -185,7 +185,7 @@ export default function DashboardPage() {
                 className="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white text-zinc-950 text-xs sm:text-sm font-bold hover:bg-zinc-100 transition-all shadow-xl hover:shadow-white/10 group active:scale-95"
               >
                 <Sparkles className="h-4 w-4 text-emerald-600 transition-transform group-hover:scale-110" />
-                <span>START SESSION</span>
+                <span>Start Focus</span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </button>
             </div>
