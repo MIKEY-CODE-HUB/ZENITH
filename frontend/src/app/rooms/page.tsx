@@ -151,13 +151,9 @@ export default function RoomsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-6">
           <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-emerald-400 mb-1">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Real-Time Social Presence</span>
-            </div>
             <h1 className="text-3xl font-semibold text-white tracking-tight">Focus & Interaction Rooms</h1>
             <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-              The room is shared. The activity can differ. The atmosphere can be personal.
+              Find a quiet place to work or join a room with voice.
             </p>
           </div>
 
@@ -167,7 +163,7 @@ export default function RoomsPage() {
               disabled={matchmaking}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white text-xs font-semibold transition-all shadow-md disabled:opacity-50"
             >
-              <span>{matchmaking ? 'Allocating Room...' : '⚡ Quick Matchmake'}</span>
+              <span>{matchmaking ? 'Finding a room…' : 'Quick Match'}</span>
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
@@ -182,15 +178,11 @@ export default function RoomsPage() {
         {/* Dynamic Matchmaking Feature Card */}
         <div className="rounded-2xl p-5 bg-gradient-to-br from-sky-950/40 via-zinc-900/60 to-black border border-sky-500/20 backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-semibold text-sky-400">
-              <span className="h-2 w-2 rounded-full bg-sky-400 animate-ping" />
-              <span>Dynamic Matchmaking Engine</span>
-            </div>
             <h3 className="text-base font-semibold text-white tracking-tight">
-              Instant 10-Person Study Room Allocation
+              Find an open seat
             </h3>
             <p className="text-xs text-zinc-400 max-w-xl">
-              Server-authoritative atomic slot allocation. Automatically joins an active study room with available capacity or dynamically provisions an eligible new room.
+              Choose a category and Zenith will find a room with space.
             </p>
             {matchmakeError && <p className="text-xs text-rose-400 font-medium pt-1">{matchmakeError}</p>}
           </div>
@@ -267,7 +259,7 @@ export default function RoomsPage() {
                           : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                       }`}
                     >
-                      {isInteraction ? 'MAX 6 STUDENTS' : room.category}
+                      {isInteraction ? '6 people max' : room.category}
                     </span>
                   </div>
 

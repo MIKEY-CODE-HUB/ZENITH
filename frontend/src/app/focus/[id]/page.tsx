@@ -109,6 +109,7 @@ export default function LiveRoomPage() {
   const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
   const [isTapeExpanded, setIsTapeExpanded] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [abandonReason, setAbandonReason] = useState('');
 
   // Community Moderation State
   const [reportingPeer, setReportingPeer] = useState<ParticipantPresence | null>(null);
@@ -378,13 +379,14 @@ export default function LiveRoomPage() {
     };
   }, [socket, connected, activeRoomId, user?.id, sessionId, room]);
 
-  const handleEndSession = async () => {
+  const endSession = async (abandon: boolean) => {
     if (!sessionId || finishing.current) return;
     finishing.current = true;
     setEnding(true);
     setFinishError(null);
     try {
-      await api.endSession(sessionId, {
+      if (abandon) await api.abandonSession(sessionId, abandonReason);
+      else await api.endSession(sessionId, {
         focusedDuration: focusedSeconds, distractedDuration: distractedSeconds, idleDuration: idleSeconds,
         tabSwitchCount, warningCount, blockAttemptCount, longestFocusStreak, events: getEvents(),
       });
@@ -394,13 +396,14 @@ export default function LiveRoomPage() {
       sessionStorage.removeItem('active_session_protection');
       sessionStorage.removeItem(`zenith_room_theme_${sessionId}`);
       sessionStorage.removeItem(`zenith_tracking_${sessionId}`);
-      router.push(`/focus/summary/${sessionId}`);
+      router.push(abandon ? '/dashboard' : `/focus/summary/${sessionId}`);
     } catch (err) {
       setFinishError(err instanceof Error ? err.message : 'Could not save your session. Try again.');
       finishing.current = false;
       setEnding(false);
     }
   };
+  const handleEndSession = () => endSession(false);
 
   const finishRef = useRef(handleEndSession);
   finishRef.current = handleEndSession;
@@ -569,26 +572,35 @@ export default function LiveRoomPage() {
       {showExitConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
           <div className="w-full max-w-sm rounded-2xl border border-white/15 bg-[#0d0f14]/95 p-6 shadow-2xl text-zinc-100 space-y-4">
-            <h3 className="text-base font-semibold text-white tracking-tight">Complete Session?</h3>
+            <h3 className="text-base font-semibold text-white tracking-tight">End focus session?</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Your focus telemetry and truth stats will be saved to your profile and points will be awarded.
+              Save your summary and any eligible points, or discard the session for zero points.
             </p>
             <div className="p-3 rounded-xl bg-white/[0.04] border border-white/10 text-xs font-mono space-y-1">
               <div>Focused Time: {formatMinutesHuman(Math.round(focusedSeconds / 60))}</div>
               <div>Estimated Points: +{estimatedPoints} ⭐</div>
             </div>
+            <label className="block text-xs text-zinc-300">
+              Reason for discarding (optional)
+              <input value={abandonReason} onChange={event => setAbandonReason(event.target.value)} maxLength={500}
+                className="mt-1 block w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2" />
+            </label>
+            {finishError && <p role="alert" className="text-xs text-rose-300">{finishError}</p>}
             <div className="flex justify-end gap-2.5 pt-2">
               <button
                 onClick={() => setShowExitConfirm(false)}
                 className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
               >
-                Continue Working
+                Keep working
               </button>
+              <button type="button" disabled={ending} onClick={() => void endSession(true)}
+                className="rounded-xl px-3 py-2 text-xs font-medium text-rose-300 hover:bg-white/5 disabled:opacity-50">Discard</button>
               <button
                 onClick={handleEndSession}
+                disabled={ending}
                 className="px-4 py-2 rounded-xl bg-rose-500 text-white text-xs font-semibold hover:bg-rose-400 transition-colors shadow-md"
               >
-                Confirm & Exit
+                Save and exit
               </button>
             </div>
           </div>

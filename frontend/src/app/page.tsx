@@ -96,7 +96,7 @@ export default function LandingPage() {
               <div className="flex items-center gap-3">
                 <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
                 <div>
-                  <h3 className="text-sm font-semibold text-white">Focus Workspace</h3>
+                  <h3 className="text-sm font-semibold text-white">Example focus session</h3>
                   <p className="text-xs text-zinc-400">Silent Room • 50m Planned Block</p>
                 </div>
               </div>
@@ -104,7 +104,7 @@ export default function LandingPage() {
               <div className="flex items-center gap-3">
                 <span className="text-xs font-medium px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
                   <Shield className="h-3 w-3" />
-                  Shield armed
+                  Optional Chrome Shield
                 </span>
               </div>
             </div>
@@ -114,7 +114,7 @@ export default function LandingPage() {
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
                 <div className="flex items-center gap-2">
                   <BookOpen className="h-4 w-4 text-emerald-400" />
-                  <p className="text-xs font-semibold text-white">Active Room</p>
+                  <p className="text-xs font-semibold text-white">Shared study room</p>
                 </div>
                 <p className="text-xs text-zinc-300 font-medium">DSA & Algorithms</p>
                 <p className="text-[11px] text-zinc-500 leading-tight">Silent coworking with zero microphone chatter.</p>
@@ -147,7 +147,7 @@ export default function LandingPage() {
               </div>
               <div className="flex items-center gap-2 text-emerald-400">
                 <CheckCircle2 className="h-4 w-4" />
-                <span>0 distractions permitted • YouTube, X, Discord locked</span>
+                <span>YouTube, X, and Discord can be blocked in Chrome</span>
               </div>
             </div>
           </div>
@@ -158,10 +158,10 @@ export default function LandingPage() {
       <section className="py-20 md:py-28 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
         <div className="text-center max-w-2xl mx-auto space-y-3">
           <h2 className="text-2xl sm:text-4xl font-semibold tracking-tight text-white">
-            Built for people who care about high output.
+            Make time for what matters.
           </h2>
           <p className="text-sm text-zinc-400">
-            Most focus apps simply track a timer while you scroll. Zenith actively keeps your workspace protected.
+            Pick a task, settle into a room, and review your session when you finish.
           </p>
         </div>
 
@@ -173,7 +173,7 @@ export default function LandingPage() {
             </div>
             <h3 className="text-base font-semibold text-white">Silent Coworking</h3>
             <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-              Join focused rooms with engineers, writers, and researchers. No microphone noise or distracting chatter: pure shared momentum.
+              Study alongside others in a quiet room, with an optional camera.
             </p>
           </div>
 
@@ -182,9 +182,9 @@ export default function LandingPage() {
             <div className="h-10 w-10 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-white">
               <Shield className="h-5 w-5 text-emerald-400" />
             </div>
-            <h3 className="text-base font-semibold text-white">Hardware-Level Shield</h3>
+            <h3 className="text-base font-semibold text-white">Distraction Shield for Chrome</h3>
             <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-              If you reflexively switch to YouTube, Reddit, Discord, or Spotify, Zenith snaps your focus back in under 0.05 seconds.
+              The Chrome extension blocks restricted websites and can bring your focus tab back to the foreground.
             </p>
           </div>
 
@@ -193,9 +193,9 @@ export default function LandingPage() {
             <div className="h-10 w-10 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center text-white">
               <Clock className="h-5 w-5 text-amber-400" />
             </div>
-            <h3 className="text-base font-semibold text-white">Honest Focus Telemetry</h3>
+            <h3 className="text-base font-semibold text-white">Truth Tracker</h3>
             <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-              Get an accurate breakdown of uninterrupted deep work versus idle time, so you know exactly how productive you actually were.
+              Review estimated focus time, idle time, and interruptions after a session.
             </p>
           </div>
         </div>
@@ -218,7 +218,7 @@ export default function LandingPage() {
                   Shared silent room. Your private soundscape.
                 </h2>
                 <p className="text-xs sm:text-sm text-zinc-300 mt-1 max-w-xl">
-                  While sharing accountability with peer students, immerse your sensory environment in synthesized binaural beats and high-fidelity ambient layers.
+                  Choose the ambience you want to hear while you work.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -238,7 +238,7 @@ export default function LandingPage() {
               ].map((amb) => {
                 const IconComponent = amb.icon;
                 return (
-                  <div key={amb.name} className={`p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] ${amb.glow} transition-all space-y-2 group cursor-pointer hover:bg-white/[0.06]`}>
+                  <div key={amb.name} className={`p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] space-y-2`}>
                     <div className="p-2 rounded-xl bg-white/5 w-fit border border-white/5">
                       <IconComponent className={`h-5 w-5 ${amb.color}`} />
                     </div>
@@ -252,7 +252,7 @@ export default function LandingPage() {
             {/* 4 Pillars */}
             <div className="pt-6 border-t border-white/[0.08]">
               <p className="text-xs font-semibold tracking-wider uppercase text-zinc-400 mb-4">
-                Four Pillars of Undergraduate Mastery
+                Find a room for your activity
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">

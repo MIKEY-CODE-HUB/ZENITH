@@ -318,6 +318,40 @@ export class SessionController {
     }
   }
 
+  public static async abandonSession(req: AuthenticatedRequest, res: Response): Promise<void> {
+    const userId = req.user!.userId;
+    const { sessionId } = req.params;
+    try {
+      const session = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'membership_' + userId}))`;
+        const current = await tx.focusSession.findFirst({ where: { id: sessionId, userId } });
+        if (!current || current.status !== 'ACTIVE') return current;
+        const endTime = new Date();
+        const notes = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) || null : null;
+        const result = await tx.focusSession.updateMany({
+          where: { id: sessionId, status: 'ACTIVE' }, data: { status: 'ABANDONED', endTime, notes },
+        });
+        if (result.count > 0) {
+          await tx.blockerSession.updateMany({
+            where: { focusSessionId: sessionId, status: 'ACTIVE' }, data: { status: 'COMPLETED', endedAt: endTime },
+          });
+        }
+        return await tx.focusSession.findUnique({ where: { id: sessionId } });
+      });
+      if (!session) {
+        res.status(404).json({ success: false, error: 'Session not found.' });
+        return;
+      }
+      if (session.status !== 'ABANDONED') {
+        res.status(409).json({ success: false, error: 'This session has already finished.' });
+        return;
+      }
+      res.json({ success: true, session });
+    } catch {
+      res.status(500).json({ success: false, error: 'Could not discard your session.' });
+    }
+  }
+
   public static async getActiveSession(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const session = await prisma.focusSession.findFirst({

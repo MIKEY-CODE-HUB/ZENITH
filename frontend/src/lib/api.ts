@@ -327,6 +327,12 @@ class ApiClient {
     return this.request<{ success: boolean; sessions: any[]; pagination: any }>(`/sessions/history${qs}`);
   }
 
+  async abandonSession(sessionId: string, reason: string) {
+    return this.request<{ success: boolean; session: FocusSession }>(`/sessions/${sessionId}/abandon`, {
+      method: 'POST', body: JSON.stringify({ reason }),
+    });
+  }
+
   async getActiveSession() {
     try {
       return await this.request<{ success: boolean; session: FocusSession | null }>('/sessions/active');
