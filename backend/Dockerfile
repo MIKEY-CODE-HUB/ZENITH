@@ -23,7 +23,7 @@ ENV PORT=5001
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm ci --omit=dev
+RUN npm ci --include=dev
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
@@ -31,4 +31,4 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 EXPOSE 5001
 
-CMD ["sh", "-c", "npx prisma db push --skip-generate && npm run prisma:seed && node dist/server.js"]
+CMD ["node", "dist/server.js"]
