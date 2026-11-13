@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSocket } from '@/contexts/SocketContext';
 import { useFocusTracker } from '@/hooks/useFocusTracker';
 import { useWebRTC } from '@/hooks/useWebRTC';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiConnectionError, ApiError } from '@/lib/api';
 import { ATMOSPHERES, getAtmosphereById, AtmosphereTheme } from '@/lib/atmospheres';
 import { AtmosphereCanvas } from '@/components/AtmosphereCanvas';
 import { RoomHeader } from '@/components/RoomHeader';
@@ -64,6 +64,7 @@ export default function LiveRoomPage() {
   const [participants, setParticipants] = useState<ParticipantPresence[]>([]);
   const [ending, setEnding] = useState<boolean>(false);
 
+  const [joinAttempt, setJoinAttempt] = useState(0);
   const [roomError, setRoomError] = useState<string | null>(null);
   const [presenceError, setPresenceError] = useState<string | null>(null);
   const [finishError, setFinishError] = useState<string | null>(null);
@@ -176,6 +177,7 @@ export default function LiveRoomPage() {
     let cancelled = false;
 
     async function initialize() {
+      let step = 'Restore your focus session';
       try {
         const storedId = sessionStorage.getItem('active_session_id');
         const stored = storedId ? (await api.getSession(storedId).catch((error) => {
@@ -183,11 +185,14 @@ export default function LiveRoomPage() {
           throw error;
         }))?.session : null;
         const solo = roomIdOrCode === 'custom' || (stored?.id === roomIdOrCode && !stored.roomId);
+        step = 'Load the room';
         const currentRoom = solo ? null : (await api.getRoom(roomIdOrCode)).room as Room;
         if (cancelled) return;
+        step = 'Join the room';
         if (currentRoom) await api.joinRoom(currentRoom.id);
         if (cancelled) return;
         const reusable = stored?.status === 'ACTIVE' && (stored.roomId ?? null) === (currentRoom?.id ?? null);
+        step = 'Start the focus session';
         const session = reusable ? stored : (await api.startSession({
           roomId: currentRoom?.id ?? null,
           category: currentRoom?.category || 'EDUCATION',
@@ -217,7 +222,14 @@ export default function LiveRoomPage() {
           }, window.location.origin);
         }
       } catch (err) {
-        if (!cancelled) setRoomError(err instanceof Error ? err.message : 'Could not start the room.');
+        if (cancelled) return;
+        if (err instanceof ApiError && err.status === 401) {
+          router.replace('/login');
+          return;
+        }
+        setRoomError(err instanceof ApiConnectionError
+          ? `${step} failed. ${err.message}`
+          : err instanceof Error ? err.message : 'Could not start the room.');
       }
     }
 
@@ -231,7 +243,7 @@ export default function LiveRoomPage() {
       cancelled = true;
       window.removeEventListener('message', shieldStatus);
     };
-  }, [authLoading, user?.id, roomIdOrCode, router]);
+  }, [authLoading, user?.id, roomIdOrCode, router, joinAttempt]);
 
   // Focus Tracker Hook (Page Visibility API + Idle Detection)
   const {
@@ -440,7 +452,15 @@ export default function LiveRoomPage() {
     return (
       <main className="grid min-h-screen place-content-center gap-4 bg-zinc-950 p-6 text-zinc-100">
         {roomError ? <p role="alert">{roomError}</p> : <p role="status">Connecting to your focus session…</p>}
-        {roomError && <button className="text-sky-300 underline" onClick={() => router.push('/rooms')}>Back to rooms</button>}
+        {roomError && (
+          <div className="flex justify-center gap-4">
+            <button className="text-sky-300 underline" onClick={() => {
+              setRoomError(null);
+              setJoinAttempt(attempt => attempt + 1);
+            }}>Retry room entry</button>
+            <button className="text-sky-300 underline" onClick={() => router.push('/rooms')}>Back to rooms</button>
+          </div>
+        )}
       </main>
     );
   }
