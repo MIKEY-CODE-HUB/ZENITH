@@ -91,7 +91,7 @@ export function AdaptiveVideoGallery({
       {/* Tile Glass Badge */}
       <div className="absolute bottom-1 inset-x-1 flex items-center justify-between text-[10px] px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-sm border border-white/10">
         <span className="font-semibold text-white truncate max-w-[80px]">
-          {user?.name?.split(' ')[0] || 'You'} (You)
+          {user?.name ? `${user.name.split(' ')[0]} (You)` : 'You'}
         </span>
         {isInteractionRoom && (
           <div className="flex items-center gap-1">

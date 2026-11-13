@@ -31,47 +31,37 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { CANONICAL_ROOMS } from '@/lib/canonicalRooms';
-
-const DEFAULT_ROOMS: Room[] = CANONICAL_ROOMS;
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { currentScenery, isPlayingSound, toggleSound, setIsSceneryModalOpen, activeSound } = useAmbient();
   const router = useRouter();
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [rooms, setRooms] = useState<Room[]>(DEFAULT_ROOMS);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [showStartModal, setShowStartModal] = useState<boolean>(false);
 
   useEffect(() => {
-    async function loadDashboard() {
-      try {
-        setLoading(true);
-        const [statsRes, roomsRes] = await Promise.all([
-          api.getDashboardStats().catch(() => ({ success: false, stats: null })),
-          api.getRooms().catch(() => ({ success: false, rooms: [] })),
-        ]);
-
-        if (statsRes.success && statsRes.stats) {
-          setStats(statsRes.stats);
-        }
-        if (roomsRes.success && roomsRes.rooms && roomsRes.rooms.length > 0) {
-          setRooms(roomsRes.rooms);
-        } else {
-          setRooms(DEFAULT_ROOMS);
-        }
-      } catch (err) {
-        console.error('Error loading dashboard:', err);
-        setRooms(DEFAULT_ROOMS);
-      } finally {
-        setLoading(false);
-      }
+    if (authLoading) return;
+    if (!user) {
+      router.replace('/login');
+      return;
     }
-
-    loadDashboard();
-  }, []);
+    let cancelled = false;
+    Promise.all([api.getDashboardStats(), api.getRooms()])
+      .then(([statsRes, roomsRes]) => {
+        if (cancelled) return;
+        setStats(statsRes.stats);
+        setRooms(roomsRes.rooms);
+      })
+      .catch((err) => {
+        if (!cancelled) setDashboardError(err instanceof Error ? err.message : 'Dashboard unavailable.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [authLoading, user?.id, router]);
 
   // Time-based atmospheric greeting & mood
   const getAtmosphericVibe = () => {
@@ -120,6 +110,15 @@ export default function DashboardPage() {
     sideQuest: 0,
     interaction: 0,
   };
+
+  if (authLoading || !user || loading || dashboardError) {
+    return (
+      <main className="grid min-h-screen place-content-center gap-3 bg-zinc-950 p-6 text-zinc-100">
+        {dashboardError ? <p role="alert">{dashboardError}</p> : <p role="status">Loading your dashboard…</p>}
+        {dashboardError && <button className="text-sky-300 underline" onClick={() => window.location.reload()}>Retry</button>}
+      </main>
+    );
+  }
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] bg-[#07080b] text-zinc-100">
@@ -360,7 +359,7 @@ export default function DashboardPage() {
                   </div>
 
                   <Link
-                    href={`/focus/${room.id}`}
+                    href={room.category === 'INTERACTION' ? '/rooms' : `/focus/${room.id}`}
                     className="w-full py-2.5 rounded-xl bg-white text-zinc-950 font-bold text-xs hover:bg-zinc-200 transition-colors flex items-center justify-center gap-1.5 shadow-md group-hover:shadow-white/10"
                   >
                     <Play className="h-3.5 w-3.5 fill-current" />
@@ -375,7 +374,7 @@ export default function DashboardPage() {
 
       {/* Start Session Modal */}
       {showStartModal && (
-        <StartSessionModal isOpen={showStartModal} onClose={() => setShowStartModal(false)} />
+        <StartSessionModal availableRooms={rooms} isOpen={showStartModal} onClose={() => setShowStartModal(false)} />
       )}
     </div>
   );

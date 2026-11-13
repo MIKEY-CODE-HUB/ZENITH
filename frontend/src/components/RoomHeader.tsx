@@ -7,7 +7,8 @@ import { LayoutGrid, LogOut, ShieldCheck, Users } from 'lucide-react';
 interface RoomHeaderProps {
   roomName: string;
   category: string;
-  participantCount: number;
+  participantCount: number | null;
+  shieldActive: boolean;
   maxParticipants: number;
   videoLayout: VideoLayoutMode;
   onChangeVideoLayout: (layout: VideoLayoutMode) => void;
@@ -18,6 +19,7 @@ export function RoomHeader({
   roomName,
   category,
   participantCount,
+  shieldActive,
   maxParticipants,
   videoLayout,
   onChangeVideoLayout,
@@ -45,12 +47,12 @@ export function RoomHeader({
         <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/50 backdrop-blur-xl border border-white/10 text-xs font-mono text-zinc-300 shadow-md">
           <Users className="h-3.5 w-3.5 text-sky-400" />
           <span className="text-white font-semibold">
-            {participantCount}/{maxParticipants}
+            {participantCount === null ? 'Presence unavailable' : `${participantCount}/${maxParticipants}`}
           </span>
           <span className="text-zinc-600">•</span>
-          <span className="flex items-center gap-1 text-emerald-400 text-[11px]">
+          <span className={`flex items-center gap-1 text-[11px] ${shieldActive ? 'text-emerald-400' : 'text-zinc-400'}`}>
             <ShieldCheck className="h-3.5 w-3.5" />
-            <span>Shield Active</span>
+            <span>{shieldActive ? 'Shield Active' : 'Shield unconfirmed'}</span>
           </span>
         </div>
       </div>

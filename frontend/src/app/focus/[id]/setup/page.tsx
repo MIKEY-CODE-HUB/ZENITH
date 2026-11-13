@@ -50,13 +50,13 @@ export default function PreSessionSetupPage() {
   const handleStartSession = async () => {
     try {
       setStarting(true);
-      if (room?.id) {
-        await api.joinRoom(room.id).catch(() => {});
-      }
+      if (!room) throw new Error('The room could not be loaded.');
+      await api.joinRoom(room.id);
 
       // 1. Start Focus Session
       const sessionRes = await api.startSession({
         roomId: room?.id || null,
+        category: room?.category,
         activityType: room?.activityType || 'Coding',
         plannedDuration: duration,
       });
@@ -66,23 +66,7 @@ export default function PreSessionSetupPage() {
         sessionStorage.setItem('active_session_id', sessionId);
         sessionStorage.setItem('active_session_duration', String(duration));
 
-        // 2. Activate Unconditional Blocker (Zero Options - ALWAYS ON)
-        const blockerRes = await api.activateBlocker(sessionId, 'STRICT');
-        if (blockerRes.success) {
-          sessionStorage.setItem('blocker_token', blockerRes.blockerToken);
 
-          if (typeof window !== 'undefined') {
-            window.postMessage(
-              {
-                type: 'ZENITH_BLOCKER_ACTIVATE',
-                focusSessionId: sessionId,
-                mode: 'STRICT',
-                config: blockerRes.config,
-              },
-              '*'
-            );
-          }
-        }
       }
 
       router.push(`/focus/${room?.id || roomIdOrCode}`);
@@ -105,7 +89,7 @@ export default function PreSessionSetupPage() {
             {room?.name || 'Silent Focus Room'}
           </h1>
           <p className="text-xs text-zinc-400">
-            {room?.activityType || 'Coding'} • {duration}m Target • Distraction shield armed
+            {room?.activityType || 'Coding'} • {duration}m target
           </p>
         </div>
 

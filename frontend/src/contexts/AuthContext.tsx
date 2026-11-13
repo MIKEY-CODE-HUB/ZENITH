@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       setUser(null);
-      api.clearToken();
+      if (err instanceof ApiError && err.status === 401) api.clearToken();
     } finally {
       setLoading(false);
     }

@@ -13,6 +13,10 @@ const getApiBaseUrl = () => {
   return 'http://127.0.0.1:5001/api';
 };
 
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) { super(message); }
+}
+
 class ApiClient {
   private getToken(): string | null {
     if (typeof window === 'undefined') return null;
@@ -69,7 +73,9 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      throw new Error(data?.error || `HTTP error! status: ${response.status}`);
+      const requestId = response.headers.get('x-request-id');
+      const message = data?.error || `HTTP ${response.status}`;
+      throw new ApiError(requestId && response.status >= 500 ? `${message} (Ref: ${requestId})` : message, response.status);
     }
 
     return data as T;
@@ -175,7 +181,7 @@ class ApiClient {
     });
   }
 
-  async allocateRoom(body: { category?: string; activityType?: string; atmosphere?: string }) {
+  async allocateRoom(body: { category?: string; activityType?: string; atmosphere?: string; confirmInteraction?: boolean }) {
     return this.request<{
       success: boolean;
       room: any;

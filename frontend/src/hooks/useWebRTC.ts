@@ -49,6 +49,8 @@ export function useWebRTC({
 
   // 1. Initialize Local Media Stream
   useEffect(() => {
+    if (!enableCameraDefault && !allowVoice) return;
+    let disposed = false;
     let stream: MediaStream | null = null;
 
     async function initMedia() {
@@ -57,6 +59,11 @@ export function useWebRTC({
           video: enableCameraDefault ? { width: { ideal: 640 }, height: { ideal: 360 } } : false,
           audio: allowVoice,
         });
+
+        if (disposed) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
 
         // Set initial track states
         stream.getVideoTracks().forEach((track) => {
@@ -87,6 +94,7 @@ export function useWebRTC({
     initMedia();
 
     return () => {
+      disposed = true;
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
@@ -97,7 +105,7 @@ export function useWebRTC({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, []);
+  }, [enableCameraDefault, enableMicDefault, allowVoice]);
 
   // 2. Audio Analyser for Speaking Indicator
   const setupAudioAnalyser = (stream: MediaStream) => {

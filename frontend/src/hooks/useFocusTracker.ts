@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 
 interface FocusTrackerOptions {
   sessionId?: string;
+  shieldActive?: boolean;
   idleThresholdSeconds?: number;
   isActiveSession?: boolean;
   onStatusChange?: (status: FocusStatus) => void;
@@ -40,6 +41,7 @@ function playAlertChime() {
 
 export function useFocusTracker({
   sessionId,
+  shieldActive = false,
   idleThresholdSeconds = 60,
   isActiveSession = true,
   onStatusChange,
@@ -109,7 +111,7 @@ export function useFocusTracker({
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         distractionStartTimeRef.current = Date.now();
-        triggerFocusBroken('Left ZENITH focus tab.');
+        if (!shieldActive) triggerFocusBroken('Left ZENITH focus tab.');
       } else {
         if (distractionStartTimeRef.current) {
           distractionStartTimeRef.current = null;
@@ -118,12 +120,12 @@ export function useFocusTracker({
     };
 
     const handleWindowBlur = () => {
-      triggerFocusBroken('Window lost focus.');
+      if (!shieldActive) triggerFocusBroken('Window lost focus.');
     };
 
     // Listen for extension message
     const handleExtensionMessage = (event: MessageEvent) => {
-      if (event.data && (event.data.type === 'ZENITH_FOCUS_BROKEN' || event.data.type === 'ZENITH_DISTRACTION_ATTEMPT')) {
+      if (event.source === window && event.origin === window.location.origin && event.data && (event.data.type === 'ZENITH_FOCUS_BROKEN' || event.data.type === 'ZENITH_DISTRACTION_ATTEMPT')) {
         triggerFocusBroken(event.data.reason || 'Extension detected tab switch away from ZENITH.');
       }
     };
@@ -137,7 +139,7 @@ export function useFocusTracker({
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('message', handleExtensionMessage);
     };
-  }, [isActiveSession, triggerFocusBroken]);
+  }, [isActiveSession, shieldActive, triggerFocusBroken]);
 
   // Main 1-second clock loop
   useEffect(() => {

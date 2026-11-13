@@ -1,4 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import { prisma } from '../config/prisma.js';
+import { logger } from '../config/logger.js';
 import { ModerationService } from '../services/moderationService.js';
 
 export interface ParticipantPresence {
@@ -25,144 +27,72 @@ const activeRooms = new Map<string, Map<string, ParticipantPresence>>();
 const localRestrictions = new Map<string, number>();
 
 export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
-  // Join Room
-  socket.on('join_room', (data: {
-    roomId: string;
-    userId: string;
-    name: string;
-    username: string;
-    avatarUrl?: string;
-    activityType?: string;
-    category?: string;
-    cameraOn?: boolean;
-    micOn?: boolean;
-    withSimulatedPeers?: boolean;
-  }) => {
-    const {
-      roomId,
-      userId,
-      name,
-      username,
-      avatarUrl,
-      activityType = 'Deep Focus',
-      category = 'EDUCATION',
-      cameraOn = true,
-      micOn = false,
-      withSimulatedPeers = false,
-    } = data;
+  const userId = socket.data.userId as string;
+  let joinSequence = 0;
+  const presenceIn = (roomId: string) => activeRooms.get(roomId)?.get(socket.id);
+  const canSignal = (toSocketId: string) => [...socket.rooms].some((roomId) =>
+    presenceIn(roomId) && activeRooms.get(roomId)?.has(toSocketId));
 
-    // Fast synchronous check for active room restriction
-    const restrictionKey = `${userId}:${roomId}`;
-    const memExpiry = localRestrictions.get(restrictionKey);
-    if (memExpiry && Date.now() < memExpiry) {
-      socket.emit('room_error', {
-        code: 'ROOM_RESTRICTED',
-        message: 'You are temporarily restricted from this room due to a community vote.',
+  socket.on('join_room', async (data: { roomId: string; cameraOn?: boolean; micOn?: boolean }) => {
+    if (!data || typeof data.roomId !== 'string') return;
+    const { roomId } = data;
+    const sequence = ++joinSequence;
+    try {
+      const membership = await prisma.roomParticipant.findUnique({
+        where: { roomId_userId: { roomId, userId } },
+        include: { room: true, user: { select: { name: true, username: true, avatarUrl: true } } },
       });
-      return;
-    }
-
-    if (!activeRooms.has(roomId)) {
-      activeRooms.set(roomId, new Map());
-    }
-
-    const roomParticipants = activeRooms.get(roomId)!;
-
-    // Clean up any stale or reconnecting socket for the same user in this room
-    for (const [existingSocketId, existingP] of roomParticipants.entries()) {
-      if (existingP.userId === userId && existingSocketId !== socket.id) {
-        roomParticipants.delete(existingSocketId);
+      const restriction = await ModerationService.checkRoomRestriction(userId, roomId);
+      const authorization = membership?.room.category === 'INTERACTION'
+        ? await prisma.interactionAuthorization.findFirst({
+            where: { roomId, userId, status: 'ACTIVE', expiresAt: { gt: new Date() } },
+          })
+        : null;
+      if (!socket.connected || sequence !== joinSequence) return;
+      if (membership?.status !== 'ACTIVE' || membership.room.status !== 'ACTIVE' ||
+          restriction.isRestricted || (membership.room.category === 'INTERACTION' && !authorization)) {
+        socket.emit('room_error', { code: 'ROOM_ACCESS_DENIED', message: 'This room admission is no longer valid.' });
+        return;
       }
-    }
 
-    // Strict room capacity enforcement: 6 participants for Interaction, 10 for Focus rooms
-    const effectiveCap = category === 'INTERACTION' ? 6 : 10;
-    if (roomParticipants.size >= effectiveCap) {
-      socket.emit('room_error', {
-        code: 'ROOM_FULL',
-        message:
-          category === 'INTERACTION'
-            ? 'Interaction rooms have a strict maximum capacity of 6 participants.'
-            : 'Focus rooms have a strict maximum capacity of 10 participants.',
+      for (const joinedRoom of socket.rooms) {
+        if (joinedRoom !== roomId && joinedRoom !== socket.id) handleUserLeave(io, socket, joinedRoom);
+      }
+      const roomParticipants = activeRooms.get(roomId) ?? new Map<string, ParticipantPresence>();
+      const previous = [...roomParticipants.values()].find((entry) => entry.userId === userId);
+      const capacity = Math.min(membership.room.maxParticipants, membership.room.category === 'INTERACTION' ? 6 : 10);
+      if (!previous && roomParticipants.size >= capacity) {
+        socket.emit('room_error', { code: 'ROOM_FULL', message: 'This room is full.' });
+        return;
+      }
+      if (previous && previous.socketId !== socket.id) {
+        const oldSocket = io.sockets.sockets.get(previous.socketId);
+        if (oldSocket) handleUserLeave(io, oldSocket, roomId);
+        roomParticipants.delete(previous.socketId);
+      }
+      activeRooms.set(roomId, roomParticipants);
+      const participant: ParticipantPresence = {
+        socketId: socket.id, userId, name: membership.user.name, username: membership.user.username,
+        avatarUrl: membership.user.avatarUrl || '', activityType: membership.room.activityType,
+        category: membership.room.category, focusStatus: 'FOCUSED', focusStreakMinutes: 0,
+        cameraOn: Boolean(data.cameraOn), micOn: membership.room.category === 'INTERACTION' && Boolean(data.micOn),
+        speaking: false, joinedAt: new Date().toISOString(),
+      };
+      roomParticipants.set(socket.id, participant);
+      await socket.join(roomId);
+      if (!socket.connected || sequence !== joinSequence) {
+        handleUserLeave(io, socket, roomId);
+        return;
+      }
+      logger.info('socket.room_joined', { roomId, userId, count: roomParticipants.size });
+      io.to(roomId).emit('room_presence_list', {
+        roomId, participants: [...roomParticipants.values()], totalCount: roomParticipants.size,
       });
-      return;
+      socket.to(roomId).emit('user_joined', { participant });
+    } catch (err) {
+      logger.warn('socket.room_join_failed', { roomId, userId, errorType: err instanceof Error ? err.name : 'UnknownError' });
+      socket.emit('room_error', { code: 'ROOM_JOIN_FAILED', message: 'Could not connect to the live room. Please retry.' });
     }
-
-    // Async DB restriction check to catch cross-process/persistent restrictions
-    ModerationService.checkRoomRestriction(userId, roomId)
-      .then((restriction) => {
-        if (restriction.isRestricted) {
-          localRestrictions.set(restrictionKey, restriction.expiresAt!.getTime());
-          socket.emit('room_error', {
-            code: 'ROOM_RESTRICTED',
-            message: `You are temporarily restricted from this room (${restriction.reason}).`,
-          });
-          roomParticipants.delete(socket.id);
-          socket.leave(roomId);
-          const updatedList = Array.from(roomParticipants.values());
-          io.to(roomId).emit('room_presence_list', {
-            roomId,
-            participants: updatedList,
-            totalCount: updatedList.length,
-          });
-        }
-      })
-      .catch(() => {});
-
-    socket.join(roomId);
-
-    // Optional simulated peers only if explicitly enabled
-    if (withSimulatedPeers && roomParticipants.size === 0) {
-      const demoPeers: ParticipantPresence[] = [
-        {
-          socketId: `sim-alex-${roomId}`,
-          userId: 'sim-alex',
-          name: 'Alex Chen',
-          username: 'alexchen',
-          avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
-          activityType: 'Coding',
-          category: 'EDUCATION',
-          focusStatus: 'FOCUSED',
-          focusStreakMinutes: 34,
-          cameraOn: true,
-          micOn: false,
-          speaking: false,
-          joinedAt: new Date(Date.now() - 34 * 60000).toISOString(),
-          isSimulated: true,
-        },
-      ];
-      demoPeers.forEach((p) => roomParticipants.set(p.socketId, p));
-    }
-
-    const isInteraction = category === 'INTERACTION';
-
-    const participant: ParticipantPresence = {
-      socketId: socket.id,
-      userId,
-      name,
-      username,
-      avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${username}`,
-      activityType,
-      category,
-      focusStatus: 'FOCUSED',
-      focusStreakMinutes: 0,
-      cameraOn,
-      micOn: isInteraction ? Boolean(micOn) : false,
-      speaking: false,
-      joinedAt: new Date().toISOString(),
-    };
-
-    roomParticipants.set(socket.id, participant);
-
-    // Broadcast updated participants list to everyone in room
-    const currentList = Array.from(roomParticipants.values());
-    io.to(roomId).emit('room_presence_list', {
-      roomId,
-      participants: currentList,
-      totalCount: currentList.length,
-    });
-
-    socket.to(roomId).emit('user_joined', { participant });
   });
 
   // Focus status transition (FOCUSED, IDLE, DISTRACTED)
@@ -172,7 +102,7 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
     focusStatus: 'FOCUSED' | 'IDLE' | 'DISTRACTED' | 'OFFLINE';
     focusStreakMinutes?: number;
   }) => {
-    const { roomId, userId, focusStatus, focusStreakMinutes = 0 } = data;
+    const { roomId, focusStatus, focusStreakMinutes = 0 } = data;
     const room = activeRooms.get(roomId);
     if (room && room.has(socket.id)) {
       const p = room.get(socket.id)!;
@@ -251,9 +181,10 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
     offer: any;
     fromUserId: string;
   }) => {
+    if (!data || !canSignal(data.toSocketId)) return;
     io.to(data.toSocketId).emit('webrtc_offer', {
       fromSocketId: socket.id,
-      fromUserId: data.fromUserId,
+      fromUserId: userId,
       offer: data.offer,
     });
   });
@@ -263,9 +194,10 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
     answer: any;
     fromUserId: string;
   }) => {
+    if (!data || !canSignal(data.toSocketId)) return;
     io.to(data.toSocketId).emit('webrtc_answer', {
       fromSocketId: socket.id,
-      fromUserId: data.fromUserId,
+      fromUserId: userId,
       answer: data.answer,
     });
   });
@@ -274,6 +206,7 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
     toSocketId: string;
     candidate: any;
   }) => {
+    if (!data || !canSignal(data.toSocketId)) return;
     io.to(data.toSocketId).emit('webrtc_ice_candidate', {
       fromSocketId: socket.id,
       candidate: data.candidate,
@@ -287,7 +220,9 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
     message: string;
     type?: 'chat' | 'kudos' | 'warning_event';
   }) => {
-    const { roomId, sender, message, type = 'chat' } = data;
+    const { roomId, message, type = 'chat' } = data;
+    const sender = presenceIn(roomId);
+    if (!sender || typeof message !== 'string' || message.length > 2000) return;
     io.to(roomId).emit('room_chat_message', {
       id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       roomId,
@@ -311,7 +246,9 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
     details?: string;
   }) => {
     try {
-      const { roomId, reporterId, accusedId, reason, details } = data;
+      const { roomId, accusedId, reason, details } = data;
+      if (!presenceIn(roomId)) return;
+      const reporterId = userId;
       const incident = await ModerationService.createIncident({
         roomId,
         reporterId,
@@ -346,7 +283,10 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
     decision: 'YES' | 'NO';
   }) => {
     try {
-      const { incidentId, voterId, decision } = data;
+      const { incidentId, decision } = data;
+      const incident = await prisma.moderationIncident.findUnique({ where: { id: incidentId } });
+      if (!incident || !presenceIn(incident.roomId)) return;
+      const voterId = userId;
       const resolution = await ModerationService.castVote({
         incidentId,
         voterId,
@@ -399,11 +339,13 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
 
   // Leave room
   socket.on('leave_room', (data: { roomId: string }) => {
+    joinSequence++;
     handleUserLeave(io, socket, data.roomId);
   });
 
   // Disconnect
   socket.on('disconnect', () => {
+    joinSequence++;
     for (const [roomId, participants] of activeRooms.entries()) {
       if (participants.has(socket.id)) {
         handleUserLeave(io, socket, roomId);
@@ -418,6 +360,7 @@ function handleUserLeave(io: SocketIOServer, socket: Socket, roomId: string) {
   if (room && room.has(socket.id)) {
     const leavingUser = room.get(socket.id);
     room.delete(socket.id);
+    logger.info('socket.room_left', { roomId, userId: leavingUser?.userId });
 
     // If only simulated users or empty, clear
     const realUsers = Array.from(room.values()).filter((p) => !p.isSimulated);

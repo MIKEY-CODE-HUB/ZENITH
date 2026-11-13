@@ -1,4 +1,11 @@
 import { Response } from 'express';
+import { randomUUID } from 'node:crypto';
+import { PointService } from '../services/pointService.js';
+import { logger } from '../config/logger.js';
+
+function roomCapacity(room: { category: string; maxParticipants: number }) {
+  return Math.min(room.category === 'INTERACTION' ? 6 : 10, room.maxParticipants);
+}
 import { prisma } from '../config/prisma.js';
 import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
@@ -66,7 +73,7 @@ export class RoomController {
           isSharedAtmosphere: room.isSharedAtmosphere,
           roomCode: room.roomCode,
           isPrivate: room.isPrivate,
-          maxParticipants: room.category === 'INTERACTION' ? 6 : Math.min(10, room.maxParticipants || 10),
+          maxParticipants: roomCapacity(room),
           defaultDuration: room.defaultDuration,
           defaultCamera: room.defaultCamera,
           defaultMic: room.defaultMic,
@@ -112,7 +119,7 @@ export class RoomController {
         },
       });
 
-      if (!room) {
+      if (!room || (room.isPrivate && room.creatorId !== req.user?.userId)) {
         res.status(404).json({ success: false, error: 'Focus room not found' });
         return;
       }
@@ -124,7 +131,7 @@ export class RoomController {
         success: true,
         room: {
           ...room,
-          maxParticipants: room.category === 'INTERACTION' ? 6 : Math.min(10, room.maxParticipants || 10),
+          maxParticipants: roomCapacity(room),
           activeParticipantsCount: room.participants.length,
           averageFocusScore: avgScore,
         },
@@ -159,7 +166,7 @@ export class RoomController {
 
       // Hard enforcement: Interaction rooms CANNOT exceed 6 participants; Focus rooms CANNOT exceed 10
       const effectiveCap = category === 'INTERACTION' ? 6 : 10;
-      const finalMaxParticipants = Math.min(effectiveCap, parseInt(maxParticipants, 10) || effectiveCap);
+      const finalMaxParticipants = Math.max(1, Math.min(effectiveCap, parseInt(maxParticipants, 10) || effectiveCap));
 
       // Generate room code like GRN-4821 or INT-1234
       const prefix = (category === 'INTERACTION' ? 'INT' : name.substring(0, 3)).toUpperCase();
@@ -190,16 +197,6 @@ export class RoomController {
         },
       });
 
-      // Add host as participant
-      await prisma.roomParticipant.create({
-        data: {
-          roomId: room.id,
-          userId,
-          role: 'HOST',
-          status: 'ACTIVE',
-        },
-      });
-
       res.status(201).json({ success: true, room });
     } catch (error: any) {
       console.error('Error creating room:', error);
@@ -213,6 +210,7 @@ export class RoomController {
       const { roomId } = req.params;
 
       const result = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'membership_' + userId}))`;
         // Concurrency protection: acquire transactional lock on roomId
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${roomId}))`;
 
@@ -221,7 +219,7 @@ export class RoomController {
           include: { participants: { where: { status: 'ACTIVE' } } },
         });
 
-        if (!room) {
+        if (!room || room.status !== 'ACTIVE' || (room.isPrivate && room.creatorId !== userId)) {
           throw new Error('ROOM_NOT_FOUND');
         }
 
@@ -243,7 +241,7 @@ export class RoomController {
         }
 
         const isAlreadyActive = room.participants.some((p) => p.userId === userId);
-        const effectiveCap = room.category === 'INTERACTION' ? 6 : Math.min(10, room.maxParticipants || 10);
+        const effectiveCap = roomCapacity(room);
 
         if (!isAlreadyActive && room.participants.length >= effectiveCap) {
           const err: any = new Error(
@@ -254,6 +252,17 @@ export class RoomController {
           err.code = 'ROOM_FULL';
           throw err;
         }
+
+        if (room.category === 'INTERACTION') {
+          const authorization = await tx.interactionAuthorization.findFirst({
+            where: { userId, roomId, status: 'ACTIVE', expiresAt: { gt: new Date() } },
+          });
+          if (!authorization) throw new Error('INTERACTION_AUTH_REQUIRED');
+        }
+        await tx.roomParticipant.updateMany({
+          where: { userId, roomId: { not: roomId }, status: 'ACTIVE' },
+          data: { status: 'LEFT', leftAt: new Date() },
+        });
 
         const participant = await tx.roomParticipant.upsert({
           where: {
@@ -284,10 +293,12 @@ export class RoomController {
     } catch (error: any) {
       if (error.message === 'ROOM_NOT_FOUND') {
         res.status(404).json({ success: false, error: 'Room not found' });
+      } else if (error.message === 'INTERACTION_AUTH_REQUIRED') {
+        res.status(402).json({ success: false, error: 'Confirm the Interaction entry cost first.' });
       } else if (error.code === 'ROOM_RESTRICTED') {
         res.status(403).json({ success: false, error: error.message, restricted: true });
       } else if (error.code === 'ROOM_FULL') {
-        res.status(400).json({ success: false, error: error.message });
+        res.status(409).json({ success: false, error: error.message });
       } else {
         res.status(500).json({ success: false, error: error.message || 'Failed to join room' });
       }
@@ -300,10 +311,19 @@ export class RoomController {
       const { category = 'EDUCATION', activityType = 'Deep Focus', atmosphere = 'Rainy Window' } = req.body;
 
       const upperCategory = String(category).toUpperCase();
+      if (!['EDUCATION', 'EXERCISE', 'SIDE_QUEST', 'INTERACTION'].includes(upperCategory)) {
+        res.status(400).json({ success: false, error: 'Unknown room category' });
+        return;
+      }
+      if (upperCategory === 'INTERACTION' && req.body.confirmInteraction !== true) {
+        res.status(402).json({ success: false, error: 'Confirm the Interaction entry cost first.' });
+        return;
+      }
       const effectiveCap = upperCategory === 'INTERACTION' ? 6 : 10;
 
       // Atomic allocation transaction
       const allocation = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'membership_' + userId}))`;
         // Concurrency protection: serialize category allocation atomically
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'alloc_' + upperCategory}))`;
 
@@ -315,6 +335,7 @@ export class RoomController {
             room: {
               category: upperCategory,
               status: 'ACTIVE',
+              isPrivate: false,
             },
           },
           include: {
@@ -332,11 +353,18 @@ export class RoomController {
         });
 
         // Idempotent recovery: if user is already active in a room of this category, return it immediately
-        if (activeMembership && activeMembership.room) {
+        if (activeMembership && activeMembership.room && !await tx.roomRestriction.findFirst({
+          where: { userId, roomId: activeMembership.roomId, expiresAt: { gt: new Date() } },
+          select: { id: true },
+        })) {
+          if (upperCategory === 'INTERACTION') {
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${activeMembership.roomId}))`;
+            await PointService.debitInteractionEntry(tx, userId, activeMembership.room);
+          }
           return {
             room: {
               ...activeMembership.room,
-              maxParticipants: effectiveCap,
+              maxParticipants: roomCapacity(activeMembership.room),
               activeParticipantsCount: activeMembership.room.participants.length,
               participants: activeMembership.room.participants.map((p) => p.user),
             },
@@ -379,25 +407,22 @@ export class RoomController {
         });
         const restrictedRoomIds = new Set(activeRestrictions.map((r) => r.roomId));
 
-        // Prioritize rooms that already have occupants (< effectiveCap) first to fill existing capacity,
-        // followed by empty rooms (0 occupants), excluding restricted rooms
+        // Greedily fill the fullest eligible room first. Use stable tie-breakers.
         const eligibleRooms = candidateRooms
-          .filter((r) => !restrictedRoomIds.has(r.id) && r.participants.length < effectiveCap)
-          .sort((a, b) => {
-            if (a.participants.length > 0 && b.participants.length === 0) return -1;
-            if (a.participants.length === 0 && b.participants.length > 0) return 1;
-            return b.participants.length - a.participants.length;
-          });
+          .filter((room) => !restrictedRoomIds.has(room.id) && room.participants.length < roomCapacity(room))
+          .sort((a, b) => b.participants.length - a.participants.length ||
+            a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
 
         let selectedRoom: any = null;
 
         for (const candidate of eligibleRooms) {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${candidate.id}))`;
           // Re-verify atomic count inside transaction to prevent concurrency overfill
           const currentCount = await tx.roomParticipant.count({
             where: { roomId: candidate.id, status: 'ACTIVE' },
           });
 
-          if (currentCount < effectiveCap) {
+          if (currentCount < roomCapacity(candidate)) {
             selectedRoom = candidate;
             break;
           }
@@ -410,7 +435,7 @@ export class RoomController {
           const roomPrefix = upperCategory === 'INTERACTION' ? 'INT' : upperCategory.substring(0, 3);
           const roomCount = await tx.room.count({ where: { category: upperCategory } });
           const roomNumber = roomCount + 1;
-          const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+          const randomSuffix = randomUUID().slice(0, 8).toUpperCase();
           const roomCode = `${roomPrefix}-${randomSuffix}`;
           const roomName = `${upperCategory === 'EDUCATION' ? 'SEM' : upperCategory} Room #${roomNumber}`;
 
@@ -434,6 +459,10 @@ export class RoomController {
               participants: { where: { status: 'ACTIVE' } },
             },
           });
+        }
+
+        if (upperCategory === 'INTERACTION') {
+          await PointService.debitInteractionEntry(tx, userId, selectedRoom);
         }
 
         // 4. Allocate user to the selected room
@@ -468,7 +497,7 @@ export class RoomController {
         return {
           room: {
             ...selectedRoom,
-            maxParticipants: effectiveCap,
+            maxParticipants: roomCapacity(selectedRoom),
             activeParticipantsCount: activeParticipants.length,
             participants: activeParticipants.map((p) => p.user),
           },
@@ -478,6 +507,11 @@ export class RoomController {
         };
       });
 
+      logger.info('matchmaking.allocated', {
+        requestId: res.getHeader('x-request-id'), userId, category: upperCategory,
+        roomId: allocation.room.id, occupancy: allocation.room.activeParticipantsCount,
+        created: allocation.isNew, reusedMembership: allocation.alreadyMember,
+      });
       res.json({
         success: true,
         room: allocation.room,
@@ -486,8 +520,14 @@ export class RoomController {
         alreadyMember: allocation.alreadyMember,
       });
     } catch (error: any) {
-      console.error('Error in allocateRoom:', error);
-      res.status(500).json({ success: false, error: error.message || 'Matchmaking allocation failed' });
+      const insufficient = error.message?.startsWith('INSUFFICIENT_POINTS');
+      logger.warn('matchmaking.failed', {
+        requestId: res.getHeader('x-request-id'),
+        code: insufficient ? 'INSUFFICIENT_POINTS' : error.code || error.name,
+      });
+      res.status(insufficient ? 402 : 500).json({
+        success: false, error: insufficient ? error.message : 'Matchmaking failed. Please retry.',
+      });
     }
   }
 
@@ -497,6 +537,8 @@ export class RoomController {
       const { roomId } = req.params;
 
       await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'membership_' + userId}))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${roomId}))`;
         await tx.roomParticipant.updateMany({
           where: { roomId, userId, status: 'ACTIVE' },
           data: { status: 'LEFT', leftAt: new Date() },

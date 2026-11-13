@@ -74,6 +74,9 @@ export async function verifyGoogleIdToken(idToken: string): Promise<VerifiedGoog
 
   // 3. Validate Audience
   const expectedAudience = process.env.GOOGLE_CLIENT_ID;
+  if (!expectedAudience && process.env.NODE_ENV === 'production') {
+    throw new Error('Google sign-in is unavailable because the backend client ID is missing.');
+  }
   if (expectedAudience && decodedPayload.aud !== expectedAudience) {
     throw new Error(`Token audience mismatch. Expected: ${expectedAudience}, Got: ${decodedPayload.aud}`);
   }

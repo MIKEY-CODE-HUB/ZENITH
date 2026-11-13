@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSocket } from '@/contexts/SocketContext';
 import { useFocusTracker } from '@/hooks/useFocusTracker';
 import { useWebRTC } from '@/hooks/useWebRTC';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { ATMOSPHERES, getAtmosphereById, AtmosphereTheme } from '@/lib/atmospheres';
 import { AtmosphereCanvas } from '@/components/AtmosphereCanvas';
 import { RoomHeader } from '@/components/RoomHeader';
@@ -50,8 +50,8 @@ import {
 export default function LiveRoomPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
-  const { socket } = useSocket();
+  const { user, loading: authLoading } = useAuth();
+  const { socket, connected } = useSocket();
   const roomIdOrCode = params.id as string;
 
   // Room & Session state
@@ -63,6 +63,13 @@ export default function LiveRoomPage() {
   const [remainingSeconds, setRemainingSeconds] = useState<number>(50 * 60);
   const [participants, setParticipants] = useState<ParticipantPresence[]>([]);
   const [ending, setEnding] = useState<boolean>(false);
+
+  const [roomError, setRoomError] = useState<string | null>(null);
+  const [presenceError, setPresenceError] = useState<string | null>(null);
+  const [finishError, setFinishError] = useState<string | null>(null);
+  const [shieldActive, setShieldActive] = useState(false);
+  const [deadline, setDeadline] = useState<number | null>(null);
+  const finishing = useRef(false);
 
   // Video Layout Mode ('footer' [DEFAULT], 'header', 'middle', 'scattered')
   const [videoLayout, setVideoLayout] = useState<VideoLayoutMode>(() => {
@@ -125,13 +132,14 @@ export default function LiveRoomPage() {
     isCameraOn,
     isMicOn,
     isSpeaking: isLocalSpeaking,
+    deviceError,
     toggleCamera,
     toggleMic,
   } = useWebRTC({
-    socket,
-    roomId: activeRoomId,
+    socket: sessionId ? socket : null,
+    roomId: sessionId ? activeRoomId : '',
     userId: user?.id || 'guest',
-    enableCameraDefault: true,
+    enableCameraDefault: Boolean(sessionId),
     enableMicDefault: false,
     allowVoice: isInteractionRoom,
   });
@@ -160,74 +168,71 @@ export default function LiveRoomPage() {
     };
   }, [resetIdleTimer]);
 
-  // Load Room metadata
   useEffect(() => {
-    async function loadRoom() {
+    if (authLoading) return;
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+    let cancelled = false;
+
+    async function initialize() {
       try {
-        const res = await api.getRoom(roomIdOrCode);
-        if (res.success && res.room) {
-          setRoom(res.room);
-          setCategory(res.room.category || 'EDUCATION');
-          setActivityName(res.room.activityType || 'Deep Focus');
-          if (res.room.atmosphere) {
-            setCurrentAtmosphere(getAtmosphereById(res.room.atmosphere));
-          }
+        const storedId = sessionStorage.getItem('active_session_id');
+        const stored = storedId ? (await api.getSession(storedId).catch((error) => {
+          if (error instanceof ApiError && error.status === 404) return null;
+          throw error;
+        }))?.session : null;
+        const solo = roomIdOrCode === 'custom' || (stored?.id === roomIdOrCode && !stored.roomId);
+        const currentRoom = solo ? null : (await api.getRoom(roomIdOrCode)).room as Room;
+        if (cancelled) return;
+        if (currentRoom) await api.joinRoom(currentRoom.id);
+        if (cancelled) return;
+        const reusable = stored?.status === 'ACTIVE' && (stored.roomId ?? null) === (currentRoom?.id ?? null);
+        const session = reusable ? stored : (await api.startSession({
+          roomId: currentRoom?.id ?? null,
+          category: currentRoom?.category || 'EDUCATION',
+          activityType: currentRoom?.activityType || 'Deep Focus',
+          atmosphere: currentRoom?.atmosphere || currentAtmosphere.id,
+          plannedDuration: currentRoom?.defaultDuration || 50,
+        })).session;
+        if (cancelled) return;
+        sessionStorage.setItem('active_session_id', session.id);
+        setRoom(currentRoom);
+        setSessionId(session.id);
+        setCategory(session.category);
+        setActivityName(session.activityType);
+        setPlannedMinutes(session.plannedDuration);
+        const end = Date.parse(session.startTime) + session.plannedDuration * 60_000;
+        setDeadline(end);
+        setRemainingSeconds(Math.max(0, Math.ceil((end - Date.now()) / 1000)));
+        if (session.atmosphere) setCurrentAtmosphere(getAtmosphereById(session.atmosphere));
+
+        if (reusable && sessionStorage.getItem('active_session_protection') === 'false') return;
+        const blocker = await api.activateBlocker(session.id, 'STRICT').catch(() => null);
+        if (blocker?.success && !cancelled) {
+          window.postMessage({
+            type: 'ZENITH_BLOCKER_ACTIVATE', roomUrl: window.location.href,
+            focusSessionId: session.id, blockerToken: blocker.blockerToken,
+            expiresAt: end + 60_000, config: blocker.config,
+          }, window.location.origin);
         }
       } catch (err) {
-        console.error('Room fetch error:', err);
-      }
-    }
-    loadRoom();
-  }, [roomIdOrCode]);
-
-  // Session Initialization
-  useEffect(() => {
-    async function initSession() {
-      const storedDuration = sessionStorage.getItem('active_session_duration');
-      const storedCategory = sessionStorage.getItem('active_session_category') as ActivityCategory;
-      const storedActivity = sessionStorage.getItem('active_session_activity');
-
-      if (storedDuration) {
-        const mins = parseInt(storedDuration, 10);
-        setPlannedMinutes(mins);
-        setRemainingSeconds(mins * 60);
-      }
-      if (storedCategory) setCategory(storedCategory);
-      if (storedActivity) setActivityName(storedActivity);
-
-      let storedSessionId = sessionStorage.getItem('active_session_id');
-      if (!storedSessionId) {
-        try {
-          const res = await api.startSession({
-            roomId: roomIdOrCode !== 'custom' ? roomIdOrCode : null,
-            category: storedCategory || category,
-            activityType: storedActivity || activityName,
-            specificActivity: storedActivity || activityName,
-            atmosphere: currentAtmosphere.id,
-            plannedDuration: plannedMinutes,
-          });
-          if (res.success && res.session) {
-            sessionStorage.setItem('active_session_id', res.session.id);
-            setSessionId(res.session.id);
-            api.activateBlocker(res.session.id, 'STRICT').catch(() => {});
-          }
-        } catch (err) {
-          console.error('Session start error:', err);
-        }
-      } else {
-        setSessionId(storedSessionId);
-        api.activateBlocker(storedSessionId, 'STRICT').catch(() => {});
-      }
-
-      if (typeof window !== 'undefined') {
-        window.postMessage({ type: 'ZENITH_ROOM_ACTIVE', roomUrl: window.location.href }, '*');
-        localStorage.setItem('zenith_shield_active', 'true');
-        localStorage.setItem('zenith_shield_url', window.location.href);
+        if (!cancelled) setRoomError(err instanceof Error ? err.message : 'Could not start the room.');
       }
     }
 
-    initSession();
-  }, [roomIdOrCode]);
+    const shieldStatus = (event: MessageEvent) => {
+      if (event.source === window && event.origin === window.location.origin &&
+          event.data?.type === 'ZENITH_SHIELD_STATUS') setShieldActive(event.data.active === true);
+    };
+    window.addEventListener('message', shieldStatus);
+    void initialize();
+    return () => {
+      cancelled = true;
+      window.removeEventListener('message', shieldStatus);
+    };
+  }, [authLoading, user?.id, roomIdOrCode, router]);
 
   // Focus Tracker Hook (Page Visibility API + Idle Detection)
   const {
@@ -245,8 +250,9 @@ export default function LiveRoomPage() {
     returnToRoom,
   } = useFocusTracker({
     sessionId: sessionId || undefined,
+    shieldActive,
     idleThresholdSeconds: 60,
-    isActiveSession: !ending,
+    isActiveSession: Boolean(sessionId) && !ending,
     onStatusChange: (newStatus: FocusStatus) => {
       if (socket && room) {
         socket.emit('focus_status_changed', {
@@ -261,9 +267,10 @@ export default function LiveRoomPage() {
 
   // Socket.IO Room Presence
   useEffect(() => {
-    if (!socket || !room || !user) return;
+    if (!socket || !connected || !room || !user || !sessionId) return;
 
-    socket.emit('join_room', {
+    setParticipants([]);
+    const join = () => socket.emit('join_room', {
       roomId: activeRoomId,
       userId: user.id,
       name: user.name,
@@ -276,8 +283,11 @@ export default function LiveRoomPage() {
       withSimulatedPeers: false,
     });
 
-    socket.on('room_presence_list', (data: { participants: ParticipantPresence[] }) => {
-      setParticipants(data.participants);
+    socket.on('room_presence_list', (data: { roomId: string; participants: ParticipantPresence[] }) => {
+      if (data.roomId === activeRoomId) {
+        setPresenceError(null);
+        setParticipants(data.participants);
+      }
     });
 
     socket.on('participant_media_updated', (data: { socketId: string; userId: string; cameraOn: boolean; micOn: boolean }) => {
@@ -339,12 +349,11 @@ export default function LiveRoomPage() {
       setKickedNotice({ isOpen: true, reason: data.reason });
     });
 
-    socket.on('room_error', (data: { code: string; message: string }) => {
-      if (data.code === 'ROOM_RESTRICTED') {
-        alert(data.message);
-        router.push('/rooms');
-      }
+    socket.on('room_error', (data: { message: string }) => {
+      setParticipants([]);
+      setPresenceError(data.message);
     });
+    join();
 
     return () => {
       socket.emit('leave_room', { roomId: activeRoomId });
@@ -359,56 +368,41 @@ export default function LiveRoomPage() {
       socket.off('participant_kicked');
       socket.off('room_error');
     };
-  }, [socket, activeRoomId, user?.id, activityName, category]);
+  }, [socket, connected, activeRoomId, user?.id, sessionId, room]);
 
-  // Synchronized countdown timer
-  const startTimeRef = useRef<number>(Date.now());
-  useEffect(() => {
-    if (ending) return;
-    const interval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      const remaining = Math.max(0, plannedMinutes * 60 - elapsed);
-      setRemainingSeconds(remaining);
-
-      if (remaining === 0) {
-        handleEndSession();
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [plannedMinutes, ending]);
-
-  // End Session and Save Truth Records
   const handleEndSession = async () => {
+    if (!sessionId || finishing.current) return;
+    finishing.current = true;
+    setEnding(true);
+    setFinishError(null);
     try {
-      setEnding(true);
-
-      if (typeof window !== 'undefined') {
-        window.postMessage({ type: 'ZENITH_ROOM_ENDED' }, '*');
-        localStorage.removeItem('zenith_shield_active');
-        localStorage.removeItem('zenith_shield_url');
-      }
-
-      if (sessionId) {
-        const res = await api.endSession(sessionId, {
-          focusedDuration: focusedSeconds,
-          distractedDuration: distractedSeconds,
-          idleDuration: idleSeconds,
-          tabSwitchCount,
-          warningCount,
-          longestFocusStreak,
-        });
-
-        sessionStorage.removeItem('active_session_id');
-        router.push(`/focus/summary/${sessionId}`);
-      } else {
-        router.push('/dashboard');
-      }
+      await api.endSession(sessionId, {
+        focusedDuration: focusedSeconds, distractedDuration: distractedSeconds, idleDuration: idleSeconds,
+        tabSwitchCount, warningCount, longestFocusStreak,
+      });
+      if (room) await api.leaveRoom(room.id).catch(() => {});
+      window.postMessage({ type: 'ZENITH_ROOM_ENDED', focusSessionId: sessionId }, window.location.origin);
+      sessionStorage.removeItem('active_session_id');
+      sessionStorage.removeItem('active_session_protection');
+      router.push(`/focus/summary/${sessionId}`);
     } catch (err) {
-      console.error('End session error:', err);
-      router.push('/dashboard');
+      setFinishError(err instanceof Error ? err.message : 'Could not save your session. Try again.');
+      finishing.current = false;
+      setEnding(false);
     }
   };
+
+  const finishRef = useRef(handleEndSession);
+  finishRef.current = handleEndSession;
+  useEffect(() => {
+    if (deadline === null || ending || finishError) return;
+    const timer = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setRemainingSeconds(remaining);
+      if (remaining === 0) void finishRef.current();
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [deadline, ending, finishError]);
 
   // Community Moderation Actions
   const handleFileReport = async (data: { accusedId: string; reason: string; details?: string }) => {
@@ -438,10 +432,19 @@ export default function LiveRoomPage() {
   // Focus score calculation
   const totalTrackedSeconds = focusedSeconds + distractedSeconds + idleSeconds;
   const currentFocusRate = totalTrackedSeconds > 0 ? Math.round((focusedSeconds / totalTrackedSeconds) * 100) : 100;
-  const estimatedPoints = Math.max(5, Math.round((focusedSeconds / 60) * 1.0) + (currentFocusRate >= 90 ? 15 : 5));
+  const estimatedPoints = focusedSeconds === 0 ? 0 : Math.max(5, Math.round((focusedSeconds / 60) * 1.0) + (currentFocusRate >= 90 ? 15 : 5));
 
   // Progress Bar Percentage
   const sessionProgressPercent = Math.min(100, Math.round(((plannedMinutes * 60 - remainingSeconds) / (plannedMinutes * 60)) * 100));
+
+  if (!sessionId || roomError) {
+    return (
+      <main className="grid min-h-screen place-content-center gap-4 bg-zinc-950 p-6 text-zinc-100">
+        {roomError ? <p role="alert">{roomError}</p> : <p role="status">Connecting to your focus session…</p>}
+        {roomError && <button className="text-sky-300 underline" onClick={() => router.push('/rooms')}>Back to rooms</button>}
+      </main>
+    );
+  }
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black text-zinc-100 select-none">
@@ -465,14 +468,21 @@ export default function LiveRoomPage() {
 
       {/* ── LAYER A: UNOBTRUSIVE ROOM HEADER ── */}
       <RoomHeader
-        roomName={room?.name || 'SEM Room'}
+        roomName={room?.name || 'Solo focus'}
         category={category}
-        participantCount={participants.length}
-        maxParticipants={category === 'INTERACTION' ? 6 : (room?.maxParticipants || 10)}
+        participantCount={room && connected && participants.length > 0 ? participants.length : room ? null : 1}
+        shieldActive={shieldActive}
+        maxParticipants={room?.maxParticipants || 1}
         videoLayout={videoLayout}
         onChangeVideoLayout={handleVideoLayoutChange}
         onExit={() => setShowExitConfirm(true)}
       />
+
+      {(finishError || presenceError || deviceError) && (
+        <div role="alert" className="absolute left-1/2 top-32 z-40 -translate-x-1/2 rounded-lg bg-zinc-950 px-4 py-2 text-sm text-rose-300">
+          {finishError || presenceError || deviceError}
+        </div>
+      )}
 
       {/* ── LAYER C: SUBTLE NON-DOMINANT TIMER (CENTER TOP) ── */}
       <div className="absolute top-14 sm:top-16 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none">

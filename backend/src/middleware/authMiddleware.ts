@@ -25,7 +25,7 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
   }
 
   const payload = verifyToken(token);
-  if (!payload) {
+  if (!payload || 'type' in payload) {
     res.status(401).json({ success: false, error: 'Invalid or expired authentication token' });
     return;
   }
