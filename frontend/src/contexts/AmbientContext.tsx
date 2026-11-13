@@ -1,11 +1,13 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SCENERIES, Scenery } from '@/lib/sceneries';
+import { SCENERIES, Scenery, SceneryPage } from '@/lib/sceneries';
 import { ambientSound } from '@/lib/ambientAudio';
 
 interface AmbientContextType {
   currentScenery: Scenery;
+  pageSceneries: Record<SceneryPage, Scenery | null>;
+  setPageScenery: (page: SceneryPage, scenery: Scenery | null) => void;
   setSceneryId: (id: string) => void;
   isPlayingSound: boolean;
   activeSound: 'rain' | 'fire' | 'cafe' | 'forest' | 'alpha';
@@ -21,10 +23,24 @@ interface AmbientContextType {
   setIsSoundModalOpen: (open: boolean) => void;
 }
 
+const PAGE_SCENERY_KEYS = {
+  home: 'zenith_home_scenery_id',
+  dashboard: 'zenith_dashboard_scenery_id',
+} satisfies Record<SceneryPage, string>;
+
+function readPageScenery(page: SceneryPage) {
+  const id = localStorage.getItem(PAGE_SCENERY_KEYS[page]);
+  return SCENERIES.find((scenery) => scenery.id === id) ?? null;
+}
+
 const AmbientContext = createContext<AmbientContextType | undefined>(undefined);
 
 export function AmbientProvider({ children }: { children: React.ReactNode }) {
   const [currentScenery, setCurrentScenery] = useState<Scenery>(SCENERIES[0]);
+  const [pageSceneries, setPageSceneries] = useState<Record<SceneryPage, Scenery | null>>({
+    home: null,
+    dashboard: null,
+  });
   const [isPlayingSound, setIsPlayingSound] = useState(false);
   const [activeSound, setActiveSound] = useState<'rain' | 'fire' | 'cafe' | 'forest' | 'alpha'>('rain');
   const [volume, setVolume] = useState(0.4);
@@ -35,6 +51,10 @@ export function AmbientProvider({ children }: { children: React.ReactNode }) {
   // Load saved scenery preference from localStorage
   useEffect(() => {
     try {
+      setPageSceneries({
+        home: readPageScenery('home'),
+        dashboard: readPageScenery('dashboard'),
+      });
       const savedSceneryId = localStorage.getItem('zenith_scenery_id');
       if (savedSceneryId) {
         const found = SCENERIES.find((s) => s.id === savedSceneryId);
@@ -51,6 +71,19 @@ export function AmbientProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (e) {}
   }, []);
+
+  const setPageScenery = (page: SceneryPage, scenery: Scenery | null) => {
+    setPageSceneries((previous) => ({ ...previous, [page]: scenery }));
+    try {
+      if (scenery) {
+        localStorage.setItem(PAGE_SCENERY_KEYS[page], scenery.id);
+      } else {
+        localStorage.removeItem(PAGE_SCENERY_KEYS[page]);
+      }
+    } catch {
+      // The theme still applies when browser storage is unavailable.
+    }
+  };
 
   const setSceneryId = (id: string) => {
     const found = SCENERIES.find((s) => s.id === id);
@@ -103,6 +136,8 @@ export function AmbientProvider({ children }: { children: React.ReactNode }) {
     <AmbientContext.Provider
       value={{
         currentScenery,
+        pageSceneries,
+        setPageScenery,
         setSceneryId,
         isPlayingSound,
         activeSound,
