@@ -132,9 +132,10 @@ export class BlockerService {
 
     const ownedSession = await prisma.focusSession.findFirst({
       where: { id: targetSessionId, userId: targetUserId, status: 'ACTIVE' },
-      select: { id: true },
+      select: { id: true, protectionEnabled: true },
     });
     if (!ownedSession) throw new Error('Active focus session not found.');
+    if (!ownedSession.protectionEnabled) throw new Error('Protection is off for this focus session.');
 
     // Upsert BlockerSession
     const session = await prisma.blockerSession.upsert({

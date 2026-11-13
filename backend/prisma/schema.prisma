@@ -145,6 +145,7 @@ model FocusSession {
   startTime          DateTime        @default(now())
   endTime            DateTime?
   plannedDuration    Int             // in minutes
+  protectionEnabled  Boolean         @default(true)
   focusedDuration    Int             @default(0) // in seconds
   idleDuration       Int             @default(0) // in seconds
   distractedDuration Int             @default(0) // in seconds

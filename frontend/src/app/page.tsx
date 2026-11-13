@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
+import { useAmbient } from '@/contexts/AmbientContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -31,12 +32,13 @@ import {
 export default function LandingPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const { pageSceneries, openSceneryModal } = useAmbient();
 
   const handleStart = () => {
     if (user) {
       router.push('/dashboard');
     } else {
-      router.push('/signup');
+      router.push('/login');
     }
   };
 
@@ -48,23 +50,19 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#09090b] text-zinc-100 selection:bg-zinc-800 selection:text-white">
       {/* 1. HERO SECTION */}
       <section className="relative overflow-hidden pt-20 pb-20 md:pt-28 md:pb-32 border-b border-white/[0.06]">
-        {/* Subtle warm ambient highlight */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[320px] bg-gradient-to-b from-white/[0.05] to-transparent blur-3xl pointer-events-none" />
-
+        <div className="absolute inset-0 bg-cover bg-center" aria-hidden="true" style={{
+          backgroundColor: '#211b18',
+          backgroundImage: pageSceneries.home?.bgImageUrl
+            ? `linear-gradient(180deg, rgba(19,15,13,.58), #15110f 85%), url("${pageSceneries.home.bgImageUrl}")`
+            : pageSceneries.home?.gradientOverlay ?? 'radial-gradient(ellipse at top, #403127 0%, #15110f 75%)',
+        }} />
         <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 text-center space-y-7">
-          {/* Subtle status badge */}
-          <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-1 text-xs font-medium text-emerald-300 shadow-inner">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
-            <span>Dual-layer focus protection for Mac & Chrome • 0ms Tab Snap-Back</span>
-          </div>
-
-          {/* Headline */}
           <div className="space-y-4 max-w-3xl mx-auto">
-            <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-[1.12]">
-              Deep work without the <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-sky-400 bg-clip-text text-transparent">self-deception</span>.
+            <h1 className="font-serif text-5xl sm:text-7xl font-normal tracking-tight text-[#fff5e8] leading-[1.04]">
+              A quiet place to focus.
             </h1>
             <p className="text-base sm:text-lg text-zinc-300 max-w-2xl mx-auto font-normal leading-relaxed">
-              Immersive social accountability platform for ambitious students. Master DSA, ship projects, and hit flow state in Tokyo Midnight, Rainy Window, or Nordic Pines soundscapes.
+              Set a timer for what you’re working on. Study on your own or join a quiet room with others.
             </p>
           </div>
 
@@ -72,7 +70,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <button
               onClick={handleStart}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white text-zinc-950 px-6 py-3 text-sm font-semibold hover:bg-zinc-100 transition-colors shadow-sm"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#ecd5b5] text-[#271d15] px-6 py-3 text-sm font-semibold hover:bg-zinc-100 transition-colors shadow-sm"
             >
               <span>Start focusing</span>
               <ArrowRight className="h-4 w-4" />
@@ -86,14 +84,9 @@ export default function LandingPage() {
             </button>
           </div>
 
-          {/* Social Proof Quote */}
-          <div className="pt-6 flex items-center justify-center gap-3 text-xs text-zinc-500">
-            <span>Silent video accountability</span>
-            <span>•</span>
-            <span>Instant tab snap-back</span>
-            <span>•</span>
-            <span>macOS desktop blocker</span>
-          </div>
+          <button type="button" onClick={() => openSceneryModal('home')} className="text-sm text-[#ead5bd] underline underline-offset-4 hover:text-white">
+            Customize Theme
+          </button>
         </div>
 
       {/* 2. PRODUCT PREVIEW CARD */}
@@ -132,8 +125,8 @@ export default function LandingPage() {
                   <Shield className="h-4 w-4 text-sky-400" />
                   <p className="text-xs font-semibold text-white">Shield Policy</p>
                 </div>
-                <p className="text-xs text-zinc-300 font-medium">0ms Tab Snap-Back</p>
-                <p className="text-[11px] text-zinc-500 leading-tight">External distractions locked immediately upon switch.</p>
+                <p className="text-xs text-zinc-300 font-medium">Distraction Shield</p>
+                <p className="text-[11px] text-zinc-500 leading-tight">Restricted sites are blocked during protected sessions.</p>
               </div>
 
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
@@ -150,7 +143,7 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs text-zinc-400">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-zinc-400" />
-                <span>Session telemetry: <strong className="text-white font-medium">Clean slate</strong> • Ready to launch</span>
+                <span>Session telemetry: <strong className="text-white font-medium">Clean slate</strong></span>
               </div>
               <div className="flex items-center gap-2 text-emerald-400">
                 <CheckCircle2 className="h-4 w-4" />

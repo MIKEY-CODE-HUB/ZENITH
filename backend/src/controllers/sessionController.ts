@@ -16,8 +16,13 @@ export class SessionController {
         specificActivity,
         atmosphere = 'Rainy Window',
         plannedDuration = 50,
+        protectionEnabled = true,
       } = req.body;
 
+      if (typeof protectionEnabled !== 'boolean') {
+        res.status(400).json({ success: false, error: 'protectionEnabled must be a boolean.' });
+        return;
+      }
       const duration = Number(plannedDuration);
       if (!Number.isInteger(duration) || duration < 1 || duration > 240) {
         res.status(400).json({ success: false, error: 'Focus duration must be between 1 and 240 minutes.' });
@@ -60,27 +65,29 @@ export class SessionController {
             specificActivity: specificActivity || activityType,
             atmosphere,
             plannedDuration: duration,
+            protectionEnabled,
             status: 'ACTIVE',
             startTime: new Date(),
           },
         });
 
-        // Automatically activate BlockerSession for live-status synchronization
-        await tx.blockerSession.upsert({
-          where: { focusSessionId: session.id },
-          update: {
-            mode: 'STRICT',
-            status: 'ACTIVE',
-            startedAt: new Date(),
-            endedAt: null,
-          },
-          create: {
-            userId,
-            focusSessionId: session.id,
-            mode: 'STRICT',
-            status: 'ACTIVE',
-          },
-        });
+        if (protectionEnabled) {
+          await tx.blockerSession.upsert({
+            where: { focusSessionId: session.id },
+            update: {
+              mode: 'STRICT',
+              status: 'ACTIVE',
+              startedAt: new Date(),
+              endedAt: null,
+            },
+            create: {
+              userId,
+              focusSessionId: session.id,
+              mode: 'STRICT',
+              status: 'ACTIVE',
+            },
+          });
+        }
 
         // Log session start event
         await tx.focusEvent.create({

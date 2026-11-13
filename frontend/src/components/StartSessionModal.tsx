@@ -172,6 +172,7 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
         specificActivity: selectedActivity,
         atmosphere: selectedAtmosphere,
         plannedDuration: durationMinutes,
+        protectionEnabled,
       });
 
       if (res.success && res.session) {

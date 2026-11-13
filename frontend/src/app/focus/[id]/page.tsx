@@ -212,7 +212,7 @@ export default function LiveRoomPage() {
         setRemainingSeconds(Math.max(0, Math.ceil((end - Date.now()) / 1000)));
         if (session.atmosphere) setCurrentAtmosphere(getAtmosphereById(session.atmosphere));
 
-        if (reusable && sessionStorage.getItem('active_session_protection') === 'false') return;
+        if (session.protectionEnabled === false || (reusable && sessionStorage.getItem('active_session_protection') === 'false')) return;
         const blocker = await api.activateBlocker(session.id, 'STRICT').catch(() => null);
         if (blocker?.success && !cancelled) {
           window.postMessage({

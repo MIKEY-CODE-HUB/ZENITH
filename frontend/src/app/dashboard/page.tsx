@@ -34,7 +34,7 @@ import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const { currentScenery, isPlayingSound, toggleSound, setIsSceneryModalOpen, activeSound } = useAmbient();
+  const { pageSceneries, isPlayingSound, toggleSound, openSceneryModal, activeSound } = useAmbient();
   const router = useRouter();
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -68,32 +68,28 @@ export default function DashboardPage() {
     const hour = new Date().getHours();
     if (hour >= 22 || hour < 5) {
       return {
-        greeting: 'Late Night Flow',
+        greeting: 'Good evening',
         icon: Moon,
-        vibe: 'Deep midnight immersion. When the world is asleep, you build.',
         accent: 'from-sky-600/25 via-teal-600/20 to-transparent',
       };
     }
     if (hour >= 5 && hour < 12) {
       return {
-        greeting: 'Dawn Momentum',
+        greeting: 'Good morning',
         icon: Sun,
-        vibe: 'Fresh morning clarity. Seize high-cognitive energy before distractions wake.',
         accent: 'from-amber-600/25 via-orange-600/20 to-transparent',
       };
     }
     if (hour >= 12 && hour < 17) {
       return {
-        greeting: 'Peak Focus Zone',
+        greeting: 'Good afternoon',
         icon: Zap,
-        vibe: 'Afternoon power block. Execute your hardest engineering and problem sets.',
         accent: 'from-emerald-600/25 via-teal-600/20 to-transparent',
       };
     }
     return {
-      greeting: 'Golden Hour Dusk',
+      greeting: 'Good evening',
       icon: Compass,
-      vibe: 'Evening consistency. Lock in your closing study sprint for the day.',
       accent: 'from-rose-600/25 via-amber-600/20 to-transparent',
     };
   };
@@ -121,39 +117,43 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-[#07080b] text-zinc-100">
+    <div className="flex min-h-[calc(100vh-4rem)] bg-[rgb(var(--page))] text-[rgb(var(--ink))]">
       <Sidebar />
 
-      <main className="flex-1 p-5 sm:p-9 max-w-6xl mx-auto space-y-9">
+      <main className="min-w-0 flex-1 p-5 sm:p-9 max-w-6xl mx-auto space-y-9">
         {/* Dynamic Atmospheric Hero Banner */}
         <div className={`relative p-6 sm:p-9 rounded-3xl bg-gradient-to-r ${vibe.accent} bg-[#10121a] border border-white/[0.08] shadow-2xl overflow-hidden`}>
+          {pageSceneries.dashboard && (
+            <div className="absolute inset-0 bg-cover bg-center" aria-hidden="true" style={{
+              backgroundImage: pageSceneries.dashboard.bgImageUrl
+                ? `linear-gradient(90deg, rgba(24,19,16,.86), rgba(24,19,16,.48)), url("${pageSceneries.dashboard.bgImageUrl}")`
+                : pageSceneries.dashboard.gradientOverlay,
+            }} />
+          )}
           {/* Subtle Ambient Blur Halos */}
           <div className="absolute -top-24 -right-24 w-80 h-80 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-2 max-w-xl">
-              <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-zinc-300">
                 <VibeIcon className="h-4 w-4 text-emerald-400" />
                 <span className="uppercase tracking-widest text-[11px] font-bold text-white/90">
                   {vibe.greeting} • {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </span>
                 <span className="text-zinc-600">•</span>
                 <button
-                  onClick={() => setIsSceneryModalOpen(true)}
+                  onClick={() => openSceneryModal('dashboard')}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-[11px] text-zinc-300 transition-colors border border-white/10"
                 >
                   <ImageIcon className="h-3 w-3 text-emerald-400" />
-                  <span>Theme: {currentScenery.name}</span>
+                  <span>Customize Theme</span>
                 </button>
               </div>
 
               <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
                 Welcome back, {user?.name?.split(' ')[0] || 'Scholar'}.
               </h1>
-              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-normal">
-                {vibe.vibe}
-              </p>
             </div>
 
             {/* Quick Actions (Start Session + Soundscape) */}

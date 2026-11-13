@@ -266,6 +266,7 @@ class ApiClient {
     specificActivity?: string;
     atmosphere?: string;
     plannedDuration: number;
+    protectionEnabled?: boolean;
   }) {
     return this.request<{ success: boolean; session: any }>('/sessions/start', {
       method: 'POST',

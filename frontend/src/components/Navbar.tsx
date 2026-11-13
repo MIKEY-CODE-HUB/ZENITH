@@ -26,8 +26,7 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const {
-    currentScenery,
-    setIsSceneryModalOpen,
+    openSceneryModal,
     isPlayingSound,
     setIsSoundModalOpen,
     activeSound,
@@ -40,7 +39,7 @@ export function Navbar() {
   }
 
   // Header Navbar: ONLY Zenith Logo, Home, Join Room, Leaderboard, Login
-  const isHomeActive = pathname === '/dashboard' || pathname === '/';
+  const isHomeActive = pathname === '/';
   const isJoinRoomActive = pathname.startsWith('/rooms');
   const isLeaderboardActive = pathname.startsWith('/leaderboard');
 
@@ -65,7 +64,7 @@ export function Navbar() {
           {/* Core Nav: Home, Join Room, Leaderboard */}
           <nav className="hidden md:flex items-center gap-1.5">
             <Link
-              href="/dashboard"
+              href="/"
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 isHomeActive
                   ? 'bg-[rgb(var(--tint))]/[0.08] text-[rgb(var(--ink))]'
@@ -104,12 +103,12 @@ export function Navbar() {
           {/* Subtle Ambient Triggers */}
           <div className="hidden sm:flex items-center gap-1 border border-[rgb(var(--tint))]/[0.08] bg-[rgb(var(--tint))]/[0.02] rounded-lg p-1">
             <button
-              onClick={() => setIsSceneryModalOpen(true)}
+              onClick={() => openSceneryModal(pathname === '/' ? 'home' : 'dashboard')}
               className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-[rgb(var(--ink-muted))] hover:text-[rgb(var(--ink))] hover:bg-[rgb(var(--tint))]/[0.06] transition-colors"
-              title="Change theme scenery"
+              title="Customize Theme"
             >
               <ImageIcon className="h-3 w-3 text-emerald-400" />
-              <span>{currentScenery.name.split(' ')[0]}</span>
+              <span>Theme</span>
             </button>
 
             <button
@@ -208,7 +207,7 @@ export function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-[rgb(var(--tint))]/[0.07] bg-[rgb(var(--sidebar))] px-4 py-3 space-y-1">
           <Link
-            href="/dashboard"
+            href="/"
             onClick={() => setMobileMenuOpen(false)}
             className={`block px-3 py-2 rounded-lg text-xs font-medium ${
               isHomeActive ? 'bg-[rgb(var(--tint))]/[0.08] text-[rgb(var(--ink))]' : 'text-[rgb(var(--ink-secondary))] hover:bg-[rgb(var(--tint))]/[0.04]'
