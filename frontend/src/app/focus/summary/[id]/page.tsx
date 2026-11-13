@@ -27,6 +27,7 @@ export default function SessionSummaryPage() {
   const sessionId = params.id as string;
 
   const [session, setSession] = useState<FocusSession | null>(null);
+  const [savedScore, setSavedScore] = useState<ScoreBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +38,7 @@ export default function SessionSummaryPage() {
         const res = await api.getSession(sessionId);
         if (res.success && res.session) {
           setSession(res.session);
+          setSavedScore(res.scoreBreakdown ?? null);
 
           if (res.session.focusScore >= 75) {
             confetti({
@@ -86,7 +88,8 @@ export default function SessionSummaryPage() {
     );
   }
 
-  const scoreBreakdown: ScoreBreakdown = {
+  const scoreBreakdown: ScoreBreakdown = savedScore ?? {
+    version: 1,
     baseScore: session.baseScore,
     tabSwitchPenalty: Math.round(Math.max(0, session.tabSwitchCount - 1) * 2.5 * 10) / 10,
     distractionPenalty: Math.round((session.distractedDuration / 30) * 10) / 10,
@@ -96,15 +99,15 @@ export default function SessionSummaryPage() {
     totalPenalty: session.penaltyScore,
     finalScore: session.focusScore,
     grade:
-      session.focusScore >= 90
+      session.focusScore >= 95
         ? 'A+'
-        : session.focusScore >= 80
+        : session.focusScore >= 85
         ? 'A'
-        : session.focusScore >= 70
+        : session.focusScore >= 75
         ? 'B'
-        : session.focusScore >= 55
+        : session.focusScore >= 60
         ? 'C'
-        : 'D',
+        : session.focusScore >= 40 ? 'D' : 'F',
     focusRate: Math.round(
       (session.focusedDuration /
         Math.max(1, session.focusedDuration + session.distractedDuration + session.idleDuration)) *

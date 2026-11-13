@@ -188,6 +188,7 @@ export interface FocusSession {
 }
 
 export interface ScoreBreakdown {
+  version: number;
   baseScore: number;
   tabSwitchPenalty: number;
   distractionPenalty: number;

@@ -1,4 +1,4 @@
-import { BlockedResource, BlockerStatistics, FocusEvent, FocusSession, User, Room } from './types';
+import { BlockedResource, BlockerStatistics, FocusEvent, FocusSession, ScoreBreakdown, User, Room } from './types';
 
 const getApiBaseUrl = () => {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -343,7 +343,7 @@ class ApiClient {
   }
 
   async getSession(id: string) {
-    return this.request<{ success: boolean; session: any }>(`/sessions/${id}`);
+    return this.request<{ success: boolean; session: FocusSession; scoreBreakdown?: ScoreBreakdown | null }>(`/sessions/${id}`);
   }
 
   // Analytics Endpoints

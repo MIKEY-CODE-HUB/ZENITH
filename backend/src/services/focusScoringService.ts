@@ -9,6 +9,7 @@ export interface ScoreInput {
 }
 
 export interface ScoreBreakdown {
+  version: number;
   baseScore: number;
   tabSwitchPenalty: number;
   distractionPenalty: number;
@@ -73,6 +74,7 @@ export class FocusScoringService {
     else if (finalScore >= 40) grade = 'D';
 
     return {
+      version: 1,
       baseScore,
       tabSwitchPenalty,
       distractionPenalty,

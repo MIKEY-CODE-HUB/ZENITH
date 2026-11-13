@@ -46,6 +46,16 @@ test('resumes and discards owned sessions and exports only the signed-in account
     assert.equal(data.focusSessions[0].status, 'ABANDONED');
     assert.equal('resetToken' in data, false);
     assert.equal('passwordHash' in data, false);
+
+    const next = await request(owner, '/sessions/start', { plannedDuration: 1, protectionEnabled: false });
+    const { session: nextSession } = await next.json();
+    await prisma.focusSession.update({ where: { id: nextSession.id }, data: { startTime: new Date(Date.now() - 30_000) } });
+    const finished = await request(owner, `/sessions/${nextSession.id}/end`, { focusedDuration: 20 });
+    assert.equal(finished.status, 200);
+    const saved = await request(owner, `/sessions/${nextSession.id}`);
+    const summary = await saved.json();
+    assert.equal(summary.scoreBreakdown.version, 1);
+    assert.equal(summary.scoreBreakdown.finalScore, summary.session.focusScore);
   } finally {
     await new Promise<void>(resolve => server.close(() => resolve()));
     await prisma.user.deleteMany({ where: { id: { in: [owner.id, stranger.id] } } });

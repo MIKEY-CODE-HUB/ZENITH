@@ -423,9 +423,31 @@ export class SessionController {
         return;
       }
 
-      res.json({ success: true, session });
+      const completion = session.events.find(event => event.eventType === 'SESSION_END');
+      const savedBreakdown = completion?.metadata ? readScoreBreakdown(completion.metadata) : null;
+      const scoreBreakdown = session.status === 'COMPLETED' ? savedBreakdown ?? FocusScoringService.calculateScore({
+        plannedDurationMinutes: session.plannedDuration,
+        focusedDurationSeconds: session.focusedDuration,
+        distractedDurationSeconds: session.distractedDuration,
+        idleDurationSeconds: session.idleDuration,
+        tabSwitchCount: session.tabSwitchCount,
+        warningCount: session.warningCount,
+        blockAttemptCount: session.blockAttemptCount,
+      }) : null;
+      res.setHeader('Cache-Control', 'no-store').json({ success: true, session, scoreBreakdown });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message || 'Failed to fetch session' });
     }
+  }
+}
+
+function readScoreBreakdown(metadata: string) {
+  try {
+    const { points: _points, ...breakdown } = JSON.parse(metadata);
+    return typeof breakdown.finalScore === 'number' && typeof breakdown.totalPenalty === 'number'
+      ? { ...breakdown, version: breakdown.version ?? 1 }
+      : null;
+  } catch {
+    return null;
   }
 }
