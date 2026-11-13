@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "ZENITH Focus & Distraction Freeze Guardian",
-  "version": "10.0.0",
+  "version": "10.1.1",
   "description": "Locks all external websites with the Focus Broken UI and forces you back to your ZENITH focus room.",
   "permissions": [
     "tabs",
     "storage",
-    "scripting",
-    "webNavigation"
+    "webNavigation",
+    "declarativeNetRequestWithHostAccess",
+    "alarms"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -17,17 +18,30 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["content.css"],
+      "matches": [
+        "https://zenith-dusky-theta.vercel.app/*",
+        "https://zenith-git-fix-zenith-room-re-944e0c-mikey-sketch-hubs-projects.vercel.app/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_start",
       "all_frames": false
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "blocked.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "action": {

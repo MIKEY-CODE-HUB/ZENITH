@@ -5,7 +5,6 @@ import { api } from '@/lib/api';
 import { Sidebar } from '@/components/Sidebar';
 import { CreateRoomModal } from '@/components/CreateRoomModal';
 import { Room, ActivityCategory } from '@/lib/types';
-import { CANONICAL_ROOMS } from '@/lib/canonicalRooms';
 import {
   Search,
   Plus,
@@ -50,29 +49,17 @@ export default function RoomsPage() {
     { id: 'INTERACTION', label: 'Interaction (Voice)', icon: MessageSquare },
   ];
 
-  const DEFAULT_ROOM_LIST: Room[] = CANONICAL_ROOMS;
+  const [roomListError, setRoomListError] = useState<string | null>(null);
 
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      const res = await api.getRooms({
-        category: selectedCategory,
-        search,
-      });
-      if (res && res.success && res.rooms && res.rooms.length > 0) {
-        setRooms(res.rooms);
-      } else {
-        const filtered = selectedCategory === 'All'
-          ? DEFAULT_ROOM_LIST
-          : DEFAULT_ROOM_LIST.filter(r => r.category === selectedCategory);
-        setRooms(filtered);
-      }
+      setRoomListError(null);
+      const result = await api.getRooms({ category: selectedCategory, search });
+      setRooms(result.rooms);
     } catch (err) {
-      console.error('Error fetching rooms:', err);
-      const filtered = selectedCategory === 'All'
-        ? DEFAULT_ROOM_LIST
-        : DEFAULT_ROOM_LIST.filter(r => r.category === selectedCategory);
-      setRooms(filtered);
+      setRooms([]);
+      setRoomListError(err instanceof Error ? err.message : 'Could not load rooms.');
     } finally {
       setLoading(false);
     }
@@ -131,15 +118,18 @@ export default function RoomsPage() {
       setMatchmakeError(null);
       const targetCategory = cat || (selectedCategory === 'All' ? 'EDUCATION' : selectedCategory);
 
+      let confirmInteraction = false;
       if (targetCategory === 'INTERACTION') {
         const quoteRes = await api.getInteractionQuote();
         if (quoteRes.success && !quoteRes.quote.canAfford) {
           setMatchmakeError(`Insufficient weekly points (requires ${quoteRes.quote.cost} ⭐).`);
           return;
         }
+        confirmInteraction = window.confirm(`Join an Interaction room for approximately ${quoteRes.quote.cost} weekly points?`);
+        if (!confirmInteraction) return;
       }
 
-      const res = await api.allocateRoom({ category: targetCategory });
+      const res = await api.allocateRoom({ category: targetCategory, confirmInteraction });
       if (res.success && res.room) {
         router.push(`/focus/${res.room.id}`);
       } else {
@@ -250,7 +240,15 @@ export default function RoomsPage() {
 
         {/* Room Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {rooms.map((room) => {
+          {loading && <p role="status">Loading rooms…</p>}
+          {!loading && roomListError && (
+            <div role="alert">
+              <p>{roomListError}</p>
+              <button onClick={fetchRooms} className="text-sky-300 underline">Retry</button>
+            </div>
+          )}
+          {!loading && !roomListError && rooms.length === 0 && <p>No rooms found.</p>}
+          {!loading && rooms.map((room) => {
             const isInteraction = room.category === 'INTERACTION';
             const isFull = room.activeParticipantsCount >= room.maxParticipants;
 

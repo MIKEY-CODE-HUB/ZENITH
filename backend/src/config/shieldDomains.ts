@@ -13,6 +13,7 @@ export interface ShieldDomain {
 export const ALWAYS_BLOCKED_DOMAINS: ShieldDomain[] = [
   { name: 'Instagram', domain: 'instagram.com', category: 'Social Media', description: 'Reels, stories, and feed' },
   { name: 'Reddit', domain: 'reddit.com', category: 'Social Community', description: 'Infinite feeds & discussion threads' },
+  { name: 'WhatsApp Web', domain: 'web.whatsapp.com', category: 'Social', description: 'Messaging and group chats' },
   { name: 'YouTube', domain: 'youtube.com', category: 'Video Streaming', description: 'Shorts, videos, and recommendations' },
   { name: 'Netflix', domain: 'netflix.com', category: 'Entertainment', description: 'Shows, movies, and binge streaming' },
   { name: 'TikTok', domain: 'tiktok.com', category: 'Short Video', description: 'Algorithmic short-form video' },

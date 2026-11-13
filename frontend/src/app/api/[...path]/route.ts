@@ -9,24 +9,29 @@ import { NextRequest, NextResponse } from 'next/server';
  * Stateful demo fallbacks have been removed to prevent state illusions.
  */
 
-function getBackendBase(): string {
-  return process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5001/api';
-}
-
 async function handleProxy(req: NextRequest, { params }: { params: { path?: string[] } }): Promise<Response> {
-  const pathArr = params.path || [];
-  const pathStr = pathArr.join('/');
-  const backendBase = getBackendBase();
+  const pathStr = (params.path || []).map(encodeURIComponent).join('/');
+  const configuredBase = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
+  const backendBase = configuredBase || (!process.env.VERCEL ? 'http://127.0.0.1:5001/api' : undefined);
+  const requestId = crypto.randomUUID();
+  if (!backendBase || !/^https?:\/\//.test(backendBase)) {
+    console.error(JSON.stringify({ event: 'api.upstream_unconfigured', requestId }));
+    return NextResponse.json(
+      { success: false, error: 'Zenith backend is unavailable.', code: 'BACKEND_UNAVAILABLE', requestId },
+      { status: 503, headers: { 'x-request-id': requestId } },
+    );
+  }
 
   const timeoutMs = parseInt(process.env.BACKEND_TIMEOUT_MS || '3000', 10);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const targetUrl = `${backendBase}/${pathStr}${req.nextUrl.search}`;
+    const targetUrl = `${backendBase.replace(/\/+$/, '')}/${pathStr}${req.nextUrl.search}`;
     const headers = new Headers(req.headers);
     headers.delete('host');
     headers.delete('content-length');
+    headers.set('x-request-id', requestId);
 
     const method = req.method;
     let body: any = undefined;
@@ -45,30 +50,32 @@ async function handleProxy(req: NextRequest, { params }: { params: { path?: stri
       signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
-
     // Read upstream body and headers, preserving upstream status code and content
     const responseHeaders = new Headers(upstreamResponse.headers);
     responseHeaders.delete('content-encoding');
+    responseHeaders.delete('content-length');
+    responseHeaders.set('x-request-id', requestId);
 
-    const responseBody = await upstreamResponse.text();
+    const responseBody = method === 'HEAD' || [204, 205, 304].includes(upstreamResponse.status)
+      ? null
+      : await upstreamResponse.text();
     return new Response(responseBody, {
       status: upstreamResponse.status,
       statusText: upstreamResponse.statusText,
       headers: responseHeaders,
     });
   } catch (err: any) {
-    clearTimeout(timeoutId);
+    console.error(JSON.stringify({ event: 'api.upstream_failed', requestId, method: req.method, timeout: controller.signal.aborted }));
 
-    if (err.name === 'AbortError') {
+    if (controller.signal.aborted) {
       return NextResponse.json(
         {
           success: false,
           error: 'Upstream gateway timeout. Express backend took longer than timeout threshold.',
           code: 'BACKEND_TIMEOUT',
-          path: `/api/${pathStr}`,
+          requestId,
         },
-        { status: 504 }
+        { status: 504, headers: { 'x-request-id': requestId } }
       );
     }
 
@@ -77,10 +84,12 @@ async function handleProxy(req: NextRequest, { params }: { params: { path?: stri
         success: false,
         error: 'Upstream service unavailable. Express backend is unreachable.',
         code: 'BACKEND_UNAVAILABLE',
-        path: `/api/${pathStr}`,
+        requestId,
       },
-      { status: 503 }
+      { status: 503, headers: { 'x-request-id': requestId } }
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

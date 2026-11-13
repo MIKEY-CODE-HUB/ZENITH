@@ -9,9 +9,9 @@ import { generateToken } from '../utils/jwt.js';
 const router = Router();
 
 // 1. Generate Authenticated Pairing Token for Desktop Companion Daemon
-router.post('/pair-token', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
+router.post('/pair-token', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
-    const targetUserId = req.user?.userId || (req.query.userId as string);
+    const targetUserId = req.user?.userId;
     if (!targetUserId) {
       return res.status(401).json({
         success: false,
@@ -48,33 +48,7 @@ router.post('/pair-token', optionalAuthMiddleware, async (req: AuthenticatedRequ
 // 2. User-scoped health/status check for extension and desktop agent
 router.get('/live-status', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
-    const now = new Date();
-    const targetUserId = req.user?.userId || (req.query.userId as string);
-
-    // Auto-expire any stale active sessions whose planned time has passed
-    const activeSessions = await prisma.blockerSession.findMany({
-      where: {
-        status: 'ACTIVE',
-        ...(targetUserId ? { userId: targetUserId } : {}),
-      },
-      include: { focusSession: true },
-    });
-
-    for (const s of activeSessions) {
-      const maxDurationMinutes = Math.max(30, s.focusSession?.plannedDuration || 50) + 15;
-      if (now.getTime() - s.startedAt.getTime() > maxDurationMinutes * 60 * 1000) {
-        await prisma.blockerSession.update({
-          where: { id: s.id },
-          data: { status: 'COMPLETED', endedAt: now },
-        });
-        if (s.focusSession?.status === 'ACTIVE') {
-          await prisma.focusSession.update({
-            where: { id: s.focusSessionId },
-            data: { status: 'COMPLETED', endTime: now },
-          });
-        }
-      }
-    }
+    const targetUserId = req.user?.userId;
 
     if (!targetUserId) {
       return res.json({
@@ -83,8 +57,10 @@ router.get('/live-status', optionalAuthMiddleware, async (req: AuthenticatedRequ
       });
     }
 
+    const scoped = req.user as (typeof req.user & { type?: string; focusSessionId?: string });
     const activeSession = await prisma.blockerSession.findFirst({
-      where: { status: 'ACTIVE', userId: targetUserId },
+      where: { status: 'ACTIVE', userId: targetUserId, focusSession: { status: 'ACTIVE' },
+        ...(scoped?.type === 'BLOCKER_AUTH' ? { focusSessionId: scoped.focusSessionId } : {}) },
       include: {
         focusSession: {
           include: {
@@ -136,7 +112,7 @@ router.get('/live-status', optionalAuthMiddleware, async (req: AuthenticatedRequ
 router.post('/desktop-attempt', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const { sessionId, appName } = req.body;
-    const targetUserId = req.user?.userId || (req.query.userId as string);
+    const targetUserId = req.user?.userId;
 
     if (!targetUserId) {
       return res.status(401).json({
@@ -167,8 +143,7 @@ router.post('/desktop-attempt', optionalAuthMiddleware, async (req: Authenticate
   }
 });
 
-// All subsequent routes support optional JWT auth (falls back cleanly for guest/local testing)
-router.use(optionalAuthMiddleware);
+router.use(authMiddleware);
 
 // Resource CRUD
 router.get('/resources', BlockerController.getResources);

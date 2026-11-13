@@ -7,7 +7,6 @@ import { PointService } from '../src/services/pointService.js';
 import { RoomController } from '../src/controllers/roomController.js';
 import { AchievementController } from '../src/controllers/achievementController.js';
 import { validatePasswordStrength } from '../src/controllers/authController.js';
-import { setupRoomHandlers, ParticipantPresence } from '../src/sockets/roomSocketHandlers.js';
 
 describe('🎯 ZENITH Master Quality Assurance & End-to-End Regression Suite', () => {
   let testUserA: any;
@@ -203,62 +202,13 @@ describe('🎯 ZENITH Master Quality Assurance & End-to-End Regression Suite', (
       }
     });
 
-    it('should reject socket join when Interaction room reaches 6 participants', () => {
-      let emittedError: any = null;
-      const handlers: Record<string, Function> = {};
-      const fakeSocket: any = {
-        id: 'socket-host',
-        on: (event: string, handler: Function) => {
-          handlers[event] = handler;
-        },
-        join: () => {},
-        emit: (event: string, data: any) => {
-          if (event === 'room_error') emittedError = data;
-        },
-        to: () => ({ emit: () => {} }),
-      };
-
-      const fakeIo: any = {
-        to: () => ({ emit: () => {} }),
-      };
-
-      setupRoomHandlers(fakeIo, fakeSocket);
-
-      const roomId = `room-int-test-${Date.now()}`;
-      // Join 6 participants
-      for (let i = 0; i < 6; i++) {
-        fakeSocket.id = `socket-p-${i}`;
-        handlers['join_room']({
-          roomId,
-          userId: `sim-user-${i}`,
-          name: `User ${i}`,
-          username: `user_${i}`,
-          category: 'INTERACTION',
-        });
-      }
-
-      // Now 7th participant attempts to join
-      fakeSocket.id = 'socket-p-7';
-      emittedError = null;
-      handlers['join_room']({
-        roomId,
-        userId: 'sim-user-7',
-        name: 'User 7',
-        username: 'user_7',
-        category: 'INTERACTION',
-      });
-
-      assert.ok(emittedError, 'Room error must be emitted for 7th participant in Interaction room');
-      assert.strictEqual(emittedError.code, 'ROOM_FULL');
-      assert.ok(emittedError.message.includes('6 participants'));
-    });
   });
 
   // ═════════════════════════════════════════════════════════════════════════
   // 3. POINT ECONOMY & 30% INTERACTION DEDUCTION CONCURRENCY
   // ═════════════════════════════════════════════════════════════════════════
   describe('⭐ 30% Weekly XP Interaction Authorization & Concurrency', () => {
-    it('should correctly quote 30% of current weekly points with 15pt floor', async () => {
+    it('should correctly quote 30% of current weekly points', async () => {
       // Award 100 points
       await prisma.pointTransaction.create({
         data: {

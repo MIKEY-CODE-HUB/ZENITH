@@ -1,10 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS, ALWAYS_BLOCKED_APPS, ALWAYS_ALLOWED_APPS, isDomainInList } from '../config/shieldDomains.js';
+import { getJwtSecret } from '../utils/jwt.js';
 import { ZenithPolicyEngine } from './policyEngine.js';
 
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'trapbreaker_super_secret_jwt_key_2026';
+
 
 export class BlockerService {
   // Normalize domain names (e.g. m.youtube.com, www.youtube.com -> youtube.com)
@@ -129,6 +130,12 @@ export class BlockerService {
       }
     }
 
+    const ownedSession = await prisma.focusSession.findFirst({
+      where: { id: targetSessionId, userId: targetUserId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!ownedSession) throw new Error('Active focus session not found.');
+
     // Upsert BlockerSession
     const session = await prisma.blockerSession.upsert({
       where: { focusSessionId: targetSessionId },
@@ -154,7 +161,7 @@ export class BlockerService {
         mode,
         type: 'BLOCKER_AUTH',
       },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '2h' }
     );
 
@@ -190,37 +197,10 @@ export class BlockerService {
     const now = new Date();
     const targetUserId = userId || (await this.getDefaultUserId());
 
-    if (focusSessionId) {
-      await prisma.blockerSession.updateMany({
-        where: { focusSessionId },
-        data: {
-          status: 'COMPLETED',
-          endedAt: now,
-        },
-      });
-      await prisma.focusSession.updateMany({
-        where: { id: focusSessionId, status: 'ACTIVE' },
-        data: {
-          status: 'COMPLETED',
-          endTime: now,
-        },
-      });
-    } else {
-      await prisma.blockerSession.updateMany({
-        where: { userId: targetUserId, status: 'ACTIVE' },
-        data: {
-          status: 'COMPLETED',
-          endedAt: now,
-        },
-      });
-      await prisma.focusSession.updateMany({
-        where: { userId: targetUserId, status: 'ACTIVE' },
-        data: {
-          status: 'COMPLETED',
-          endTime: now,
-        },
-      });
-    }
+    await prisma.blockerSession.updateMany({
+      where: { userId: targetUserId, status: 'ACTIVE', ...(focusSessionId ? { focusSessionId } : {}) },
+      data: { status: 'COMPLETED', endedAt: now },
+    });
 
     // Clean up temporary session-scoped blocks
     await prisma.blockedResource.deleteMany({
@@ -241,6 +221,9 @@ export class BlockerService {
     action?: string;
   }) {
     const targetUserId = userId || (await this.getDefaultUserId());
+    if (data.sessionId && !await prisma.focusSession.findFirst({
+      where: { id: data.sessionId, userId: targetUserId, status: 'ACTIVE' }, select: { id: true },
+    })) throw new Error('Active focus session not found.');
     const cleanIdentifier = data.resourceType === 'WEBSITE' 
       ? this.normalizeDomain(data.resourceIdentifier) 
       : data.resourceIdentifier.trim();

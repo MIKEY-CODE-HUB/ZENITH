@@ -117,9 +117,9 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
 
   // Set default room selection when availableRooms changes
   useEffect(() => {
-    if (availableRooms.length > 0 && !selectedRoomId) {
-      const match = availableRooms.find((r) => r.category === selectedCategory) || availableRooms[0];
-      setSelectedRoomId(match.id);
+    if (!availableRooms.some((room) => room.id === selectedRoomId && room.category === selectedCategory)) {
+      const match = availableRooms.find((r) => r.category === selectedCategory);
+      setSelectedRoomId(match?.id || '');
     }
   }, [availableRooms, selectedCategory, selectedRoomId]);
 
@@ -143,6 +143,8 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
         })
       );
 
+      sessionStorage.setItem('active_session_protection', String(protectionEnabled));
+
       // Store in sessionStorage for room init
       sessionStorage.setItem('active_session_duration', String(durationMinutes));
       sessionStorage.setItem('active_session_atmosphere', selectedAtmosphere);
@@ -150,10 +152,8 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
       sessionStorage.setItem('active_session_activity', selectedActivity);
 
       // If Interaction room, verify and authorize deduction first!
-      let targetRoomId = selectedRoomId;
-      if (!targetRoomId && availableRooms.length > 0) {
-        targetRoomId = availableRooms[0].id;
-      }
+      const targetRoomId = selectedRoomId;
+
 
       if (selectedCategory === 'INTERACTION') {
         if (!targetRoomId) {
@@ -161,6 +161,8 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
         }
         await api.authorizeInteraction(targetRoomId);
       }
+
+      if (targetRoomId) await api.joinRoom(targetRoomId);
 
       // Start Session on backend
       const res = await api.startSession({
@@ -174,9 +176,6 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
 
       if (res.success && res.session) {
         sessionStorage.setItem('active_session_id', res.session.id);
-        if (protectionEnabled) {
-          await api.activateBlocker(res.session.id, 'STRICT').catch(() => {});
-        }
         onClose();
         router.push(`/focus/${targetRoomId || res.session.id}`);
       }
@@ -282,7 +281,7 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
               Select one of the canonical rooms. All rooms are shared spaces where participants work together.
             </p>
             <div className="grid grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
-              {availableRooms.map((room) => {
+              {availableRooms.filter((room) => room.category === selectedCategory).map((room) => {
                 const isSelected = selectedRoomId === room.id;
                 return (
                   <button

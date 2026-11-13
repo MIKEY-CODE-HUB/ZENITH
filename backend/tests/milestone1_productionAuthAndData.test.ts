@@ -442,7 +442,7 @@ describe('🛡️ MILESTONE 1: Production Authentication, Google ID Tokens & Dat
 
       // 2. Run the catalog seed FIRST time
       const { execSync } = await import('child_process');
-      execSync('npx tsx prisma/seed.ts', {
+      execSync('node --import tsx prisma/seed.ts', {
         cwd: process.cwd(),
         env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
         stdio: 'pipe',
@@ -460,7 +460,7 @@ describe('🛡️ MILESTONE 1: Production Authentication, Google ID Tokens & Dat
       assert.strictEqual(membersAfter1, 1, 'RoomParticipants must be preserved after seed run 1');
 
       // 3. Run the catalog seed SECOND time (proving strict idempotency)
-      execSync('npx tsx prisma/seed.ts', {
+      execSync('node --import tsx prisma/seed.ts', {
         cwd: process.cwd(),
         env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
         stdio: 'pipe',

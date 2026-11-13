@@ -1,6 +1,7 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { verifyToken } from '../utils/jwt.js';
+import { logger } from '../config/logger.js';
 import { setupRoomHandlers } from './roomSocketHandlers.js';
 
 export function initializeSocket(httpServer: HttpServer) {
@@ -16,22 +17,21 @@ export function initializeSocket(httpServer: HttpServer) {
           origin.startsWith('chrome-extension://') ||
           /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
           /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin);
-        return callback(null, allowed || true);
+        return callback(null, allowed);
       },
       methods: ['GET', 'POST'],
       credentials: true,
     },
   });
 
-  // Socket Auth middleware (optional, allows guest/demo sockets too)
   io.use((socket: Socket, next) => {
-    const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
-    if (token) {
-      const payload = verifyToken(token);
-      if (payload) {
-        (socket as any).user = payload;
-      }
+    const token = socket.handshake.auth?.token;
+    const payload = typeof token === 'string' ? verifyToken(token) : null;
+    if (!payload?.userId || !payload.username || 'type' in payload) {
+      logger.warn('socket.authentication_rejected');
+      return next(new Error('UNAUTHORIZED'));
     }
+    socket.data.userId = payload.userId;
     next();
   });
 

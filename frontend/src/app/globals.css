@@ -5,6 +5,33 @@
 :root {
   --background: #09090B;
   --foreground: #F4F4F5;
+  --page: 9 9 11;
+  --sidebar: 12 12 15;
+  --panel: 18 18 21;
+  --ink: 250 250 250;
+  --ink-secondary: 212 212 216;
+  --ink-muted: 161 161 170;
+  --tint: 255 255 255;
+  --action: 255 255 255;
+  --action-ink: 9 9 11;
+  --action-hover: 228 228 231;
+  color-scheme: dark;
+}
+
+:root[data-appearance='light'] {
+  --background: #f4f4f5;
+  --foreground: #18181b;
+  --page: 244 244 245;
+  --sidebar: 250 250 250;
+  --panel: 255 255 255;
+  --ink: 24 24 27;
+  --ink-secondary: 39 39 42;
+  --ink-muted: 82 82 91;
+  --tint: 24 24 27;
+  --action: 24 24 27;
+  --action-ink: 250 250 250;
+  --action-hover: 63 63 70;
+  color-scheme: light;
 }
 
 body {

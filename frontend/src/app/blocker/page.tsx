@@ -109,42 +109,22 @@ export default function BlockerDashboardPage() {
         await api.deactivateBlocker(activeSession.focusSessionId || activeSession.sessionId || '');
         setActiveSession(null);
         if (typeof window !== 'undefined') {
-          window.postMessage({ type: 'ZENITH_ROOM_ENDED' }, '*');
-          localStorage.removeItem('zenith_shield_active');
-          localStorage.removeItem('zenith_shield_url');
+          window.postMessage({
+            type: 'ZENITH_ROOM_ENDED', focusSessionId: activeSession.focusSessionId || activeSession.sessionId,
+          }, window.location.origin);
         }
         setNotification('Distraction Shield deactivated. All apps and external sites unlocked.');
       } else {
         const res = await api.activateBlocker('', blockerMode);
         if (res.success) {
           setActiveSession(res.blockerSession);
-          if (typeof window !== 'undefined') {
-            window.postMessage({ type: 'ZENITH_ROOM_ACTIVE', roomUrl: window.location.href }, '*');
-            localStorage.setItem('zenith_shield_active', 'true');
-            localStorage.setItem('zenith_shield_url', window.location.href);
-          }
-          setNotification(`Distraction Shield engaged in ${blockerMode} mode.`);
+          setNotification('Shield session saved. Start a focus room to apply Chrome protection.');
         }
       }
       setTimeout(() => setNotification(null), 4000);
       await checkLiveStatus();
     } catch (err: any) {
-      // Local fallback engagement
-      const localSession = {
-        id: 'local-shield-active',
-        sessionId: 'local-shield-active',
-        focusSessionId: 'local-shield-active',
-        mode: blockerMode,
-        status: 'ACTIVE',
-        startTime: new Date().toISOString(),
-      };
-      setActiveSession(localSession);
-      if (typeof window !== 'undefined') {
-        window.postMessage({ type: 'ZENITH_ROOM_ACTIVE', roomUrl: window.location.href }, '*');
-        localStorage.setItem('zenith_shield_active', 'true');
-        localStorage.setItem('zenith_shield_url', window.location.href);
-      }
-      setNotification(`Distraction Shield engaged in ${blockerMode} mode.`);
+      setNotification(err.message || 'Could not update the Shield.');
       setTimeout(() => setNotification(null), 4000);
     } finally {
       setShieldToggling(false);

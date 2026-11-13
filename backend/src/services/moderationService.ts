@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../config/prisma.js';
 
 export interface CreateIncidentInput {
   roomId: string;
@@ -36,16 +34,21 @@ export class ModerationService {
   public static async createIncident(input: CreateIncidentInput) {
     const { roomId, reporterId, accusedId, reason, details } = input;
 
+    // 0. Auto-close any expired ballots in this room before evaluation
+    await this.closeExpiredBallots(roomId);
+
     // 1. Prevent self-reporting
     if (reporterId === accusedId) {
       throw new Error('SELF_REPORT_FORBIDDEN: You cannot file a report against yourself.');
     }
 
-    // 2. Validate that room exists
+    // 2. Validate that room exists and fetch ACTIVE participants only
     const room = await prisma.room.findUnique({
       where: { id: roomId },
       include: {
-        participants: true,
+        participants: {
+          where: { status: 'ACTIVE' },
+        },
       },
     });
 
@@ -54,23 +57,24 @@ export class ModerationService {
     }
 
     // 3. Validate that reporter is an active participant in this room
-    const reporterParticipant = room.participants.find((p) => p.userId === reporterId);
+    const reporterParticipant = room.participants.find((p) => p.userId === reporterId && p.status === 'ACTIVE');
     if (!reporterParticipant) {
       throw new Error('UNAUTHORIZED_REPORTER: You must be an active participant in the room to file a report.');
     }
 
     // 4. Validate that accused is an active participant in this room
-    const accusedParticipant = room.participants.find((p) => p.userId === accusedId);
+    const accusedParticipant = room.participants.find((p) => p.userId === accusedId && p.status === 'ACTIVE');
     if (!accusedParticipant) {
       throw new Error('ACUSED_NOT_IN_ROOM: The accused user is not currently in this room.');
     }
 
-    // 5. Check if there is already an active ballot for this accused user in this room
+    // 5. Check if there is already an active unexpired ballot for this accused user in this room
     const activeIncident = await prisma.moderationIncident.findFirst({
       where: {
         roomId,
         accusedId,
         status: { in: ['OPEN', 'VOTING'] },
+        votingExpiresAt: { gt: new Date() },
       },
     });
 
@@ -78,9 +82,9 @@ export class ModerationService {
       throw new Error('BALLOT_ALREADY_ACTIVE: A moderation ballot is already active for this participant.');
     }
 
-    // 6. Freeze snapshot of eligible voters (exclude accused and reporter)
+    // 6. Freeze snapshot of eligible voters (exclude accused and reporter) - COUNT ONLY ACTIVE PEERS
     const eligiblePeers = room.participants
-      .filter((p) => p.userId !== accusedId && p.userId !== reporterId)
+      .filter((p) => p.status === 'ACTIVE' && p.userId !== accusedId && p.userId !== reporterId)
       .map((p) => p.userId);
 
     // 11.3: Target up to eight other eligible users; if fewer than 8, invite all eligible
@@ -126,8 +130,10 @@ export class ModerationService {
   public static async castVote(input: CastVoteInput): Promise<ModerationResolution> {
     const { incidentId, voterId, decision } = input;
 
-    return await prisma.$transaction(async (tx) => {
-      // 1. Retrieve incident with row lock
+    const resolution = await prisma.$transaction(async (tx) => {
+      // 1. Acquire row-level lock on incident in PostgreSQL to serialize concurrent votes
+      await tx.$queryRaw`SELECT id FROM moderation_incidents WHERE id = ${incidentId} FOR UPDATE`;
+
       const incident = await tx.moderationIncident.findUnique({
         where: { id: incidentId },
         include: { votes: true },
@@ -142,7 +148,7 @@ export class ModerationService {
       }
 
       // Check voting expiration
-      if (new Date() > incident.votingExpiresAt) {
+      if (new Date() >= incident.votingExpiresAt) {
         await tx.moderationIncident.update({
           where: { id: incidentId },
           data: {
@@ -151,7 +157,7 @@ export class ModerationService {
             resolutionReason: 'Voting window expired without satisfying quorum or majority threshold.',
           },
         });
-        throw new Error('BALLOT_EXPIRED: The voting window has expired.');
+        return null;
       }
 
       // 2. Validate voter eligibility
@@ -259,6 +265,8 @@ export class ModerationService {
         reason: incident.reason,
       };
     });
+    if (!resolution) throw new Error('BALLOT_EXPIRED: The voting window has expired.');
+    return resolution;
   }
 
   /**
@@ -288,9 +296,37 @@ export class ModerationService {
   }
 
   /**
+   * Close expired moderation ballots across the platform or for a specific room.
+   */
+  public static async closeExpiredBallots(roomId?: string): Promise<{ closedCount: number }> {
+    const now = new Date();
+    const where: any = {
+      status: { in: ['OPEN', 'VOTING'] },
+      votingExpiresAt: { lte: now },
+    };
+    if (roomId) {
+      where.roomId = roomId;
+    }
+
+    const result = await prisma.moderationIncident.updateMany({
+      where,
+      data: {
+        status: 'INCONCLUSIVE',
+        resolvedAt: now,
+        resolutionReason: 'Voting window expired without satisfying quorum or majority threshold.',
+      },
+    });
+
+    return { closedCount: result.count };
+  }
+
+  /**
    * Get active ballot for a room if currently in progress.
    */
   public static async getActiveBallotForRoom(roomId: string, viewerUserId?: string) {
+    // Reconcile/close expired ballots first
+    await this.closeExpiredBallots(roomId);
+
     const incident = await prisma.moderationIncident.findFirst({
       where: {
         roomId,

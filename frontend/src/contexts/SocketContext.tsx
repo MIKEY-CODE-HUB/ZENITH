@@ -22,6 +22,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('trapbreaker_token') : null;
     
+    if (!user || !token) {
+      setConnected(false);
+      setSocket(null);
+      return;
+    }
+
     // Resolve socket server URL: environment variable, or backend port 5001 on localhost/127.0.0.1
     let socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
     if (!socketUrl && typeof window !== 'undefined') {
@@ -29,11 +35,14 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
         socketUrl = `http://${hostname}:5001`;
       } else {
-        socketUrl = window.location.origin;
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        if (apiUrl && /^https?:\/\//.test(apiUrl)) socketUrl = new URL(apiUrl).origin;
       }
     }
     if (!socketUrl) {
-      socketUrl = 'http://localhost:5001';
+      setConnected(false);
+      setSocket(null);
+      return;
     }
 
     const socketInstance = io(socketUrl, {
@@ -56,6 +65,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       socketInstance.disconnect();
+      setConnected(false);
     };
   }, [user]);
 

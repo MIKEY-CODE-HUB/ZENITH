@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       setUser(null);
-      api.clearToken();
+      if (err instanceof ApiError && err.status === 401) api.clearToken();
     } finally {
       setLoading(false);
     }
@@ -53,6 +53,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refreshUser();
   }, []);
+
+  const appearanceMode = user?.settings?.appearanceMode === 'light' ? 'light' : 'dark';
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', appearanceMode === 'dark');
+    document.documentElement.dataset.appearance = appearanceMode;
+  }, [appearanceMode]);
 
   const login = async (loginIdentifier: string, password: string) => {
     const res = await api.login({ loginIdentifier, password });

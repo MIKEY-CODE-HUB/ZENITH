@@ -21,6 +21,8 @@ import {
   X,
   Sliders,
 } from 'lucide-react';
+import { soundscapeEngine } from '@/lib/soundscapeEngine';
+import { musicPlayer } from '@/lib/musicEngine';
 import { ATMOSPHERES, AtmosphereTheme } from '@/lib/atmospheres';
 import { formatSeconds, formatMinutesHuman } from '@/lib/utils';
 
@@ -39,8 +41,6 @@ interface FloatingControlDockProps {
   focusScore: number;
   estimatedPoints: number;
   onEndSession: () => void;
-  streakDays?: number;
-  weeklyPoints?: number;
 }
 
 export function FloatingControlDock({
@@ -58,18 +58,25 @@ export function FloatingControlDock({
   focusScore,
   estimatedPoints,
   onEndSession,
-  streakDays = 5,
-  weeklyPoints = 240,
 }: FloatingControlDockProps) {
   // Active panel: 'theme' | 'music' | 'time' | 'xp' | 'camera' | null
   const [activePanel, setActivePanel] = useState<'theme' | 'music' | 'time' | 'xp' | 'camera' | null>(null);
   const dockRef = useRef<HTMLDivElement>(null);
 
   // Soundscape state for Music Panel
-  const [isPlayingMusic, setIsPlayingMusic] = useState<boolean>(true);
-  const [rainVolume, setRainVolume] = useState<number>(65);
-  const [lofiVolume, setLofiVolume] = useState<number>(40);
-  const [noiseVolume, setNoiseVolume] = useState<number>(20);
+  const [isPlayingMusic, setIsPlayingMusic] = useState(false);
+  const [rainVolume, setRainVolume] = useState(() => soundscapeEngine.getVolume('rain'));
+  const [lofiVolume, setLofiVolume] = useState(() => musicPlayer.getVolume());
+  const [noiseVolume, setNoiseVolume] = useState(() => soundscapeEngine.getVolume('brown-noise'));
+
+  useEffect(() => {
+    const unsubscribe = musicPlayer.subscribe(() => setIsPlayingMusic(musicPlayer.isPlaying()));
+    return () => {
+      unsubscribe();
+      musicPlayer.stop();
+      soundscapeEngine.stopAll();
+    };
+  }, []);
 
   // Close panel on click outside
   useEffect(() => {
@@ -143,14 +150,14 @@ export function FloatingControlDock({
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.04] border border-white/10">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="font-medium text-white">Live In-Room Audio</span>
+                  <span className="font-medium text-white">Lo-Fi Playback</span>
                 </div>
                 <button
-                  onClick={() => setIsPlayingMusic(!isPlayingMusic)}
+                  onClick={() => void musicPlayer.togglePlay()}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium text-[11px] transition-colors"
                 >
                   {isPlayingMusic ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-                  <span>{isPlayingMusic ? 'Mute' : 'Resume'}</span>
+                  <span>{isPlayingMusic ? 'Pause' : 'Play'}</span>
                 </button>
               </div>
 
@@ -165,7 +172,11 @@ export function FloatingControlDock({
                     min="0"
                     max="100"
                     value={rainVolume}
-                    onChange={(e) => setRainVolume(Number(e.target.value))}
+                    onChange={(e) => {
+                      const volume = Number(e.target.value);
+                      soundscapeEngine.setVolume('rain', volume);
+                      setRainVolume(volume);
+                    }}
                     className="w-full accent-sky-400 h-1 bg-zinc-800 rounded-lg cursor-pointer"
                   />
                 </div>
@@ -180,14 +191,18 @@ export function FloatingControlDock({
                     min="0"
                     max="100"
                     value={lofiVolume}
-                    onChange={(e) => setLofiVolume(Number(e.target.value))}
+                    onChange={(e) => {
+                      const volume = Number(e.target.value);
+                      musicPlayer.setVolume(volume);
+                      setLofiVolume(volume);
+                    }}
                     className="w-full accent-indigo-400 h-1 bg-zinc-800 rounded-lg cursor-pointer"
                   />
                 </div>
 
                 <div className="space-y-1">
                   <div className="flex justify-between text-[11px] text-zinc-400">
-                    <span>White / Brown Noise</span>
+                    <span>Brown Noise</span>
                     <span>{noiseVolume}%</span>
                   </div>
                   <input
@@ -195,7 +210,11 @@ export function FloatingControlDock({
                     min="0"
                     max="100"
                     value={noiseVolume}
-                    onChange={(e) => setNoiseVolume(Number(e.target.value))}
+                    onChange={(e) => {
+                      const volume = Number(e.target.value);
+                      soundscapeEngine.setVolume('brown-noise', volume);
+                      setNoiseVolume(volume);
+                    }}
                     className="w-full accent-emerald-400 h-1 bg-zinc-800 rounded-lg cursor-pointer"
                   />
                 </div>
@@ -245,7 +264,7 @@ export function FloatingControlDock({
                     <Star className="h-4 w-4 fill-amber-400" />
                     <span>+{estimatedPoints}</span>
                   </div>
-                  <span className="text-[10px] text-zinc-400 uppercase">Session Points</span>
+                  <span className="text-[10px] text-zinc-400 uppercase">Estimated Points</span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20">
@@ -254,16 +273,6 @@ export function FloatingControlDock({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-[11px]">
-                <div className="flex items-center gap-2">
-                  <Flame className="h-4 w-4 text-orange-400 fill-orange-400" />
-                  <span>Streak: <strong>{streakDays} Days</strong></span>
-                </div>
-                <div className="flex items-center gap-1.5 text-zinc-300">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                  <span>Weekly: <strong>{weeklyPoints} ⭐</strong></span>
-                </div>
-              </div>
             </div>
           )}
 
@@ -322,12 +331,12 @@ export function FloatingControlDock({
       {/* ── 5-BUTTON FLOATING PILL DOCK (320–420px Desktop Target) ── */}
       <nav
         aria-label="Focus Room Controls"
-        className="pointer-events-auto w-[340px] sm:w-[380px] h-14 rounded-full bg-black/80 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.7)] px-3 flex items-center justify-between"
+        className="pointer-events-auto w-max max-w-[calc(100vw-1rem)] sm:min-w-[380px] h-14 rounded-full bg-black/80 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.7)] px-3 flex items-center justify-between"
       >
         {/* 1. Theme */}
         <button
           onClick={() => togglePanel('theme')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-xs font-medium ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all text-xs font-medium ${
             activePanel === 'theme'
               ? 'bg-white/20 text-white shadow-sm'
               : 'text-zinc-300 hover:text-white hover:bg-white/10'
@@ -341,7 +350,7 @@ export function FloatingControlDock({
         {/* 2. Music */}
         <button
           onClick={() => togglePanel('music')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-xs font-medium ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all text-xs font-medium ${
             activePanel === 'music'
               ? 'bg-white/20 text-white shadow-sm'
               : 'text-zinc-300 hover:text-white hover:bg-white/10'
@@ -355,7 +364,7 @@ export function FloatingControlDock({
         {/* 3. Focus Time */}
         <button
           onClick={() => togglePanel('time')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-xs font-medium ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all text-xs font-medium ${
             activePanel === 'time'
               ? 'bg-white/20 text-white shadow-sm'
               : 'text-zinc-300 hover:text-white hover:bg-white/10'
@@ -369,7 +378,7 @@ export function FloatingControlDock({
         {/* 4. XP */}
         <button
           onClick={() => togglePanel('xp')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-xs font-medium ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all text-xs font-medium ${
             activePanel === 'xp'
               ? 'bg-white/20 text-white shadow-sm'
               : 'text-zinc-300 hover:text-white hover:bg-white/10'
@@ -383,7 +392,7 @@ export function FloatingControlDock({
         {/* 5. Camera */}
         <button
           onClick={() => togglePanel('camera')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-xs font-medium ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all text-xs font-medium ${
             activePanel === 'camera'
               ? 'bg-white/20 text-white shadow-sm'
               : isCameraOn

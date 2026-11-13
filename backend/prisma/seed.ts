@@ -66,173 +66,184 @@ async function main() {
     });
   }
 
-  // 2. Demo Users
-  const passwordHash = await bcrypt.hash('password123', 10);
-  const usersData = [
-    {
-      username: 'loki',
-      name: 'Loki Anderson',
-      email: 'loki@trapbreaker.com',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop',
-      preferredActivity: 'Coding',
-      typicalDuration: 50,
-    },
-    {
-      username: 'alexchen',
-      name: 'Alex Chen',
-      email: 'alex@trapbreaker.com',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
-      preferredActivity: 'Coding',
-      typicalDuration: 50,
-    },
-    {
-      username: 'sarahj',
-      name: 'Sarah Jenkins',
-      email: 'sarah@trapbreaker.com',
-      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop',
-      preferredActivity: 'Creative',
-      typicalDuration: 50,
-    },
-    {
-      username: 'rahulv',
-      name: 'Rahul Verma',
-      email: 'rahul@trapbreaker.com',
-      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop',
-      preferredActivity: 'Study',
-      typicalDuration: 50,
-    },
-  ];
-
-  const createdUsers: Record<string, any> = {};
-  for (const u of usersData) {
-    const user = await prisma.user.upsert({
-      where: { username: u.username },
-      update: {
-        name: u.name,
-        email: u.email,
-        avatarUrl: u.avatarUrl,
-        preferredActivity: u.preferredActivity,
-        typicalDuration: u.typicalDuration,
-      },
-      create: {
-        ...u,
-        passwordHash,
-      },
+  const roomOwners: Record<string, string> = {};
+  if (process.argv.includes('--catalog-only')) {
+    const owner = await prisma.user.upsert({
+      where: { username: 'zenith-catalog' },
+      update: {},
+      create: { username: 'zenith-catalog', name: 'Zenith' },
     });
-    createdUsers[u.username] = user;
-
-    // User Settings
-    await prisma.userSettings.upsert({
-      where: { userId: user.id },
-      update: {
-        blockerMode: 'BLOCK',
-        blockWebsitesEnabled: true,
-        blockAppsEnabled: true,
+    for (const username of ['loki', 'alexchen', 'sarahj', 'rahulv']) {
+      roomOwners[username] = owner.id;
+    }
+  } else {
+    // 2. Demo Users
+    const passwordHash = await bcrypt.hash('password123', 10);
+    const usersData = [
+      {
+        username: 'loki',
+        name: 'Loki Anderson',
+        email: 'loki@trapbreaker.com',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop',
+        preferredActivity: 'Coding',
+        typicalDuration: 50,
       },
-      create: {
-        userId: user.id,
-        idleThresholdSeconds: 60,
-        warningThresholdSeconds: 10,
-        cameraVisibility: 'Participants',
-        showFocusScore: true,
-        distractionAlerts: true,
-        blockerMode: 'BLOCK',
-        blockWebsitesEnabled: true,
-        blockAppsEnabled: true,
+      {
+        username: 'alexchen',
+        name: 'Alex Chen',
+        email: 'alex@trapbreaker.com',
+        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
+        preferredActivity: 'Coding',
+        typicalDuration: 50,
       },
-    });
-  }
+      {
+        username: 'sarahj',
+        name: 'Sarah Jenkins',
+        email: 'sarah@trapbreaker.com',
+        avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop',
+        preferredActivity: 'Creative',
+        typicalDuration: 50,
+      },
+      {
+        username: 'rahulv',
+        name: 'Rahul Verma',
+        email: 'rahul@trapbreaker.com',
+        avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop',
+        preferredActivity: 'Study',
+        typicalDuration: 50,
+      },
+    ];
 
-  // 3. Default Blocked Resources & Allowlists
-  const defaultResources = [
-    // Social Media
-    { type: 'WEBSITE', identifier: 'instagram.com', displayName: 'Instagram', category: 'SOCIAL', isAllowlist: false },
-    { type: 'WEBSITE', identifier: 'facebook.com', displayName: 'Facebook', category: 'SOCIAL', isAllowlist: false },
-    { type: 'WEBSITE', identifier: 'twitter.com', displayName: 'X (Twitter)', category: 'SOCIAL', isAllowlist: false },
-    { type: 'WEBSITE', identifier: 'x.com', displayName: 'X', category: 'SOCIAL', isAllowlist: false },
-    { type: 'WEBSITE', identifier: 'reddit.com', displayName: 'Reddit', category: 'SOCIAL', isAllowlist: false },
-    { type: 'WEBSITE', identifier: 'tiktok.com', displayName: 'TikTok', category: 'SOCIAL', isAllowlist: false },
-    // Entertainment / Video
-    { type: 'WEBSITE', identifier: 'youtube.com', displayName: 'YouTube', category: 'ENTERTAINMENT', isAllowlist: false },
-    { type: 'WEBSITE', identifier: 'netflix.com', displayName: 'Netflix', category: 'ENTERTAINMENT', isAllowlist: false },
-    { type: 'WEBSITE', identifier: 'twitch.tv', displayName: 'Twitch', category: 'ENTERTAINMENT', isAllowlist: false },
-    // Messaging
-    { type: 'WEBSITE', identifier: 'whatsapp.com', displayName: 'WhatsApp Web', category: 'MESSAGING', isAllowlist: false },
-    { type: 'APPLICATION', identifier: 'Discord', displayName: 'Discord App', category: 'MESSAGING', isAllowlist: false },
-    { type: 'APPLICATION', identifier: 'Slack', displayName: 'Slack', category: 'MESSAGING', isAllowlist: false },
-    { type: 'APPLICATION', identifier: 'Telegram', displayName: 'Telegram', category: 'MESSAGING', isAllowlist: false },
-    { type: 'APPLICATION', identifier: 'WhatsApp', displayName: 'WhatsApp', category: 'MESSAGING', isAllowlist: false },
-    // Music
-    { type: 'APPLICATION', identifier: 'Spotify', displayName: 'Spotify App', category: 'MUSIC', isAllowlist: false },
-    { type: 'WEBSITE', identifier: 'spotify.com', displayName: 'Spotify Web', category: 'MUSIC', isAllowlist: false },
-    // Games
-    { type: 'APPLICATION', identifier: 'Steam', displayName: 'Steam', category: 'GAMES', isAllowlist: false },
-    // Allowlist (Trusted Coding & Study resources)
-    { type: 'WEBSITE', identifier: 'github.com', displayName: 'GitHub', category: 'CUSTOM', isAllowlist: true },
-    { type: 'WEBSITE', identifier: 'stackoverflow.com', displayName: 'Stack Overflow', category: 'CUSTOM', isAllowlist: true },
-    { type: 'WEBSITE', identifier: 'developer.mozilla.org', displayName: 'MDN Web Docs', category: 'CUSTOM', isAllowlist: true },
-    { type: 'WEBSITE', identifier: 'docs.google.com', displayName: 'Google Docs', category: 'CUSTOM', isAllowlist: true },
-  ];
+    for (const u of usersData) {
+      const user = await prisma.user.upsert({
+        where: { username: u.username },
+        update: {
+          name: u.name,
+          email: u.email,
+          avatarUrl: u.avatarUrl,
+          preferredActivity: u.preferredActivity,
+          typicalDuration: u.typicalDuration,
+        },
+        create: {
+          ...u,
+          passwordHash,
+        },
+      });
+      roomOwners[u.username] = user.id;
 
-  const loki = createdUsers['loki'];
-  const createdResources: Record<string, any> = {};
+      // User Settings
+      await prisma.userSettings.upsert({
+        where: { userId: user.id },
+        update: {
+          blockerMode: 'BLOCK',
+          blockWebsitesEnabled: true,
+          blockAppsEnabled: true,
+        },
+        create: {
+          userId: user.id,
+          idleThresholdSeconds: 60,
+          warningThresholdSeconds: 10,
+          cameraVisibility: 'Participants',
+          showFocusScore: true,
+          distractionAlerts: true,
+          blockerMode: 'BLOCK',
+          blockWebsitesEnabled: true,
+          blockAppsEnabled: true,
+        },
+      });
+    }
 
-  for (const res of defaultResources) {
-    const item = await prisma.blockedResource.upsert({
-      where: {
-        userId_type_identifier: {
-          userId: loki.id,
+    // 3. Default Blocked Resources & Allowlists
+    const defaultResources = [
+      // Social Media
+      { type: 'WEBSITE', identifier: 'instagram.com', displayName: 'Instagram', category: 'SOCIAL', isAllowlist: false },
+      { type: 'WEBSITE', identifier: 'facebook.com', displayName: 'Facebook', category: 'SOCIAL', isAllowlist: false },
+      { type: 'WEBSITE', identifier: 'twitter.com', displayName: 'X (Twitter)', category: 'SOCIAL', isAllowlist: false },
+      { type: 'WEBSITE', identifier: 'x.com', displayName: 'X', category: 'SOCIAL', isAllowlist: false },
+      { type: 'WEBSITE', identifier: 'reddit.com', displayName: 'Reddit', category: 'SOCIAL', isAllowlist: false },
+      { type: 'WEBSITE', identifier: 'tiktok.com', displayName: 'TikTok', category: 'SOCIAL', isAllowlist: false },
+      // Entertainment / Video
+      { type: 'WEBSITE', identifier: 'youtube.com', displayName: 'YouTube', category: 'ENTERTAINMENT', isAllowlist: false },
+      { type: 'WEBSITE', identifier: 'netflix.com', displayName: 'Netflix', category: 'ENTERTAINMENT', isAllowlist: false },
+      { type: 'WEBSITE', identifier: 'twitch.tv', displayName: 'Twitch', category: 'ENTERTAINMENT', isAllowlist: false },
+      // Messaging
+      { type: 'WEBSITE', identifier: 'whatsapp.com', displayName: 'WhatsApp Web', category: 'MESSAGING', isAllowlist: false },
+      { type: 'APPLICATION', identifier: 'Discord', displayName: 'Discord App', category: 'MESSAGING', isAllowlist: false },
+      { type: 'APPLICATION', identifier: 'Slack', displayName: 'Slack', category: 'MESSAGING', isAllowlist: false },
+      { type: 'APPLICATION', identifier: 'Telegram', displayName: 'Telegram', category: 'MESSAGING', isAllowlist: false },
+      { type: 'APPLICATION', identifier: 'WhatsApp', displayName: 'WhatsApp', category: 'MESSAGING', isAllowlist: false },
+      // Music
+      { type: 'APPLICATION', identifier: 'Spotify', displayName: 'Spotify App', category: 'MUSIC', isAllowlist: false },
+      { type: 'WEBSITE', identifier: 'spotify.com', displayName: 'Spotify Web', category: 'MUSIC', isAllowlist: false },
+      // Games
+      { type: 'APPLICATION', identifier: 'Steam', displayName: 'Steam', category: 'GAMES', isAllowlist: false },
+      // Allowlist (Trusted Coding & Study resources)
+      { type: 'WEBSITE', identifier: 'github.com', displayName: 'GitHub', category: 'CUSTOM', isAllowlist: true },
+      { type: 'WEBSITE', identifier: 'stackoverflow.com', displayName: 'Stack Overflow', category: 'CUSTOM', isAllowlist: true },
+      { type: 'WEBSITE', identifier: 'developer.mozilla.org', displayName: 'MDN Web Docs', category: 'CUSTOM', isAllowlist: true },
+      { type: 'WEBSITE', identifier: 'docs.google.com', displayName: 'Google Docs', category: 'CUSTOM', isAllowlist: true },
+    ];
+
+    const lokiId = roomOwners['loki'];
+    const createdResources: Record<string, any> = {};
+
+    for (const res of defaultResources) {
+      const item = await prisma.blockedResource.upsert({
+        where: {
+          userId_type_identifier: {
+            userId: lokiId,
+            type: res.type,
+            identifier: res.identifier,
+          },
+        },
+        update: {
+          displayName: res.displayName,
+          category: res.category,
+          isAllowlist: res.isAllowlist,
+          enabled: true,
+        },
+        create: {
+          userId: lokiId,
           type: res.type,
           identifier: res.identifier,
+          displayName: res.displayName,
+          category: res.category,
+          isAllowlist: res.isAllowlist,
+          enabled: true,
         },
-      },
-      update: {
-        displayName: res.displayName,
-        category: res.category,
-        isAllowlist: res.isAllowlist,
-        enabled: true,
-      },
-      create: {
-        userId: loki.id,
-        type: res.type,
-        identifier: res.identifier,
-        displayName: res.displayName,
-        category: res.category,
-        isAllowlist: res.isAllowlist,
-        enabled: true,
-      },
-    });
-    createdResources[res.identifier] = item;
-  }
+      });
+      createdResources[res.identifier] = item;
+    }
 
-  // 4. Activity-Specific Block Lists for Loki
-  const activityConfig: Record<string, string[]> = {
-    Coding: ['youtube.com', 'instagram.com', 'reddit.com', 'netflix.com', 'twitter.com', 'Steam', 'Discord'],
-    Study: ['youtube.com', 'instagram.com', 'reddit.com', 'netflix.com', 'tiktok.com', 'Spotify', 'Steam'],
-    Work: ['youtube.com', 'instagram.com', 'reddit.com', 'netflix.com', 'Steam'],
-    Creative: ['instagram.com', 'reddit.com', 'twitter.com', 'tiktok.com', 'Steam'],
-  };
+    // 4. Activity-Specific Block Lists for Loki
+    const activityConfig: Record<string, string[]> = {
+      Coding: ['youtube.com', 'instagram.com', 'reddit.com', 'netflix.com', 'twitter.com', 'Steam', 'Discord'],
+      Study: ['youtube.com', 'instagram.com', 'reddit.com', 'netflix.com', 'tiktok.com', 'Spotify', 'Steam'],
+      Work: ['youtube.com', 'instagram.com', 'reddit.com', 'netflix.com', 'Steam'],
+      Creative: ['instagram.com', 'reddit.com', 'twitter.com', 'tiktok.com', 'Steam'],
+    };
 
-  for (const [act, identifiers] of Object.entries(activityConfig)) {
-    for (const ident of identifiers) {
-      const resource = createdResources[ident];
-      if (resource) {
-        await prisma.activityBlockList.upsert({
-          where: {
-            userId_activityType_resourceId: {
-              userId: loki.id,
+    for (const [act, identifiers] of Object.entries(activityConfig)) {
+      for (const ident of identifiers) {
+        const resource = createdResources[ident];
+        if (resource) {
+          await prisma.activityBlockList.upsert({
+            where: {
+              userId_activityType_resourceId: {
+                userId: lokiId,
+                activityType: act,
+                resourceId: resource.id,
+              },
+            },
+            update: { enabled: true },
+            create: {
+              userId: lokiId,
               activityType: act,
               resourceId: resource.id,
+              enabled: true,
             },
-          },
-          update: { enabled: true },
-          create: {
-            userId: loki.id,
-            activityType: act,
-            resourceId: resource.id,
-            enabled: true,
-          },
-        });
+          });
+        }
       }
     }
   }
@@ -249,7 +260,7 @@ async function main() {
       roomCode: 'EDU-GRIND-01',
       defaultDuration: 50,
       maxParticipants: 10,
-      creatorId: createdUsers['alexchen'].id,
+      creatorId: roomOwners['alexchen'],
     },
     {
       name: 'FOCUS',
@@ -260,7 +271,7 @@ async function main() {
       roomCode: 'EDU-FOCUS-02',
       defaultDuration: 50,
       maxParticipants: 10,
-      creatorId: createdUsers['loki'].id,
+      creatorId: roomOwners['loki'],
     },
     {
       name: 'FORGE',
@@ -271,7 +282,7 @@ async function main() {
       roomCode: 'EDU-FORGE-03',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['alexchen'].id,
+      creatorId: roomOwners['alexchen'],
     },
     {
       name: 'ZONE',
@@ -282,7 +293,7 @@ async function main() {
       roomCode: 'EDU-ZONE-04',
       defaultDuration: 50,
       maxParticipants: 10,
-      creatorId: createdUsers['rahulv'].id,
+      creatorId: roomOwners['rahulv'],
     },
     {
       name: 'CIPHER',
@@ -293,7 +304,7 @@ async function main() {
       roomCode: 'EDU-CIPHER-05',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['alexchen'].id,
+      creatorId: roomOwners['alexchen'],
     },
     {
       name: 'QUANTUM',
@@ -304,7 +315,7 @@ async function main() {
       roomCode: 'EDU-QUANTUM-06',
       defaultDuration: 50,
       maxParticipants: 10,
-      creatorId: createdUsers['rahulv'].id,
+      creatorId: roomOwners['rahulv'],
     },
     {
       name: 'ATLAS',
@@ -315,7 +326,7 @@ async function main() {
       roomCode: 'EDU-ATLAS-07',
       defaultDuration: 45,
       maxParticipants: 10,
-      creatorId: createdUsers['sarahj'].id,
+      creatorId: roomOwners['sarahj'],
     },
     {
       name: 'LOGIC',
@@ -326,7 +337,7 @@ async function main() {
       roomCode: 'EDU-LOGIC-08',
       defaultDuration: 50,
       maxParticipants: 10,
-      creatorId: createdUsers['alexchen'].id,
+      creatorId: roomOwners['alexchen'],
     },
     {
       name: 'NEURON',
@@ -337,7 +348,7 @@ async function main() {
       roomCode: 'EDU-NEURON-09',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['loki'].id,
+      creatorId: roomOwners['loki'],
     },
     {
       name: 'SCHOLAR',
@@ -348,7 +359,7 @@ async function main() {
       roomCode: 'EDU-SCHOLAR-10',
       defaultDuration: 50,
       maxParticipants: 10,
-      creatorId: createdUsers['sarahj'].id,
+      creatorId: roomOwners['sarahj'],
     },
 
     // ── EXERCISE ROOMS (10 Rooms, max 10) ───────────────────────────────────
@@ -361,7 +372,7 @@ async function main() {
       roomCode: 'EXE-BOOST-01',
       defaultDuration: 45,
       maxParticipants: 10,
-      creatorId: createdUsers['loki'].id,
+      creatorId: roomOwners['loki'],
     },
     {
       name: 'MOMENTUM',
@@ -372,7 +383,7 @@ async function main() {
       roomCode: 'EXE-MOMENTUM-02',
       defaultDuration: 30,
       maxParticipants: 10,
-      creatorId: createdUsers['rahulv'].id,
+      creatorId: roomOwners['rahulv'],
     },
     {
       name: 'TITAN',
@@ -383,7 +394,7 @@ async function main() {
       roomCode: 'EXE-TITAN-03',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['loki'].id,
+      creatorId: roomOwners['loki'],
     },
     {
       name: 'ENDURE',
@@ -394,7 +405,7 @@ async function main() {
       roomCode: 'EXE-ENDURE-04',
       defaultDuration: 35,
       maxParticipants: 10,
-      creatorId: createdUsers['alexchen'].id,
+      creatorId: roomOwners['alexchen'],
     },
     {
       name: 'FLEX',
@@ -405,7 +416,7 @@ async function main() {
       roomCode: 'EXE-FLEX-05',
       defaultDuration: 25,
       maxParticipants: 10,
-      creatorId: createdUsers['sarahj'].id,
+      creatorId: roomOwners['sarahj'],
     },
     {
       name: 'ZEN',
@@ -416,7 +427,7 @@ async function main() {
       roomCode: 'EXE-ZEN-06',
       defaultDuration: 30,
       maxParticipants: 10,
-      creatorId: createdUsers['sarahj'].id,
+      creatorId: roomOwners['sarahj'],
     },
     {
       name: 'STRIDE',
@@ -427,7 +438,7 @@ async function main() {
       roomCode: 'EXE-STRIDE-07',
       defaultDuration: 40,
       maxParticipants: 10,
-      creatorId: createdUsers['rahulv'].id,
+      creatorId: roomOwners['rahulv'],
     },
     {
       name: 'IRON',
@@ -438,7 +449,7 @@ async function main() {
       roomCode: 'EXE-IRON-08',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['loki'].id,
+      creatorId: roomOwners['loki'],
     },
     {
       name: 'KINETIC',
@@ -449,7 +460,7 @@ async function main() {
       roomCode: 'EXE-KINETIC-09',
       defaultDuration: 30,
       maxParticipants: 10,
-      creatorId: createdUsers['alexchen'].id,
+      creatorId: roomOwners['alexchen'],
     },
     {
       name: 'APEX',
@@ -460,7 +471,7 @@ async function main() {
       roomCode: 'EXE-APEX-10',
       defaultDuration: 45,
       maxParticipants: 10,
-      creatorId: createdUsers['rahulv'].id,
+      creatorId: roomOwners['rahulv'],
     },
 
     // ── SIDE QUEST ROOMS (10 Rooms, max 10) ─────────────────────────────────
@@ -473,7 +484,7 @@ async function main() {
       roomCode: 'SQ-FLOW-01',
       defaultDuration: 45,
       maxParticipants: 10,
-      creatorId: createdUsers['sarahj'].id,
+      creatorId: roomOwners['sarahj'],
     },
     {
       name: 'PULSE',
@@ -484,7 +495,7 @@ async function main() {
       roomCode: 'SQ-PULSE-02',
       defaultDuration: 30,
       maxParticipants: 10,
-      creatorId: createdUsers['sarahj'].id,
+      creatorId: roomOwners['sarahj'],
     },
     {
       name: 'CIRCUIT',
@@ -496,7 +507,7 @@ async function main() {
       roomCode: 'SQ-CIRCUIT-03',
       defaultDuration: 50,
       maxParticipants: 10,
-      creatorId: createdUsers['sarahj'].id,
+      creatorId: roomOwners['sarahj'],
     },
     {
       name: 'PIXEL',
@@ -507,7 +518,7 @@ async function main() {
       roomCode: 'SQ-PIXEL-04',
       defaultDuration: 50,
       maxParticipants: 10,
-      creatorId: createdUsers['sarahj'].id,
+      creatorId: roomOwners['sarahj'],
     },
     {
       name: 'BEAT',
@@ -518,7 +529,7 @@ async function main() {
       roomCode: 'SQ-BEAT-05',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['loki'].id,
+      creatorId: roomOwners['loki'],
     },
     {
       name: 'SCRIPT',
@@ -529,7 +540,7 @@ async function main() {
       roomCode: 'SQ-SCRIPT-06',
       defaultDuration: 45,
       maxParticipants: 10,
-      creatorId: createdUsers['sarahj'].id,
+      creatorId: roomOwners['sarahj'],
     },
     {
       name: 'CRAFT',
@@ -540,7 +551,7 @@ async function main() {
       roomCode: 'SQ-CRAFT-07',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['alexchen'].id,
+      creatorId: roomOwners['alexchen'],
     },
     {
       name: 'QUEST',
@@ -551,7 +562,7 @@ async function main() {
       roomCode: 'SQ-QUEST-08',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['alexchen'].id,
+      creatorId: roomOwners['alexchen'],
     },
     {
       name: 'CANVAS',
@@ -562,7 +573,7 @@ async function main() {
       roomCode: 'SQ-CANVAS-09',
       defaultDuration: 45,
       maxParticipants: 10,
-      creatorId: createdUsers['sarahj'].id,
+      creatorId: roomOwners['sarahj'],
     },
     {
       name: 'FOUNDER',
@@ -573,7 +584,7 @@ async function main() {
       roomCode: 'SQ-FOUNDER-10',
       defaultDuration: 60,
       maxParticipants: 10,
-      creatorId: createdUsers['loki'].id,
+      creatorId: roomOwners['loki'],
     },
 
     // ── INTERACTION ROOMS (10 Rooms, max 6 STRICT) ───────────────────────────
@@ -588,7 +599,7 @@ async function main() {
       defaultDuration: 30,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['rahulv'].id,
+      creatorId: roomOwners['rahulv'],
     },
     {
       name: 'RISE',
@@ -601,7 +612,7 @@ async function main() {
       defaultDuration: 30,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['loki'].id,
+      creatorId: roomOwners['loki'],
     },
     {
       name: 'COLLAB',
@@ -614,7 +625,7 @@ async function main() {
       defaultDuration: 35,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['alexchen'].id,
+      creatorId: roomOwners['alexchen'],
     },
     {
       name: 'SYNERGY',
@@ -627,7 +638,7 @@ async function main() {
       defaultDuration: 45,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['alexchen'].id,
+      creatorId: roomOwners['alexchen'],
     },
     {
       name: 'HACK',
@@ -640,7 +651,7 @@ async function main() {
       defaultDuration: 40,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['loki'].id,
+      creatorId: roomOwners['loki'],
     },
     {
       name: 'DEBATE',
@@ -653,7 +664,7 @@ async function main() {
       defaultDuration: 35,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['rahulv'].id,
+      creatorId: roomOwners['rahulv'],
     },
     {
       name: 'CLINIC',
@@ -666,7 +677,7 @@ async function main() {
       defaultDuration: 30,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['alexchen'].id,
+      creatorId: roomOwners['alexchen'],
     },
     {
       name: 'PITCH',
@@ -679,7 +690,7 @@ async function main() {
       defaultDuration: 30,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['sarahj'].id,
+      creatorId: roomOwners['sarahj'],
     },
     {
       name: 'MASTER',
@@ -692,7 +703,7 @@ async function main() {
       defaultDuration: 45,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['rahulv'].id,
+      creatorId: roomOwners['rahulv'],
     },
     {
       name: 'FORUM',
@@ -705,14 +716,14 @@ async function main() {
       defaultDuration: 30,
       maxParticipants: 6,
       defaultMic: true,
-      creatorId: createdUsers['loki'].id,
+      creatorId: roomOwners['loki'],
     },
   ];
 
   for (const r of roomsData) {
     await prisma.room.upsert({
       where: { roomCode: r.roomCode },
-      update: r,
+      update: process.argv.includes('--catalog-only') ? {} : r,
       create: r,
     });
   }
