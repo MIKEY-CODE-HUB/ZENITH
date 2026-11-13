@@ -103,14 +103,14 @@ export function Navbar() {
         <div className="flex items-center gap-3">
           {/* Subtle Ambient Triggers */}
           <div className="hidden sm:flex items-center gap-1 border border-white/[0.08] bg-white/[0.02] rounded-lg p-1">
-            <button
+            {!isHomeActive && <button
               onClick={() => setIsSceneryModalOpen(true)}
               className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
               title="Change theme scenery"
             >
               <ImageIcon className="h-3 w-3 text-emerald-400" />
               <span>{currentScenery.name.split(' ')[0]}</span>
-            </button>
+            </button>}
 
             <button
               onClick={() => setIsSoundModalOpen(true)}

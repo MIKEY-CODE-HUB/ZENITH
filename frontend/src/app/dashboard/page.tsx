@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAmbient } from '@/contexts/AmbientContext';
 import { api } from '@/lib/api';
+import { CustomizeSceneryButton, PageScenery } from '@/components/PageScenery';
 import { Sidebar } from '@/components/Sidebar';
 import { StartSessionModal } from '@/components/StartSessionModal';
 import { Room, FocusSession, DashboardStats } from '@/lib/types';
@@ -24,7 +25,6 @@ import {
   Volume2,
   VolumeX,
   Radio,
-  Image as ImageIcon,
   Zap,
   Moon,
   Sun,
@@ -37,7 +37,7 @@ const DEFAULT_ROOMS: Room[] = CANONICAL_ROOMS;
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { currentScenery, isPlayingSound, toggleSound, setIsSceneryModalOpen, activeSound } = useAmbient();
+  const { isPlayingSound, toggleSound, activeSound } = useAmbient();
   const router = useRouter();
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -122,7 +122,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-[#07080b] text-zinc-100">
+    <PageScenery page="dashboard" className="flex min-h-[calc(100vh-4rem)] bg-[#07080b] text-zinc-100">
       <Sidebar />
 
       <main className="flex-1 p-5 sm:p-9 max-w-6xl mx-auto space-y-9">
@@ -139,14 +139,6 @@ export default function DashboardPage() {
                 <span className="uppercase tracking-widest text-[11px] font-bold text-white/90">
                   {vibe.greeting} • {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </span>
-                <span className="text-zinc-600">•</span>
-                <button
-                  onClick={() => setIsSceneryModalOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-[11px] text-zinc-300 transition-colors border border-white/10"
-                >
-                  <ImageIcon className="h-3 w-3 text-emerald-400" />
-                  <span>Theme: {currentScenery.name}</span>
-                </button>
               </div>
 
               <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
@@ -159,6 +151,7 @@ export default function DashboardPage() {
 
             {/* Quick Actions (Start Session + Soundscape) */}
             <div className="flex flex-wrap items-center gap-3">
+              <CustomizeSceneryButton className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs font-semibold text-zinc-200 hover:bg-white/[0.08]" />
               <button
                 onClick={toggleSound}
                 className={`flex items-center gap-2 px-4 py-3 rounded-2xl border text-xs font-semibold transition-all ${
@@ -377,6 +370,6 @@ export default function DashboardPage() {
       {showStartModal && (
         <StartSessionModal isOpen={showStartModal} onClose={() => setShowStartModal(false)} />
       )}
-    </div>
+    </PageScenery>
   );
 }

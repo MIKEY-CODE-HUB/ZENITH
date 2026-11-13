@@ -1,3 +1,5 @@
+export type SceneryPage = 'home' | 'dashboard';
+
 export interface Scenery {
   id: string;
   name: string;

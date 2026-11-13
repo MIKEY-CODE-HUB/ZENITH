@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useAmbient } from '@/contexts/AmbientContext';
 import { SCENERIES } from '@/lib/sceneries';
-import { X, Check, Sparkles, Volume2, Image as ImageIcon } from 'lucide-react';
+import { X, Check, Image as ImageIcon } from 'lucide-react';
 
 export function ScenerySelectorModal() {
   const {
@@ -11,20 +12,43 @@ export function ScenerySelectorModal() {
     setIsSceneryModalOpen,
     currentScenery,
     setSceneryId,
+    pageSceneries,
+    setPageScenery,
   } = useAmbient();
 
-  if (!isSceneryModalOpen) return null;
-
+  const pathname = usePathname();
+  const page = pathname === '/' ? 'home' : pathname === '/dashboard' ? 'dashboard' : null;
+  const selectedScenery = page ? pageSceneries[page] : currentScenery;
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [activeCategory, setActiveCategory] = useState<string>('All');
   const categories = ['All', 'Cozy', 'Lofi', 'Nature', 'Dark Academia', 'Minimal'] as const;
-  const [activeCategory, setActiveCategory] = React.useState<string>('All');
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (isSceneryModalOpen && !dialog.open) dialog.showModal();
+    if (!isSceneryModalOpen && dialog.open) dialog.close();
+  }, [isSceneryModalOpen]);
+
+  useEffect(() => {
+    setIsSceneryModalOpen(false);
+  }, [pathname, setIsSceneryModalOpen]);
 
   const filteredSceneries = activeCategory === 'All'
     ? SCENERIES
     : SCENERIES.filter((s) => s.category === activeCategory);
 
   return (
-    <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-2xl bg-[#121215] border border-white/10 shadow-2xl p-6 space-y-5 max-h-[85vh] flex flex-col">
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="scenery-dialog-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        setIsSceneryModalOpen(false);
+      }}
+      className="fixed inset-0 m-auto w-[calc(100%_-_2rem)] max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-[#121215] text-zinc-100 shadow-2xl backdrop:bg-black/75"
+    >
+      <div className="flex max-h-[85dvh] flex-col gap-4 p-4 sm:p-6">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
           <div className="flex items-center gap-2.5">
@@ -32,16 +56,16 @@ export function ScenerySelectorModal() {
               <ImageIcon className="h-4 w-4 text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white tracking-tight">
-                Study Sceneries & Ambience
+              <h2 id="scenery-dialog-title" className="text-base font-semibold text-white">
+                {page === 'home' ? 'Customize Home' : page === 'dashboard' ? 'Customize Dashboard' : 'Study Sceneries'}
               </h2>
-              <p className="text-xs text-zinc-400">
-                Immersive photographic and minimalist backdrops for deep focus
-              </p>
+              {page && <p className="text-xs text-zinc-400">Choose a background for this screen.</p>}
             </div>
           </div>
 
           <button
+            type="button"
+            aria-label="Close customization"
             onClick={() => setIsSceneryModalOpen(false)}
             className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
           >
@@ -49,11 +73,24 @@ export function ScenerySelectorModal() {
           </button>
         </div>
 
+        {page && (
+          <button
+            type="button"
+            aria-pressed={!selectedScenery}
+            onClick={() => setPageScenery(page, null)}
+            className="self-start rounded-lg border border-white/10 px-3 py-2 text-xs font-medium hover:bg-white/10 aria-pressed:border-emerald-400 aria-pressed:text-emerald-300"
+          >
+            Default background
+          </button>
+        )}
+
         {/* Category Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
           {categories.map((cat) => (
             <button
               key={cat}
+              type="button"
+              aria-pressed={activeCategory === cat}
               onClick={() => setActiveCategory(cat)}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
                 activeCategory === cat
@@ -68,17 +105,23 @@ export function ScenerySelectorModal() {
 
         {/* Sceneries Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto pr-1 flex-1">
-          {filteredSceneries.map((scenery) => {
-            const isSelected = currentScenery.id === scenery.id;
+          {isSceneryModalOpen && filteredSceneries.map((scenery) => {
+            const isSelected = selectedScenery?.id === scenery.id;
 
             return (
-              <div
+              <button
                 key={scenery.id}
+                type="button"
+                aria-pressed={isSelected}
                 onClick={() => {
-                  setSceneryId(scenery.id);
-                  setIsSceneryModalOpen(false);
+                  if (page) {
+                    setPageScenery(page, scenery);
+                  } else {
+                    setSceneryId(scenery.id);
+                    setIsSceneryModalOpen(false);
+                  }
                 }}
-                className={`group relative aspect-[16/10] rounded-xl overflow-hidden border cursor-pointer transition-all ${
+                className={`group relative aspect-[16/10] rounded-xl overflow-hidden border text-left transition-all ${
                   isSelected
                     ? 'border-emerald-400 ring-2 ring-emerald-500/20 shadow-lg shadow-emerald-950/40'
                     : 'border-white/[0.08] hover:border-white/20'
@@ -88,22 +131,23 @@ export function ScenerySelectorModal() {
                 {scenery.bgImageUrl ? (
                   <img
                     src={scenery.bgImageUrl}
-                    alt={scenery.name}
+                    alt=""
+                    loading="lazy"
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 ) : (
-                  <div className="absolute inset-0 bg-[#09090b]" />
+                  <span className="absolute inset-0 bg-[#09090b]" />
                 )}
 
                 {/* Dark Vignette Overlay */}
-                <div
+                <span
                   className="absolute inset-0 transition-opacity"
                   style={{ background: scenery.gradientOverlay }}
                 />
 
                 {/* Content Overlay */}
-                <div className="absolute inset-0 p-3.5 flex flex-col justify-between z-10">
-                  <div className="flex items-center justify-between">
+                <span className="absolute inset-0 p-3.5 flex flex-col justify-between z-10">
+                  <span className="flex items-center justify-between">
                     <span className="text-[10px] font-medium uppercase tracking-wider text-white/80 bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
                       {scenery.category}
                     </span>
@@ -113,22 +157,22 @@ export function ScenerySelectorModal() {
                         <Check className="h-3 w-3 stroke-[3]" />
                       </span>
                     )}
-                  </div>
+                  </span>
 
-                  <div>
-                    <h3 className="text-sm font-semibold text-white drop-shadow-sm group-hover:text-emerald-300 transition-colors">
+                  <span>
+                    <span className="block text-sm font-semibold text-white drop-shadow-sm group-hover:text-emerald-300 transition-colors">
                       {scenery.name}
-                    </h3>
-                    <p className="text-[11px] text-zinc-300/90 line-clamp-1 mt-0.5">
+                    </span>
+                    <span className="block text-[11px] text-zinc-300/90 line-clamp-1 mt-0.5">
                       {scenery.tagline}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                    </span>
+                  </span>
+                </span>
+              </button>
             );
           })}
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }

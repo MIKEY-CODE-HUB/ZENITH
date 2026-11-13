@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { CustomizeSceneryButton, PageScenery } from '@/components/PageScenery';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -45,7 +45,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 selection:bg-zinc-800 selection:text-white">
+    <PageScenery page="home" className="min-h-screen bg-[#09090b] text-zinc-100 selection:bg-zinc-800 selection:text-white">
       {/* 1. HERO SECTION */}
       <section className="relative overflow-hidden pt-20 pb-20 md:pt-28 md:pb-32 border-b border-white/[0.06]">
         {/* Subtle warm ambient highlight */}
@@ -85,6 +85,8 @@ export default function LandingPage() {
               <span>Explore silent rooms</span>
             </button>
           </div>
+
+          <CustomizeSceneryButton className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-black/50" />
 
           {/* Social Proof Quote */}
           <div className="pt-6 flex items-center justify-center gap-3 text-xs text-zinc-500">
@@ -310,6 +312,6 @@ export default function LandingPage() {
           <Link href="/login" className="hover:text-zinc-300 transition-colors">Sign in</Link>
         </div>
       </footer>
-    </div>
+    </PageScenery>
   );
 }
