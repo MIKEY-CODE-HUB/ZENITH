@@ -337,7 +337,7 @@ class ApiClient {
     if (params?.page) query.append('page', String(params.page));
     if (params?.limit) query.append('limit', String(params.limit));
     const qs = query.toString() ? `?${query.toString()}` : '';
-    return this.request<{ success: boolean; sessions: any[]; pagination: any }>(`/sessions/history${qs}`);
+    return this.request<{ success: boolean; sessions: FocusSession[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(`/sessions/history${qs}`);
   }
 
   async abandonSession(sessionId: string, reason: string) {

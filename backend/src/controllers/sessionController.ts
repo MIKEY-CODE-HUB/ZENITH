@@ -379,12 +379,16 @@ export class SessionController {
       const userId = req.user!.userId;
       const { activity, page = '1', limit = '10' } = req.query;
 
-      const pageNum = parseInt(page as string, 10) || 1;
-      const limitNum = parseInt(limit as string, 10) || 10;
+      const pageNum = Math.min(10_000, Math.max(1, parseInt(page as string, 10) || 1));
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 10));
       const skip = (pageNum - 1) * limitNum;
 
       const where: any = { userId, status: 'COMPLETED' };
       if (activity && activity !== 'All') {
+        if (typeof activity !== 'string') {
+          res.status(400).json({ success: false, error: 'Select a single activity.' });
+          return;
+        }
         where.activityType = activity;
       }
 

@@ -44,7 +44,9 @@ export default function DashboardPage() {
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [showStartModal, setShowStartModal] = useState<boolean>(false);
   const [selectedGoal, setSelectedGoal] = useState<FocusGoal | null>(null);
+  const [repeatSession, setRepeatSession] = useState<FocusSession | null>(null);
   const [activeSession, setActiveSession] = useState<FocusSession | null>(null);
+  const [recentSessions, setRecentSessions] = useState<FocusSession[]>([]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -53,6 +55,9 @@ export default function DashboardPage() {
       return;
     }
     let cancelled = false;
+    void api.getHistory({ limit: 5 }).then(result => {
+      if (!cancelled) setRecentSessions(result.sessions);
+    }).catch(() => {});
     Promise.all([api.getDashboardStats(), api.getRooms(), api.getActiveSession()])
       .then(([statsRes, roomsRes, activeRes]) => {
         if (cancelled) return;
@@ -212,6 +217,29 @@ export default function DashboardPage() {
           setSelectedGoal(goal);
           setShowStartModal(true);
         }} />
+
+        {recentSessions.length > 0 && (
+          <section className="space-y-3 rounded-2xl border border-[rgb(var(--tint))]/10 bg-[rgb(var(--panel))] p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold">Recent sessions</h2>
+              <Link className="text-sm underline" href="/history">View history</Link>
+            </div>
+            <ul className="divide-y divide-[rgb(var(--tint))]/10">
+              {recentSessions.map(session => (
+                <li className="flex flex-wrap items-center justify-between gap-2 py-2" key={session.id}>
+                  <div>
+                    <Link className="text-sm font-medium hover:underline" href={`/focus/summary/${session.id}`}>{session.specificActivity || session.activityType}</Link>
+                    <p className="text-xs text-[rgb(var(--ink-muted))]">{formatDate(session.startTime)} · {session.plannedDuration}m planned</p>
+                  </div>
+                  {!activeSession && <button type="button" className="text-sm underline" onClick={() => {
+                    setRepeatSession(session);
+                    setShowStartModal(true);
+                  }}>Repeat</button>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* Weekly Progress & Verified Points Ledger */}
         <div className="p-6 sm:p-7 rounded-3xl bg-[#10121a] border border-white/[0.08] shadow-xl space-y-4">
@@ -395,8 +423,9 @@ export default function DashboardPage() {
 
       {/* Start Session Modal */}
       {showStartModal && (
-        <StartSessionModal availableRooms={rooms} isOpen={showStartModal} goal={selectedGoal} onClose={() => {
+        <StartSessionModal availableRooms={rooms} isOpen={showStartModal} goal={selectedGoal} repeat={repeatSession} onClose={() => {
           setSelectedGoal(null);
+          setRepeatSession(null);
           setShowStartModal(false);
         }} />
       )}

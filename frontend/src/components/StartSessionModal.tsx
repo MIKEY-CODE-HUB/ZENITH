@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ActivityCategory, FocusGoal, Room } from '@/lib/types';
+import { ActivityCategory, FocusGoal, FocusSession, Room } from '@/lib/types';
 import { ATMOSPHERES } from '@/lib/atmospheres';
 import { api } from '@/lib/api';
 import {
@@ -26,9 +26,10 @@ interface StartSessionModalProps {
   onClose: () => void;
   availableRooms?: Room[];
   goal?: FocusGoal | null;
+  repeat?: FocusSession | null;
 }
 
-export function StartSessionModal({ isOpen, onClose, availableRooms = [], goal }: StartSessionModalProps) {
+export function StartSessionModal({ isOpen, onClose, availableRooms = [], goal, repeat }: StartSessionModalProps) {
   const router = useRouter();
 
   // Categories & their associated activities
@@ -81,20 +82,22 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [], goal }
 
   // Wizard state
   const [step, setStep] = useState<number>(1);
-  const [selectedCategory, setSelectedCategory] = useState<ActivityCategory>('EDUCATION');
-  const [selectedActivity, setSelectedActivity] = useState<string>('Coding');
-  const [task, setTask] = useState(goal?.title ?? '');
+  const [selectedCategory, setSelectedCategory] = useState<ActivityCategory>(repeat?.category ?? 'EDUCATION');
+  const [selectedActivity, setSelectedActivity] = useState<string>(repeat?.activityType ?? 'Coding');
+  const [task, setTask] = useState(goal?.title ?? repeat?.specificActivity ?? '');
   const [entryMode, setEntryMode] = useState<'solo' | 'match' | 'room'>('solo');
   const [launchError, setLaunchError] = useState<string | null>(null);
+  const [presetStatus, setPresetStatus] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
-  const [selectedAtmosphere, setSelectedAtmosphere] = useState<string>('rainy-window');
-  const [durationMinutes, setDurationMinutes] = useState<number>(50);
-  const [protectionEnabled, setProtectionEnabled] = useState<boolean>(true);
+  const [selectedAtmosphere, setSelectedAtmosphere] = useState<string>(repeat?.atmosphere ?? 'rainy-window');
+  const [durationMinutes, setDurationMinutes] = useState<number>(repeat?.plannedDuration ?? 50);
+  const [protectionEnabled, setProtectionEnabled] = useState<boolean>(repeat?.protectionEnabled ?? true);
   const [loading, setLoading] = useState<boolean>(false);
   const [interactionQuote, setInteractionQuote] = useState<{ weeklyBalance: number; cost: number; remaining: number } | null>(null);
 
   // Load Smart Defaults from LocalStorage
   useEffect(() => {
+    if (repeat) return;
     try {
       const stored = localStorage.getItem('zenith_last_session_prefs');
       if (stored) {
@@ -106,7 +109,7 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [], goal }
         if (prefs.protection !== undefined) setProtectionEnabled(prefs.protection);
       }
     } catch (e) {}
-  }, []);
+  }, [repeat]);
 
   // Fetch Interaction Quote when category is INTERACTION
   useEffect(() => {
@@ -135,6 +138,39 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [], goal }
   if (!isOpen) return null;
 
   const currentCategoryObj = CATEGORIES.find((c) => c.id === selectedCategory)!;
+
+  function savePreset() {
+    try {
+      localStorage.setItem('zenith_focus_preset', JSON.stringify({
+        task: task.trim(), category: selectedCategory, activity: selectedActivity,
+        atmosphere: selectedAtmosphere, duration: durationMinutes, protection: protectionEnabled,
+      }));
+      setPresetStatus('Preset saved in this browser.');
+    } catch {
+      setPresetStatus('Could not save the preset in this browser.');
+    }
+  }
+
+  function loadPreset() {
+    try {
+      const stored = localStorage.getItem('zenith_focus_preset');
+      if (!stored) {
+        setPresetStatus('Save a preset at the final step.');
+        return;
+      }
+      const preset = JSON.parse(stored);
+      if (!CATEGORIES.some(category => category.id === preset.category)) return;
+      setSelectedCategory(preset.category);
+      setSelectedActivity(preset.activity);
+      setSelectedAtmosphere(preset.atmosphere);
+      setDurationMinutes(preset.duration);
+      setProtectionEnabled(preset.protection);
+      if (!goal) setTask(preset.task);
+      setPresetStatus('Preset loaded.');
+    } catch {
+      setPresetStatus('Could not load the preset.');
+    }
+  }
 
   const handleLaunch = async () => {
     try {
@@ -234,6 +270,8 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [], goal }
         {/* STEP 1: Category & Activity */}
         {step === 1 && (
           <div className="space-y-4">
+            <button type="button" onClick={loadPreset} className="text-xs text-emerald-300 underline">Load saved preset</button>
+            {presetStatus && <p role="status" className="text-xs text-zinc-300">{presetStatus}</p>}
             <div className="grid grid-cols-2 gap-2.5">
               {CATEGORIES.map((cat) => {
                 const Icon = cat.icon;
@@ -383,6 +421,8 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [], goal }
         {/* STEP 4: Duration & Protection */}
         {step === 4 && (
           <div className="space-y-5">
+            <button type="button" onClick={savePreset} className="text-xs text-emerald-300 underline">Save as preset</button>
+            {presetStatus && <p role="status" className="text-xs text-zinc-300">{presetStatus}</p>}
             {/* Duration */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-zinc-300 flex items-center gap-2">
