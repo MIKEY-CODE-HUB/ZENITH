@@ -175,6 +175,10 @@ class ApiClient {
     return this.request<{ success: boolean; room: any }>(`/rooms/${idOrCode}`);
   }
 
+  async getIceServers(roomId: string) {
+    return this.request<{ success: boolean; iceServers: RTCIceServer[] }>(`/rooms/${roomId}/ice-servers`);
+  }
+
   async createRoom(body: {
     name: string;
     description?: string;
@@ -369,6 +373,10 @@ class ApiClient {
   // User Profile & Settings & Leaderboard
   async getProfile() {
     return this.request<{ success: boolean; profile: any }>('/users/profile');
+  }
+
+  async exportAccountData() {
+    return this.request<{ success: boolean; data: unknown }>('/users/export');
   }
 
   async updateSettings(settings: any) {

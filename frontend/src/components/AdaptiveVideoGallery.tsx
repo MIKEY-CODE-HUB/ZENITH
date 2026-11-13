@@ -16,6 +16,7 @@ interface AdaptiveVideoGalleryProps {
   participants: ParticipantPresence[];
   remoteStreams: Map<string, MediaStream>;
   isInteractionRoom?: boolean;
+  voiceVolume: number;
   onReportPeer?: (peer: ParticipantPresence) => void;
 }
 
@@ -43,6 +44,7 @@ export function AdaptiveVideoGallery({
   participants,
   remoteStreams,
   isInteractionRoom = false,
+  voiceVolume,
   onReportPeer,
 }: AdaptiveVideoGalleryProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -126,6 +128,7 @@ export function AdaptiveVideoGallery({
             autoPlay
             playsInline
             ref={(el) => {
+              if (el) el.volume = voiceVolume / 100;
               if (el && remoteStream && el.srcObject !== remoteStream) {
                 el.srcObject = remoteStream;
               }

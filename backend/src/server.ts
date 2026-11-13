@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import cron from 'node-cron';
 import { prisma } from './config/prisma.js';
 import { logger } from './config/logger.js';
+import { isClientOriginAllowed } from './config/clientOrigins.js';
 import cors from 'cors';
 import authRoutes from './routes/authRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
@@ -30,7 +31,6 @@ const app = express();
 const server = http.createServer(app);
 
 const PORT = process.env.PORT || 5001;
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
 
 app.use((req, res, next) => {
   const incomingId = req.get('x-request-id');
@@ -47,7 +47,7 @@ app.use((req, res, next) => {
 // Global Middleware
 app.use(
   cors({
-    origin: [CLIENT_ORIGIN, 'http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: (origin, callback) => callback(null, isClientOriginAllowed(origin)),
     credentials: true,
   })
 );

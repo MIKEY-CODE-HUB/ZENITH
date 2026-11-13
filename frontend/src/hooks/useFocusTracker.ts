@@ -18,6 +18,15 @@ const initialStats = {
   tabSwitchCount: 0, warningCount: 0, blockAttemptCount: 0,
   currentFocusStreak: 0, longestFocusStreak: 0,
 };
+type TrackerDraft = { stats: typeof initialStats; events: FocusEvent[] };
+
+function readDraft(sessionId: string): TrackerDraft {
+  try {
+    const saved = sessionStorage.getItem(`zenith_tracking_${sessionId}`);
+    if (saved) return JSON.parse(saved) as TrackerDraft;
+  } catch {}
+  return { stats: initialStats, events: [] };
+}
 
 export function useFocusTracker(options: FocusTrackerOptions) {
   const [stats, setStats] = useState(initialStats);
@@ -26,6 +35,8 @@ export function useFocusTracker(options: FocusTrackerOptions) {
   optionsRef.current = options;
   const events = useRef<FocusEvent[]>([]);
   const status = useRef<FocusStatus>('FOCUSED');
+  const latestStats = useRef(stats);
+  latestStats.current = stats;
 
   const transition = useCallback((next: FocusStatus) => {
     if (status.current === next) return;
@@ -34,15 +45,22 @@ export function useFocusTracker(options: FocusTrackerOptions) {
   }, []);
 
   useEffect(() => {
-    if (!options.sessionId) return;
-    events.current = [];
-    setStats(initialStats);
+    const { sessionId } = options;
+    if (!sessionId) return;
+    const saved = readDraft(sessionId);
+    events.current = saved.events;
+    setStats({ ...saved.stats, currentFocusStreak: 0 });
     status.current = 'FOCUSED';
     let lastInput = Date.now();
     let hiddenSince: number | null = null;
     let warned = false;
     let lastDeparture = 0;
     let lastBlocked = { domain: '', timestamp: 0 };
+    const saveDraft = () => {
+      try {
+        sessionStorage.setItem(`zenith_tracking_${sessionId}`, JSON.stringify({ stats: latestStats.current, events: events.current }));
+      } catch {}
+    };
 
     const record = (eventType: FocusEvent['eventType'], metadata?: object) => {
       if (events.current.length < 1000) {
@@ -128,12 +146,16 @@ export function useFocusTracker(options: FocusTrackerOptions) {
     for (const event of ['pointermove', 'pointerdown', 'keydown', 'touchstart']) window.addEventListener(event, activity);
     document.addEventListener('visibilitychange', visibility);
     window.addEventListener('message', interception);
+    window.addEventListener('pagehide', saveDraft);
+    const saveTimer = window.setInterval(saveDraft, 5000);
     visibility();
     return () => {
       clearInterval(interval);
+      clearInterval(saveTimer);
       for (const event of ['pointermove', 'pointerdown', 'keydown', 'touchstart']) window.removeEventListener(event, activity);
       document.removeEventListener('visibilitychange', visibility);
       window.removeEventListener('message', interception);
+      window.removeEventListener('pagehide', saveDraft);
     };
   }, [options.sessionId, transition]);
 

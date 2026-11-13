@@ -4,6 +4,34 @@ import { prisma } from '../config/prisma.js';
 import { StreakAchievementService } from '../services/streakAchievementService.js';
 
 export class UserController {
+  public static async exportData(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user!.userId },
+        select: {
+          id: true, name: true, username: true, email: true, avatarUrl: true,
+          preferredActivity: true, typicalDuration: true, createdAt: true, settings: true,
+          focusSessions: {
+            orderBy: { startTime: 'desc' },
+            include: { events: { orderBy: { startTime: 'asc' } }, blockAttempts: true },
+          },
+          pointTransactions: { orderBy: { createdAt: 'desc' } },
+          userAchievements: { include: { achievement: true } },
+          blockedResources: true, activityBlockLists: true, blockerSessions: true,
+          participants: { select: { roomId: true, joinedAt: true, leftAt: true, status: true, role: true } },
+          createdRooms: { select: { id: true, name: true, category: true, isPrivate: true, createdAt: true } },
+        },
+      });
+      if (!user) {
+        res.status(404).json({ success: false, error: 'User not found.' });
+        return;
+      }
+      res.setHeader('Cache-Control', 'no-store').json({ success: true, data: user });
+    } catch {
+      res.status(500).json({ success: false, error: 'Could not export your Zenith data.' });
+    }
+  }
+
   public static async getProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.userId;
@@ -32,12 +60,12 @@ export class UserController {
       const bestScore = user.focusSessions.reduce((max, s) => Math.max(max, s.focusScore), 0);
       const longestSessionSeconds = user.focusSessions.reduce((max, s) => Math.max(max, s.focusedDuration), 0);
 
-      const { passwordHash: _, ...safeUser } = user;
-
       res.json({
         success: true,
         profile: {
-          ...safeUser,
+          id: user.id, name: user.name, username: user.username, email: user.email,
+          avatarUrl: user.avatarUrl, preferredActivity: user.preferredActivity, typicalDuration: user.typicalDuration,
+          settings: user.settings, userAchievements: user.userAchievements, createdAt: user.createdAt,
           currentStreak: streak,
           totalFocusedMinutes: Math.round(totalFocusedSeconds / 60),
           totalSessionsCount: user.focusSessions.length,

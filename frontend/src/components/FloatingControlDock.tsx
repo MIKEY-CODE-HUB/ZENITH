@@ -40,6 +40,8 @@ interface FloatingControlDockProps {
   distractedSeconds: number;
   focusScore: number;
   estimatedPoints: number;
+  voiceVolume: number;
+  onVoiceVolume: (value: number) => void;
   onEndSession: () => void;
   onOpenMusic: () => void;
 }
@@ -58,6 +60,8 @@ export function FloatingControlDock({
   distractedSeconds,
   focusScore,
   estimatedPoints,
+  voiceVolume,
+  onVoiceVolume,
   onEndSession,
   onOpenMusic,
 }: FloatingControlDockProps) {
@@ -221,6 +225,13 @@ export function FloatingControlDock({
                   />
                 </div>
               </div>
+              {isInteractionRoom && (
+                <label className="flex items-center justify-between gap-3">
+                  Room voice
+                  <input type="range" min="0" max="100" value={voiceVolume}
+                    onChange={event => onVoiceVolume(Number(event.target.value))} />
+                </label>
+              )}
               <button type="button" className="text-emerald-300 underline" onClick={() => { setActivePanel(null); onOpenMusic(); }}>Open music player</button>
             </div>
           )}

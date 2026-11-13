@@ -3,11 +3,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Socket } from 'socket.io-client';
 
+const stunServers: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+
 interface UseWebRTCProps {
   socket: Socket | null;
   roomId: string;
   userId: string;
   allowVoice?: boolean;
+  iceServers?: RTCIceServer[];
 }
 
 export function useWebRTC({
@@ -15,6 +18,7 @@ export function useWebRTC({
   roomId,
   userId,
   allowVoice = false,
+  iceServers,
 }: UseWebRTCProps) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
@@ -27,19 +31,6 @@ export function useWebRTC({
   const iceCandidateQueue = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-
-  // ICE Server configuration (Public STUN servers)
-  const rtcConfig: RTCConfiguration = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' },
-      { urls: 'stun:global.stun.twilio.com:3478' },
-    ],
-    iceCandidatePoolSize: 10,
-  };
 
   const capture = useRef<MediaStream | null>(null);
   const pendingCapture = useRef(new Set<'video' | 'audio'>());
@@ -120,7 +111,7 @@ export function useWebRTC({
   // device on later can then replace its sender track without another offer.
   const createPeerConnection = useCallback(
     (remoteSocketId: string, outgoing = false) => {
-      const pc = new RTCPeerConnection(rtcConfig);
+      const pc = new RTCPeerConnection({ iceServers: [...stunServers, ...(iceServers ?? [])] });
       if (outgoing) {
         pc.addTransceiver('video', { direction: 'sendrecv' });
         if (allowVoice) pc.addTransceiver('audio', { direction: 'sendrecv' });
@@ -144,8 +135,10 @@ export function useWebRTC({
       };
 
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        if (peerConnections.current.get(remoteSocketId) === pc &&
+            (pc.connectionState === 'failed' || pc.connectionState === 'closed')) {
           peerConnections.current.delete(remoteSocketId);
+          pc.close();
           iceCandidateQueue.current.delete(remoteSocketId);
           setRemoteStreams((prev) => {
             const updated = new Map(prev);
@@ -158,7 +151,7 @@ export function useWebRTC({
       peerConnections.current.set(remoteSocketId, pc);
       return pc;
     },
-    [socket, allowVoice, syncPeerTracks]
+    [socket, allowVoice, iceServers, syncPeerTracks]
   );
 
   // 5. Socket Signaling Listeners

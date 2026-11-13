@@ -5,6 +5,7 @@ import { authMiddleware, optionalAuthMiddleware } from '../middleware/authMiddle
 const router = Router();
 
 router.get('/', optionalAuthMiddleware, RoomController.getRooms);
+router.get('/:roomId/ice-servers', authMiddleware, RoomController.getIceServers);
 router.get('/:idOrCode', optionalAuthMiddleware, RoomController.getRoom);
 router.post('/', authMiddleware, RoomController.createRoom);
 router.post('/allocate', authMiddleware, RoomController.allocateRoom);

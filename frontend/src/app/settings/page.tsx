@@ -20,6 +20,26 @@ export default function SettingsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+
+  async function downloadData() {
+    setExporting(true);
+    setExportError('');
+    try {
+      const { data } = await api.exportAccountData();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const download = document.createElement('a');
+      download.href = url;
+      download.download = 'zenith-account-data.json';
+      download.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Could not export your data.');
+    } finally {
+      setExporting(false);
+    }
+  }
 
   useEffect(() => {
     if (user?.settings) {
@@ -254,6 +274,16 @@ export default function SettingsPage() {
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </form>
+        {user && (
+          <section className="space-y-3 rounded-xl border border-[rgb(var(--tint))]/10 bg-[rgb(var(--panel))] p-5">
+            <h2 className="text-sm font-semibold">Your data</h2>
+            <p className="text-sm text-[rgb(var(--ink-muted))]">Download your sessions, focus events, points, and preferences as JSON.</p>
+            <button type="button" disabled={exporting} className="rounded-lg border border-[rgb(var(--tint))]/20 px-3 py-2 text-sm" onClick={() => void downloadData()}>
+              {exporting ? 'Preparing download…' : 'Export account data'}
+            </button>
+            {exportError && <p role="alert" className="text-sm">{exportError}</p>}
+          </section>
+        )}
       </main>
     </div>
   );

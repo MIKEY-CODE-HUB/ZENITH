@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { test } from 'node:test';
 import { app } from '../src/server.js';
 import { prisma } from '../src/config/prisma.js';
@@ -38,6 +38,22 @@ test('private room invites authorize entry, can be rotated and revoked, and expi
     assert.notEqual((await prisma.roomInvite.findUniqueOrThrow({ where: { roomId: room.id } })).tokenHash, token);
     assert.equal((await request(guest, '/join', 'POST', { inviteToken: token })).status, 200);
     assert.equal((await request(guest)).status, 200);
+
+    process.env.TURN_URLS = 'turn:relay.example.test:3478';
+    process.env.TURN_SHARED_SECRET = 'local-test-secret';
+    try {
+      assert.equal((await request(outsider, '/ice-servers')).status, 403);
+      const config = await request(guest, '/ice-servers');
+      assert.equal(config.status, 200);
+      assert.equal(config.headers.get('cache-control'), 'no-store');
+      const { iceServers: [relay] } = await config.json();
+      assert.equal(relay.credential, createHmac('sha1', process.env.TURN_SHARED_SECRET).update(relay.username).digest('base64'));
+      assert.equal(relay.username.split(':')[1], guest.id);
+      assert.equal(relay.urls[0], 'turn:relay.example.test:3478');
+    } finally {
+      delete process.env.TURN_URLS;
+      delete process.env.TURN_SHARED_SECRET;
+    }
 
     const rotated = await request(owner, '/invite', 'POST');
     assert.equal(rotated.status, 200);

@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { PointService } from '../services/pointService.js';
 import { logger } from '../config/logger.js';
 
@@ -12,6 +12,34 @@ import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
 const hashInvite = (token: string) => createHash('sha256').update(token).digest('hex');
 
 export class RoomController {
+  public static async getIceServers(req: AuthenticatedRequest, res: Response): Promise<void> {
+    const { roomId } = req.params;
+    const userId = req.user!.userId;
+    try {
+      const member = await prisma.roomParticipant.findFirst({
+        where: { roomId, userId, status: 'ACTIVE', room: { status: 'ACTIVE' } },
+        select: { room: { select: { category: true, roomRestrictions: { where: { userId, expiresAt: { gt: new Date() } }, select: { id: true } } } } },
+      });
+      const paid = member?.room.category !== 'INTERACTION' || await prisma.interactionAuthorization.findFirst({
+        where: { userId, roomId, status: 'ACTIVE', expiresAt: { gt: new Date() } }, select: { id: true },
+      });
+      if (!member || member.room.roomRestrictions.length || !paid) {
+        res.status(403).json({ success: false, error: 'An active room admission is required.' });
+        return;
+      }
+      const urls = (process.env.TURN_URLS ?? '').split(',').map(url => url.trim()).filter(url => /^turns?:[^\s]+$/i.test(url));
+      const secret = process.env.TURN_SHARED_SECRET;
+      const username = `${Math.floor(Date.now() / 1000) + 5 * 60 * 60}:${userId}`;
+      const iceServers = urls.length && secret ? [{
+        urls, username, credential: createHmac('sha1', secret).update(username).digest('base64'),
+      }] : [];
+      res.setHeader('Cache-Control', 'no-store').json({ success: true, iceServers });
+    } catch (error) {
+      logger.error('room.ice_config_failed', { roomId, errorType: error instanceof Error ? error.name : 'unknown' });
+      res.status(500).json({ success: false, error: 'Could not load media relay settings.' });
+    }
+  }
+
   public static async manageInvite(req: AuthenticatedRequest, res: Response): Promise<void> {
     const { roomId } = req.params;
     const userId = req.user!.userId;
@@ -49,7 +77,7 @@ export class RoomController {
       const { activity, category, search } = req.query;
 
       const whereClause: any = {
-        isPrivate: false,
+        isPrivate: false, status: 'ACTIVE',
       };
 
       if (category && category !== 'All') {
@@ -75,14 +103,7 @@ export class RoomController {
           creator: {
             select: { id: true, name: true, username: true, avatarUrl: true },
           },
-          participants: {
-            where: { status: 'ACTIVE' },
-            include: {
-              user: {
-                select: { id: true, name: true, username: true, avatarUrl: true },
-              },
-            },
-          },
+          _count: { select: { participants: { where: { status: 'ACTIVE' } } } },
           focusSessions: {
             where: { status: 'COMPLETED' },
             select: { focusScore: true },
@@ -94,7 +115,7 @@ export class RoomController {
 
       const formattedRooms = rooms.map((room) => {
         const scores = room.focusSessions.map((s) => s.focusScore);
-        const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 85;
+        const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
 
         return {
           id: room.id,
@@ -112,8 +133,7 @@ export class RoomController {
           defaultCamera: room.defaultCamera,
           defaultMic: room.defaultMic,
           creator: room.creator,
-          activeParticipantsCount: room.participants.length,
-          participants: room.participants.map((p) => p.user),
+          activeParticipantsCount: room._count.participants,
           averageFocusScore: avgScore,
           createdAt: room.createdAt,
         };
@@ -326,8 +346,7 @@ export class RoomController {
           update: {
             status: 'ACTIVE',
             leftAt: null,
-            joinedAt: new Date(),
-            presenceExpiresAt: null,
+            ...(isAlreadyActive ? {} : { joinedAt: new Date(), presenceExpiresAt: null }),
           },
           create: {
             roomId,

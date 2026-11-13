@@ -21,6 +21,9 @@
 | `JWT_SECRET` | Yes | High-entropy signing secret (min 32 chars). Default placeholder is rejected at startup. |
 | `PORT` | No | Listening port (defaults to `5001`) |
 | `CLIENT_ORIGIN` | Yes | Allowed frontend origin for CORS (e.g. `https://zenith-dusky-theta.vercel.app`) |
+| `CLIENT_ORIGINS` | No | Comma-separated additional exact frontend origins for HTTP and Socket.IO |
+| `TURN_URLS` | For cross-network media | Comma-separated coturn `turn:` or `turns:` endpoints |
+| `TURN_SHARED_SECRET` | With TURN | coturn `static-auth-secret` for issuing expiring credentials to room members |
 | `GOOGLE_CLIENT_ID` | Yes | Google OAuth 2.0 Web Client ID for server-side token audience verification |
 | `GOOGLE_ONLY_AUTH` | No | Enforces Google-only sign-in (defaults to `true` when `NODE_ENV=production`) |
 
@@ -72,3 +75,5 @@ Verify static and dynamic routes compiled with exit code 0.
 5. Enter an Education focus room and confirm 10-seat limit.
 6. Enter an Interaction room and confirm 30% weekly XP deduction and 6-seat limit.
 7. Verify Chrome extension bundle installs cleanly in developer mode.
+8. Register the frontend origin in Google Cloud's Authorized JavaScript origins and include it in the backend's origin allowlist. Verify Google sign-in with a clean Chrome profile.
+9. Test video and voice with two accounts on separate networks. Turn the camera and microphone off, reconnect during the seat grace period, and check that a disconnected seat is released after it expires.

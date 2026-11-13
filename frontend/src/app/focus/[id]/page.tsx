@@ -57,6 +57,8 @@ export default function LiveRoomPage() {
   // Room & Session state
   const [room, setRoom] = useState<Room | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [iceServers, setIceServers] = useState<RTCIceServer[]>();
+  const [voiceVolume, setVoiceVolume] = useState(100);
   const [category, setCategory] = useState<ActivityCategory>('EDUCATION');
   const [activityName, setActivityName] = useState<string>('Deep Focus');
   const [plannedMinutes, setPlannedMinutes] = useState<number>(50);
@@ -136,10 +138,11 @@ export default function LiveRoomPage() {
     toggleCamera,
     toggleMic,
   } = useWebRTC({
-    socket: sessionId ? socket : null,
+    socket: sessionId && room ? socket : null,
     roomId: sessionId ? activeRoomId : '',
     userId: user?.id || 'guest',
     allowVoice: isInteractionRoom,
+    iceServers,
   });
 
   // Reset auto-hide idle timer on cursor movement
@@ -193,6 +196,7 @@ export default function LiveRoomPage() {
         if (cancelled) return;
         step = 'Join the room';
         if (currentRoom) await api.joinRoom(currentRoom.id);
+        const relay = currentRoom ? await api.getIceServers(currentRoom.id).catch(() => null) : null;
         if (cancelled) return;
         const reusable = stored?.status === 'ACTIVE' && (stored.roomId ?? null) === (currentRoom?.id ?? null);
         step = 'Start the focus session';
@@ -206,6 +210,7 @@ export default function LiveRoomPage() {
         if (cancelled) return;
         sessionStorage.setItem('active_session_id', session.id);
         setRoom(currentRoom);
+        setIceServers(relay?.iceServers);
         setSessionId(session.id);
         setCategory(session.category ?? 'EDUCATION');
         setActivityName(session.specificActivity || session.activityType);
@@ -213,7 +218,8 @@ export default function LiveRoomPage() {
         const end = Date.parse(session.startTime) + session.plannedDuration * 60_000;
         setDeadline(end);
         setRemainingSeconds(Math.max(0, Math.ceil((end - Date.now()) / 1000)));
-        if (session.atmosphere) setCurrentAtmosphere(getAtmosphereById(session.atmosphere));
+        const savedRoomTheme = sessionStorage.getItem(`zenith_room_theme_${session.id}`);
+        if (savedRoomTheme || session.atmosphere) setCurrentAtmosphere(getAtmosphereById(savedRoomTheme || session.atmosphere));
 
         if (session.protectionEnabled === false || (reusable && sessionStorage.getItem('active_session_protection') === 'false')) return;
         const blocker = await api.activateBlocker(session.id, 'STRICT').catch(() => null);
@@ -386,6 +392,8 @@ export default function LiveRoomPage() {
       window.postMessage({ type: 'ZENITH_ROOM_ENDED', focusSessionId: sessionId }, window.location.origin);
       sessionStorage.removeItem('active_session_id');
       sessionStorage.removeItem('active_session_protection');
+      sessionStorage.removeItem(`zenith_room_theme_${sessionId}`);
+      sessionStorage.removeItem(`zenith_tracking_${sessionId}`);
       router.push(`/focus/summary/${sessionId}`);
     } catch (err) {
       setFinishError(err instanceof Error ? err.message : 'Could not save your session. Try again.');
@@ -457,7 +465,7 @@ export default function LiveRoomPage() {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-black text-zinc-100 select-none">
+    <div className="relative h-dvh w-full overflow-hidden bg-black text-zinc-100">
       {/* ── 80-90% ATMOSPHERE & VISUAL ENVIRONMENT (THE HERO) ── */}
       <div
         className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out"
@@ -506,6 +514,8 @@ export default function LiveRoomPage() {
         <div className="text-3xl sm:text-5xl font-mono font-extralight tracking-widest text-white/90 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
           {formatSeconds(remainingSeconds)}
         </div>
+        <progress aria-label="Focus session progress" value={Math.max(0, plannedMinutes * 60 - remainingSeconds)}
+          max={Math.max(1, plannedMinutes * 60)} className="mt-2 h-1 w-24 accent-emerald-300 sm:w-32" />
       </div>
 
       {/* ── LAYER D: ADAPTIVE PARTICIPANT GALLERY (10 PEER LIVE MESH) ── */}
@@ -519,6 +529,7 @@ export default function LiveRoomPage() {
         participants={participants}
         remoteStreams={remoteStreams}
         isInteractionRoom={isInteractionRoom}
+        voiceVolume={voiceVolume}
         onReportPeer={(peer) => setReportingPeer(peer)}
       />
 
@@ -527,8 +538,7 @@ export default function LiveRoomPage() {
         currentAtmosphere={currentAtmosphere}
         onSelectAtmosphere={(atm) => {
           setCurrentAtmosphere(atm);
-          sessionStorage.setItem('active_session_atmosphere', atm.id);
-          api.updateSettings({ customThemeUrl: atm.bgImageUrl }).catch(() => {});
+          sessionStorage.setItem(`zenith_room_theme_${sessionId}`, atm.id);
         }}
         isCameraOn={isCameraOn}
         isMicOn={isMicOn}
@@ -543,6 +553,8 @@ export default function LiveRoomPage() {
         estimatedPoints={estimatedPoints}
         onEndSession={() => setShowExitConfirm(true)}
         onOpenMusic={() => setIsMusicModalOpen(true)}
+        voiceVolume={voiceVolume}
+        onVoiceVolume={setVoiceVolume}
       />
 
       {/* ── DISTRACTION WARNING OVERLAY ── */}
@@ -590,7 +602,7 @@ export default function LiveRoomPage() {
         selectedId={currentAtmosphere.id}
         onSelectAtmosphere={(atm) => {
           setCurrentAtmosphere(atm);
-          sessionStorage.setItem('active_session_atmosphere', atm.id);
+          sessionStorage.setItem(`zenith_room_theme_${sessionId}`, atm.id);
         }}
       />
 
