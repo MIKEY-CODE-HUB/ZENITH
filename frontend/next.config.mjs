@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  async headers() {
+    return [{
+      source: '/login',
+      headers: [{ key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' }],
+    }];
+  },
   async rewrites() {
     // When running on Vercel or cloud deployments, bypass local loopback rewrites
     // so requests to /api/:path* are served directly by Next.js App Router API routes

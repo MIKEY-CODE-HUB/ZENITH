@@ -54,6 +54,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshUser();
   }, []);
 
+  const appearanceMode = user?.settings?.appearanceMode === 'light' ? 'light' : 'dark';
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', appearanceMode === 'dark');
+    document.documentElement.dataset.appearance = appearanceMode;
+  }, [appearanceMode]);
+
   const login = async (loginIdentifier: string, password: string) => {
     const res = await api.login({ loginIdentifier, password });
     if (res && res.success && res.token) {

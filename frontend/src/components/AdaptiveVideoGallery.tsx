@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ParticipantPresence } from '@/lib/types';
 import { CameraOff, Mic, MicOff, Maximize2, Minimize2, User as UserIcon, Flag } from 'lucide-react';
 
@@ -8,7 +8,7 @@ export type VideoLayoutMode = 'footer' | 'header' | 'middle' | 'scattered';
 
 interface AdaptiveVideoGalleryProps {
   layoutMode: VideoLayoutMode;
-  localVideoRef: React.RefObject<HTMLVideoElement>;
+  localStream: MediaStream | null;
   isCameraOn: boolean;
   isMicOn: boolean;
   isLocalSpeaking: boolean;
@@ -35,7 +35,7 @@ const SCATTERED_COORDINATES = [
 
 export function AdaptiveVideoGallery({
   layoutMode,
-  localVideoRef,
+  localStream,
   isCameraOn,
   isMicOn,
   isLocalSpeaking,
@@ -46,6 +46,11 @@ export function AdaptiveVideoGallery({
   onReportPeer,
 }: AdaptiveVideoGalleryProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+
+  const attachLocalVideo = useCallback((video: HTMLVideoElement | null) => {
+    if (video) video.srcObject = localStream;
+  }, [localStream]);
+  const hasLocalVideo = isCameraOn && Boolean(localStream?.getVideoTracks().length);
 
   // Combine local user and remote peers up to 10
   const remotePeers = participants.filter((p) => p.userId !== user?.id);
@@ -66,9 +71,9 @@ export function AdaptiveVideoGallery({
           : 'border-white/15 bg-black/45'
       }`}
     >
-      {isCameraOn ? (
+      {hasLocalVideo ? (
         <video
-          ref={localVideoRef}
+          ref={attachLocalVideo}
           autoPlay
           playsInline
           muted
@@ -83,7 +88,7 @@ export function AdaptiveVideoGallery({
           />
           <div className="flex items-center gap-1 text-[10px] text-zinc-400">
             <CameraOff className="h-3 w-3" />
-            <span className="hidden sm:inline">Camera Off</span>
+            <span className="hidden sm:inline">{isCameraOn ? "Starting camera…" : "Camera off"}</span>
           </div>
         </div>
       )}

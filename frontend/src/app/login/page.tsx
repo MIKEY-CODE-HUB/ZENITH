@@ -7,7 +7,7 @@ import { Shield, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 type GoogleIdentity = {
-  initialize(config: { client_id: string; callback: (response: { credential?: string }) => void }): void;
+  initialize(config: { client_id: string; use_fedcm_for_button: boolean; callback: (response: { credential?: string }) => void }): void;
   renderButton(container: HTMLElement, options: { theme: string; size: string }): void;
 };
 
@@ -29,6 +29,7 @@ export default function LoginPage() {
 
     identity.initialize({
       client_id: googleClientId,
+      use_fedcm_for_button: true,
       callback: async ({ credential }) => {
         if (!credential) {
           setError('Google did not return a credential. Try signing in again.');

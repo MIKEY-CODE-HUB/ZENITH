@@ -128,7 +128,6 @@ export default function LiveRoomPage() {
   const {
     localStream,
     remoteStreams,
-    localVideoRef,
     isCameraOn,
     isMicOn,
     isSpeaking: isLocalSpeaking,
@@ -494,7 +493,7 @@ export default function LiveRoomPage() {
       {/* ── LAYER D: ADAPTIVE PARTICIPANT GALLERY (10 PEER LIVE MESH) ── */}
       <AdaptiveVideoGallery
         layoutMode={videoLayout}
-        localVideoRef={localVideoRef}
+        localStream={localStream}
         isCameraOn={isCameraOn}
         isMicOn={isMicOn}
         isLocalSpeaking={isLocalSpeaking}
