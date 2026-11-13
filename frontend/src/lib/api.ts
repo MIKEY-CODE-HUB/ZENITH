@@ -17,6 +17,13 @@ export class ApiError extends Error {
   constructor(message: string, public readonly status: number) { super(message); }
 }
 
+export class ApiConnectionError extends Error {
+  constructor() {
+    super('Could not connect to Zenith. Check your connection and try again.');
+    this.name = 'ApiConnectionError';
+  }
+}
+
 class ApiClient {
   private getToken(): string | null {
     if (typeof window === 'undefined') return null;
@@ -47,10 +54,16 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${baseUrl}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
+      throw new ApiConnectionError();
+    }
 
     const contentType = response.headers.get('content-type') || '';
     let data: any;
