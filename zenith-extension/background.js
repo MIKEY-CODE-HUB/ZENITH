@@ -59,12 +59,6 @@ const trustedOrigins = new Set([
   'http://127.0.0.1:3000',
 ]);
 
-function isTrustedOrigin(origin) {
-  if (!origin) return false;
-  if (trustedOrigins.has(origin)) return true;
-  if (/^https:\/\/zenith-[a-z0-9-]+-mikey-sketch-hubs-projects\.vercel\.app$/.test(origin)) return true;
-  return false;
-}
 const expiryAlarm = 'zenith-shield-expiry';
 let pendingChange = Promise.resolve();
 
@@ -140,7 +134,7 @@ async function enforceForeground(tabId, url) {
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   const senderUrl = parseUrl(sender.url);
-  if (!senderUrl || !isTrustedOrigin(senderUrl.origin) || !sender.tab?.id) return false;
+  if (!senderUrl || !trustedOrigins.has(senderUrl.origin) || !sender.tab?.id) return false;
 
   serialize(async () => {
     const current = await getSession();

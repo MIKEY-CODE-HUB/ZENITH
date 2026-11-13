@@ -5,14 +5,8 @@ const trustedOrigins = new Set([
   'http://127.0.0.1:3000',
 ]);
 
-function isTrustedOrigin(origin) {
-  if (!origin) return false;
-  if (trustedOrigins.has(origin)) return true;
-  if (/^https:\/\/zenith-[a-z0-9-]+-mikey-sketch-hubs-projects\.vercel\.app$/.test(origin)) return true;
-  return false;
-}
 
-if (isTrustedOrigin(location.origin)) {
+if (trustedOrigins.has(location.origin)) {
   window.addEventListener('message', async (event) => {
     if (event.source !== window || event.origin !== location.origin) return;
     const message = event.data;
