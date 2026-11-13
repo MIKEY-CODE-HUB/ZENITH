@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ActivityCategory, Room } from '@/lib/types';
+import { ActivityCategory, FocusGoal, Room } from '@/lib/types';
 import { ATMOSPHERES } from '@/lib/atmospheres';
 import { api } from '@/lib/api';
 import {
@@ -25,9 +25,10 @@ interface StartSessionModalProps {
   isOpen: boolean;
   onClose: () => void;
   availableRooms?: Room[];
+  goal?: FocusGoal | null;
 }
 
-export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: StartSessionModalProps) {
+export function StartSessionModal({ isOpen, onClose, availableRooms = [], goal }: StartSessionModalProps) {
   const router = useRouter();
 
   // Categories & their associated activities
@@ -82,7 +83,7 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
   const [step, setStep] = useState<number>(1);
   const [selectedCategory, setSelectedCategory] = useState<ActivityCategory>('EDUCATION');
   const [selectedActivity, setSelectedActivity] = useState<string>('Coding');
-  const [task, setTask] = useState('');
+  const [task, setTask] = useState(goal?.title ?? '');
   const [entryMode, setEntryMode] = useState<'solo' | 'match' | 'room'>('solo');
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
@@ -189,6 +190,7 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
         atmosphere: selectedAtmosphere,
         plannedDuration: durationMinutes,
         protectionEnabled,
+        goalId: goal?.id,
       });
 
       if (res.success && res.session) {

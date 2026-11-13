@@ -14,8 +14,8 @@ test('resumes and discards owned sessions and exports only the signed-in account
     await once(server, 'listening');
     const address = server.address();
     assert(address && typeof address !== 'string');
-    const request = (user: typeof owner, path: string, body?: object) => fetch(`http://127.0.0.1:${address.port}/api${path}`, {
-      method: body ? 'POST' : 'GET',
+    const request = (user: typeof owner, path: string, body?: object, method = body ? 'POST' : 'GET') => fetch(`http://127.0.0.1:${address.port}/api${path}`, {
+      method,
       headers: {
         authorization: `Bearer ${generateToken({ userId: user.id, username: user.username })}`,
         'content-type': 'application/json',
@@ -47,15 +47,24 @@ test('resumes and discards owned sessions and exports only the signed-in account
     assert.equal('resetToken' in data, false);
     assert.equal('passwordHash' in data, false);
 
-    const next = await request(owner, '/sessions/start', { plannedDuration: 1, protectionEnabled: false });
+    const created = await request(owner, '/goals', { title: 'Practice DSA', targetMinutes: 60, dueDate: '2026-12-01' });
+    assert.equal(created.status, 201);
+    const { goal } = await created.json();
+    assert.deepEqual((await (await request(stranger, '/goals')).json()).goals, []);
+    assert.equal((await request(stranger, `/goals/${goal.id}`, { completed: true }, 'PATCH')).status, 404);
+    assert.equal((await request(stranger, '/sessions/start', { goalId: goal.id })).status, 404);
+    const next = await request(owner, '/sessions/start', { goalId: goal.id, plannedDuration: 5, protectionEnabled: false });
     const { session: nextSession } = await next.json();
-    await prisma.focusSession.update({ where: { id: nextSession.id }, data: { startTime: new Date(Date.now() - 30_000) } });
-    const finished = await request(owner, `/sessions/${nextSession.id}/end`, { focusedDuration: 20 });
+    await prisma.focusSession.update({ where: { id: nextSession.id }, data: { startTime: new Date(Date.now() - 70_000) } });
+    const finished = await request(owner, `/sessions/${nextSession.id}/end`, { focusedDuration: 60 });
     assert.equal(finished.status, 200);
     const saved = await request(owner, `/sessions/${nextSession.id}`);
     const summary = await saved.json();
     assert.equal(summary.scoreBreakdown.version, 1);
     assert.equal(summary.scoreBreakdown.finalScore, summary.session.focusScore);
+    assert.equal((await (await request(owner, '/goals')).json()).goals[0].focusedMinutes, 1);
+    assert.equal((await request(owner, `/goals/${goal.id}`, { completed: true }, 'PATCH')).status, 200);
+    assert.ok((await (await request(owner, '/goals')).json()).goals[0].completedAt);
   } finally {
     await new Promise<void>(resolve => server.close(() => resolve()));
     await prisma.user.deleteMany({ where: { id: { in: [owner.id, stranger.id] } } });

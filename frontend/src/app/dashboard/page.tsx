@@ -6,7 +6,8 @@ import { useAmbient } from '@/contexts/AmbientContext';
 import { api } from '@/lib/api';
 import { Sidebar } from '@/components/Sidebar';
 import { StartSessionModal } from '@/components/StartSessionModal';
-import { Room, FocusSession, DashboardStats } from '@/lib/types';
+import { FocusGoals } from '@/components/FocusGoals';
+import { Room, FocusGoal, FocusSession, DashboardStats } from '@/lib/types';
 import { formatMinutesHuman, formatDate } from '@/lib/utils';
 import {
   GraduationCap,
@@ -42,6 +43,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [showStartModal, setShowStartModal] = useState<boolean>(false);
+  const [selectedGoal, setSelectedGoal] = useState<FocusGoal | null>(null);
   const [activeSession, setActiveSession] = useState<FocusSession | null>(null);
 
   useEffect(() => {
@@ -201,6 +203,15 @@ export default function DashboardPage() {
           </div>
           {activeSession && <p className="relative mt-4 text-sm text-zinc-200">In progress · {activeSession.specificActivity || activeSession.activityType}</p>}
         </div>
+
+        <FocusGoals onStart={goal => {
+          if (activeSession) {
+            router.push(`/focus/${activeSession.roomId ?? activeSession.id}`);
+            return;
+          }
+          setSelectedGoal(goal);
+          setShowStartModal(true);
+        }} />
 
         {/* Weekly Progress & Verified Points Ledger */}
         <div className="p-6 sm:p-7 rounded-3xl bg-[#10121a] border border-white/[0.08] shadow-xl space-y-4">
@@ -384,7 +395,10 @@ export default function DashboardPage() {
 
       {/* Start Session Modal */}
       {showStartModal && (
-        <StartSessionModal availableRooms={rooms} isOpen={showStartModal} onClose={() => setShowStartModal(false)} />
+        <StartSessionModal availableRooms={rooms} isOpen={showStartModal} goal={selectedGoal} onClose={() => {
+          setSelectedGoal(null);
+          setShowStartModal(false);
+        }} />
       )}
     </div>
   );

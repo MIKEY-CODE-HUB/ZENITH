@@ -1,4 +1,4 @@
-import { BlockedResource, BlockerStatistics, FocusEvent, FocusSession, ScoreBreakdown, User, Room } from './types';
+import { BlockedResource, BlockerStatistics, FocusEvent, FocusGoal, FocusSession, ScoreBreakdown, User, Room } from './types';
 
 const getApiBaseUrl = () => {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -272,6 +272,18 @@ class ApiClient {
   }
 
   // Sessions Endpoints
+  async getFocusGoals() {
+    return this.request<{ success: boolean; goals: FocusGoal[] }>('/goals');
+  }
+
+  async createFocusGoal(goal: { title: string; outcome: string; notes: string; targetMinutes: number; dueDate: string }) {
+    return this.request<{ success: boolean; goal: FocusGoal }>('/goals', { method: 'POST', body: JSON.stringify(goal) });
+  }
+
+  async completeFocusGoal(id: string, completed: boolean) {
+    return this.request<{ success: boolean }>(`/goals/${id}`, { method: 'PATCH', body: JSON.stringify({ completed }) });
+  }
+
   async startSession(body: {
     roomId?: string | null;
     category?: string;
@@ -280,6 +292,7 @@ class ApiClient {
     atmosphere?: string;
     plannedDuration: number;
     protectionEnabled?: boolean;
+    goalId?: string;
   }) {
     return this.request<{ success: boolean; session: any }>('/sessions/start', {
       method: 'POST',

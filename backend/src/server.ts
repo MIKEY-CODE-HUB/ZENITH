@@ -19,6 +19,7 @@ import blockerRoutes from './routes/blockerRoutes.js';
 import interactionRoutes from './routes/interactionRoutes.js';
 import pointRoutes from './routes/pointRoutes.js';
 import moderationRoutes from './routes/moderationRoutes.js';
+import focusGoalRoutes from './routes/focusGoalRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeSocket } from './sockets/socketManager.js';
 import { removeExpiredPresence } from './sockets/roomSocketHandlers.js';
@@ -82,6 +83,7 @@ app.use('/api/blocker', blockerRoutes);
 app.use('/api/interaction', interactionRoutes);
 app.use('/api/points', pointRoutes);
 app.use('/api/moderation', moderationRoutes);
+app.use('/api/goals', focusGoalRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

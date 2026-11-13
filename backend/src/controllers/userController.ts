@@ -17,7 +17,7 @@ export class UserController {
           },
           pointTransactions: { orderBy: { createdAt: 'desc' } },
           userAchievements: { include: { achievement: true } },
-          blockedResources: true, activityBlockLists: true, blockerSessions: true,
+          blockedResources: true, activityBlockLists: true, blockerSessions: true, focusGoals: true,
           participants: { select: { roomId: true, joinedAt: true, leftAt: true, status: true, role: true } },
           createdRooms: { select: { id: true, name: true, category: true, isPrivate: true, createdAt: true } },
         },

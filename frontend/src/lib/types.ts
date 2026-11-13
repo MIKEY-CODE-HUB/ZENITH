@@ -156,6 +156,17 @@ export interface BlockerSession {
   status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 }
 
+export interface FocusGoal {
+  id: string;
+  title: string;
+  outcome: string | null;
+  notes: string | null;
+  targetMinutes: number;
+  focusedMinutes: number;
+  dueDate: string | null;
+  completedAt: string | null;
+}
+
 export interface FocusSession {
   id: string;
   userId: string;

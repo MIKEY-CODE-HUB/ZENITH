@@ -19,6 +19,7 @@ export class SessionController {
         atmosphere = 'Rainy Window',
         plannedDuration = 50,
         protectionEnabled = true,
+        goalId,
       } = req.body;
 
       if (typeof protectionEnabled !== 'boolean') {
@@ -48,6 +49,10 @@ export class SessionController {
         });
         if (active) return active;
 
+        if (goalId && (typeof goalId !== 'string' || !await tx.focusGoal.findFirst({
+          where: { id: goalId, userId, completedAt: null }, select: { id: true },
+        }))) throw new Error('GOAL_UNAVAILABLE');
+
         // Abandon any previous orphan active session
         await tx.focusSession.updateMany({
           where: { userId, status: 'ACTIVE' },
@@ -68,6 +73,7 @@ export class SessionController {
             atmosphere,
             plannedDuration: duration,
             protectionEnabled,
+            goalId: goalId || null,
             status: 'ACTIVE',
             startTime: new Date(),
           },
@@ -110,6 +116,10 @@ export class SessionController {
       }
       res.status(201).json({ success: true, session });
     } catch (error: any) {
+      if (error.message === 'GOAL_UNAVAILABLE') {
+        res.status(404).json({ success: false, error: 'That focus goal is unavailable.' });
+        return;
+      }
       console.error('Error starting session:', error);
       res.status(500).json({ success: false, error: error.message || 'Failed to start session' });
     }
