@@ -87,7 +87,7 @@ app.use(errorHandler);
 
 const io = initializeSocket(server);
 
-let reconciliation: cron.ScheduledTask | null = null;
+let reconciliation: ReturnType<typeof cron.schedule> | null = null;
 if (process.env.NODE_ENV !== 'test') {
   reconciliation = cron.schedule('* * * * *', async () => {
     try {

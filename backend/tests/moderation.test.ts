@@ -499,9 +499,16 @@ describe('⚖️ CHUNK 11: Community-Based Misbehaviour Reporting & Auto-Kick En
         },
       });
 
-      // getActiveBallotForRoom should auto-close expired ballot
-      const activeBallot = await ModerationService.getActiveBallotForRoom(regRoomId);
-      assert.strictEqual(activeBallot, null, 'Expired ballot should not be returned as active');
+      // A vote arriving before cleanup must close the ballot and reject the vote.
+      await assert.rejects(
+        ModerationService.castVote({
+          incidentId: expiredIncident.id,
+          voterId: regActiveVoters[0],
+          decision: 'YES',
+        }),
+        /BALLOT_EXPIRED/
+      );
+      assert.equal(await prisma.moderationVote.count({ where: { incidentId: expiredIncident.id } }), 0);
 
       // Check DB: incident is now INCONCLUSIVE
       const refreshed = await prisma.moderationIncident.findUnique({
@@ -511,17 +518,8 @@ describe('⚖️ CHUNK 11: Community-Based Misbehaviour Reporting & Auto-Kick En
       assert.ok(refreshed?.resolvedAt, 'ResolvedAt timestamp should be set');
       assert.ok(refreshed?.resolutionReason?.includes('expired'), 'Resolution reason should indicate expiration');
 
-      // Voting on expired ballot must be rejected
-      await assert.rejects(
-        async () => {
-          await ModerationService.castVote({
-            incidentId: expiredIncident.id,
-            voterId: regActiveVoters[0],
-            decision: 'YES',
-          });
-        },
-        (err: any) => err.message.includes('BALLOT_CLOSED') || err.message.includes('BALLOT_EXPIRED')
-      );
+      const activeBallot = await ModerationService.getActiveBallotForRoom(regRoomId);
+      assert.equal(activeBallot, null);
 
       // Creating a new report for the same accused should SUCCEED now (not blocked by expired ballot)
       const newIncident = await ModerationService.createIncident({

@@ -130,7 +130,7 @@ export class ModerationService {
   public static async castVote(input: CastVoteInput): Promise<ModerationResolution> {
     const { incidentId, voterId, decision } = input;
 
-    return await prisma.$transaction(async (tx) => {
+    const resolution = await prisma.$transaction(async (tx) => {
       // 1. Acquire row-level lock on incident in PostgreSQL to serialize concurrent votes
       await tx.$queryRaw`SELECT id FROM moderation_incidents WHERE id = ${incidentId} FOR UPDATE`;
 
@@ -148,7 +148,7 @@ export class ModerationService {
       }
 
       // Check voting expiration
-      if (new Date() > incident.votingExpiresAt) {
+      if (new Date() >= incident.votingExpiresAt) {
         await tx.moderationIncident.update({
           where: { id: incidentId },
           data: {
@@ -157,7 +157,7 @@ export class ModerationService {
             resolutionReason: 'Voting window expired without satisfying quorum or majority threshold.',
           },
         });
-        throw new Error('BALLOT_EXPIRED: The voting window has expired.');
+        return null;
       }
 
       // 2. Validate voter eligibility
@@ -265,6 +265,8 @@ export class ModerationService {
         reason: incident.reason,
       };
     });
+    if (!resolution) throw new Error('BALLOT_EXPIRED: The voting window has expired.');
+    return resolution;
   }
 
   /**
