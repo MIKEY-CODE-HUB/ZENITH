@@ -16,12 +16,31 @@ export interface ParticipantPresence {
   cameraOn: boolean;
   micOn: boolean;
   speaking?: boolean;
+  reconnecting?: boolean;
   joinedAt: string;
   isSimulated?: boolean;
 }
 
 // In-memory active room presence map: roomId -> Map<socketId, ParticipantPresence>
 const activeRooms = new Map<string, Map<string, ParticipantPresence>>();
+const presenceLeaseMs = 90_000;
+
+function publishRoster(io: SocketIOServer, roomId: string, room: Map<string, ParticipantPresence>) {
+  io.to(roomId).emit('room_presence_list', {
+    roomId, participants: [...room.values()], totalCount: room.size,
+  });
+}
+
+export function removeExpiredPresence(io: SocketIOServer, members: { roomId: string; userId: string }[]) {
+  for (const { roomId, userId } of members) {
+    const room = activeRooms.get(roomId);
+    const entry = room && [...room.values()].find(participant => participant.userId === userId && participant.reconnecting);
+    if (!room || !entry) continue;
+    room.delete(entry.socketId);
+    if (!room.size) activeRooms.delete(roomId);
+    publishRoster(io, roomId, room);
+  }
+}
 
 // In-memory fast cache for room restrictions: "userId:roomId" -> expiresAt timestamp
 const localRestrictions = new Map<string, number>();
@@ -31,7 +50,22 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
   let joinSequence = 0;
   const presenceIn = (roomId: string) => activeRooms.get(roomId)?.get(socket.id);
   const canSignal = (toSocketId: string) => [...socket.rooms].some((roomId) =>
-    presenceIn(roomId) && activeRooms.get(roomId)?.has(toSocketId));
+    presenceIn(roomId) && activeRooms.get(roomId)?.get(toSocketId)?.reconnecting === false);
+  const refreshLease = async (roomId: string) => prisma.roomParticipant.updateMany({
+    where: { roomId, userId, status: 'ACTIVE' },
+    data: { presenceExpiresAt: new Date(Date.now() + presenceLeaseMs) },
+  });
+  const heartbeat = setInterval(() => {
+    for (const roomId of socket.rooms) {
+      if (!presenceIn(roomId)) continue;
+      void refreshLease(roomId).then(result => {
+        if (!result.count) handleUserLeave(io, socket, roomId);
+      }).catch(error => {
+        logger.warn('socket.presence_heartbeat_failed', { roomId, userId, errorType: error?.name });
+      });
+    }
+  }, 20_000);
+  heartbeat.unref();
 
   socket.on('join_room', async (data: { roomId: string; cameraOn?: boolean; micOn?: boolean }) => {
     if (!data || typeof data.roomId !== 'string') return;
@@ -58,6 +92,8 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
       for (const joinedRoom of socket.rooms) {
         if (joinedRoom !== roomId && joinedRoom !== socket.id) handleUserLeave(io, socket, joinedRoom);
       }
+      const lease = await refreshLease(roomId);
+      if (!lease.count || !socket.connected || sequence !== joinSequence) return;
       const roomParticipants = activeRooms.get(roomId) ?? new Map<string, ParticipantPresence>();
       const previous = [...roomParticipants.values()].find((entry) => entry.userId === userId);
       const capacity = Math.min(membership.room.maxParticipants, membership.room.category === 'INTERACTION' ? 6 : 10);
@@ -76,7 +112,7 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
         avatarUrl: membership.user.avatarUrl || '', activityType: membership.room.activityType,
         category: membership.room.category, focusStatus: 'FOCUSED', focusStreakMinutes: 0,
         cameraOn: Boolean(data.cameraOn), micOn: membership.room.category === 'INTERACTION' && Boolean(data.micOn),
-        speaking: false, joinedAt: new Date().toISOString(),
+        speaking: false, reconnecting: false, joinedAt: previous?.joinedAt ?? new Date().toISOString(),
       };
       roomParticipants.set(socket.id, participant);
       await socket.join(roomId);
@@ -85,9 +121,7 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
         return;
       }
       logger.info('socket.room_joined', { roomId, userId, count: roomParticipants.size });
-      io.to(roomId).emit('room_presence_list', {
-        roomId, participants: [...roomParticipants.values()], totalCount: roomParticipants.size,
-      });
+      publishRoster(io, roomId, roomParticipants);
       socket.to(roomId).emit('user_joined', { participant });
     } catch (err) {
       logger.warn('socket.room_join_failed', { roomId, userId, errorType: err instanceof Error ? err.name : 'UnknownError' });
@@ -345,11 +379,18 @@ export function setupRoomHandlers(io: SocketIOServer, socket: Socket) {
 
   // Disconnect
   socket.on('disconnect', () => {
+    clearInterval(heartbeat);
     joinSequence++;
     for (const [roomId, participants] of activeRooms.entries()) {
-      if (participants.has(socket.id)) {
-        handleUserLeave(io, socket, roomId);
-      }
+      const participant = participants.get(socket.id);
+      if (!participant) continue;
+      participant.reconnecting = true;
+      participant.focusStatus = 'OFFLINE';
+      participant.cameraOn = false;
+      participant.micOn = false;
+      participant.speaking = false;
+      publishRoster(io, roomId, participants);
+      io.to(roomId).emit('user_left', { socketId: socket.id, userId });
     }
   });
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ZENITH_TRACKS, musicPlayer, Track } from '@/lib/musicEngine';
-import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Music, X, ExternalLink, Radio } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Music, X, Radio } from 'lucide-react';
 
 interface MusicPlayerModalProps {
   isOpen: boolean;
@@ -11,6 +11,9 @@ interface MusicPlayerModalProps {
 
 export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
   const [activeTab, setActiveTab] = useState<'zenith' | 'spotify'>('zenith');
+  const [spotifyLink, setSpotifyLink] = useState('');
+  const [spotifyEmbed, setSpotifyEmbed] = useState('');
+  const [spotifyError, setSpotifyError] = useState('');
   const [currentTrack, setCurrentTrack] = useState<Track>(musicPlayer.getCurrentTrack());
   const [isPlaying, setIsPlaying] = useState<boolean>(musicPlayer.isPlaying());
   const [volume, setVolume] = useState<number>(musicPlayer.getVolume());
@@ -24,11 +27,22 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
     return unsub;
   }, []);
 
-  if (!isOpen) return null;
+  function loadSpotify(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      const link = new URL(spotifyLink.trim());
+      const match = /^\/(?:intl-[a-z-]+\/)?(?:embed\/)?(track|playlist|album)\/([a-z0-9]{22})\/?$/i.exec(link.pathname);
+      if (link.origin !== 'https://open.spotify.com' || link.username || link.password || !match) throw new Error();
+      setSpotifyEmbed(`https://open.spotify.com/embed/${match[1]}/${match[2]}`);
+      setSpotifyError('');
+    } catch {
+      setSpotifyError('Paste a Spotify track, album, or playlist link.');
+    }
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-      <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0d0f14]/95 p-6 shadow-2xl text-zinc-100 space-y-6">
+    <div hidden={!isOpen} className={isOpen ? "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" : "hidden"}>
+      <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0d0f14]/95 p-6 shadow-2xl text-zinc-100 space-y-6 max-h-[90dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
@@ -37,7 +51,7 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
             </div>
             <div>
               <h2 className="text-base font-semibold text-white tracking-tight">Audio & Focus Music</h2>
-              <p className="text-xs text-zinc-400">Atmospheric focus audio and provider handoff</p>
+              <p className="text-xs text-zinc-400">Play ambience or bring a Spotify playlist</p>
             </div>
           </div>
           <button
@@ -147,30 +161,22 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
             </div>
           </div>
         ) : (
-          <div className="space-y-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-[#1DB954]/20 flex items-center justify-center text-[#1DB954]">
-                <Music className="h-5 w-5" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-white">Spotify Official Integration</h4>
-                <p className="text-zinc-400 text-[11px]">Developer Policy Compliant Playback Handoff</p>
-              </div>
+          <form className="space-y-2" onSubmit={loadSpotify}>
+            <label htmlFor="spotify-link" className="text-sm">Spotify track, album, or playlist link</label>
+            <div className="flex gap-2">
+              <input id="spotify-link" type="url" required value={spotifyLink} onChange={event => setSpotifyLink(event.target.value)}
+                placeholder="https://open.spotify.com/…" className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm" />
+              <button className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white">Load</button>
             </div>
-
-            <p className="text-zinc-400 leading-relaxed">
-              In accordance with official Spotify Developer Terms, playback control requires a Spotify Premium account. You can connect your account to control your active Spotify playlists directly from Zenith without leaving your focus session.
-            </p>
-
-            <a
-              href="https://open.spotify.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg bg-[#1DB954] text-white font-semibold hover:bg-[#1aa34a] transition-colors"
-            >
-              <span>Launch Spotify Web Player</span>
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
+            {spotifyError && <p role="alert" className="text-sm text-rose-300">{spotifyError}</p>}
+          </form>
+        )}
+        {spotifyEmbed && (
+          <div hidden={activeTab !== 'spotify'}>
+            <iframe src={spotifyEmbed} title="Spotify player" width="100%" height="152"
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              className="rounded-xl" />
+            <button type="button" className="mt-2 text-xs text-zinc-300 underline" onClick={() => setSpotifyEmbed('')}>Remove player</button>
           </div>
         )}
 

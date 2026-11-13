@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ZENITH Focus & Distraction Freeze Guardian",
-  "version": "10.1.1",
+  "version": "10.1.2",
   "description": "Locks all external websites with the Focus Broken UI and forces you back to your ZENITH focus room.",
   "permissions": [
     "tabs",
@@ -21,6 +21,7 @@
       "matches": [
         "https://zenith-dusky-theta.vercel.app/*",
         "https://zenith-git-fix-zenith-room-re-944e0c-mikey-sketch-hubs-projects.vercel.app/*",
+        "https://zenith-git-fix-zenith-launch-6c62e3-mikey-sketch-hubs-projects.vercel.app/*",
         "http://localhost/*",
         "http://127.0.0.1/*"
       ],

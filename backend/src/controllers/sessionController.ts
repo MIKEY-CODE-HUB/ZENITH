@@ -5,6 +5,8 @@ import { FocusScoringService } from '../services/focusScoringService.js';
 import { StreakAchievementService } from '../services/streakAchievementService.js';
 import { PointService } from '../services/pointService.js';
 
+const trackedEventTypes = new Set(['TAB_SWITCH', 'IDLE', 'FOCUSED', 'WINDOW_FOCUS', 'WARNING', 'BLOCK_ATTEMPT']);
+
 export class SessionController {
   public static async startSession(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
@@ -230,6 +232,22 @@ export class SessionController {
           data: { status: 'COMPLETED', endedAt: new Date() },
         });
 
+        if (Array.isArray(req.body?.events)) {
+          const end = session.startTime.getTime() + (elapsed + 1) * 1000;
+          const events = req.body.events.slice(0, 1000).flatMap((event: unknown) => {
+            if (!event || typeof event !== 'object' || !('eventType' in event) ||
+                typeof event.eventType !== 'string' || !trackedEventTypes.has(event.eventType) ||
+                !('startTime' in event) || typeof event.startTime !== 'string') return [];
+            const time = Date.parse(event.startTime);
+            if (!Number.isFinite(time) || time < session.startTime.getTime() || time > end) return [];
+            return [{
+              sessionId, userId, eventType: event.eventType, startTime: new Date(time),
+              metadata: 'metadata' in event && typeof event.metadata === 'string' ? event.metadata.slice(0, 400) : null,
+            }];
+          });
+          if (events.length) await tx.focusEvent.createMany({ data: events });
+        }
+
         // Log session end event
         await tx.focusEvent.create({
           data: {
@@ -297,6 +315,18 @@ export class SessionController {
     } catch (error: any) {
       console.error('Error ending session:', error);
       res.status(500).json({ success: false, error: error.message || 'Failed to complete session' });
+    }
+  }
+
+  public static async getActiveSession(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const session = await prisma.focusSession.findFirst({
+        where: { userId: req.user!.userId, status: 'ACTIVE' },
+        orderBy: { startTime: 'desc' },
+      });
+      res.setHeader('Cache-Control', 'no-store').json({ success: true, session });
+    } catch {
+      res.status(500).json({ success: false, error: 'Could not restore your focus session.' });
     }
   }
 

@@ -1,4 +1,4 @@
-import { BlockedResource, BlockerStatistics, User, Room } from './types';
+import { BlockedResource, BlockerStatistics, FocusEvent, FocusSession, User, Room } from './types';
 
 const getApiBaseUrl = () => {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -207,10 +207,19 @@ class ApiClient {
     });
   }
 
-  async joinRoom(roomId: string) {
-    return this.request<{ success: boolean; participant: any; room: any }>(`/rooms/${roomId}/join`, {
+  async joinRoom(roomId: string, invite?: { inviteToken: string; confirmInteraction?: boolean }) {
+    return this.request<{ success: boolean; participant: unknown; room: Room }>(`/rooms/${roomId}/join`, {
       method: 'POST',
+      body: invite ? JSON.stringify(invite) : undefined,
     });
+  }
+
+  async createRoomInvite(roomId: string) {
+    return this.request<{ success: boolean; token: string; expiresAt: string }>(`/rooms/${roomId}/invite`, { method: 'POST' });
+  }
+
+  async revokeRoomInvite(roomId: string) {
+    return this.request<{ success: boolean }>(`/rooms/${roomId}/invite`, { method: 'DELETE' });
   }
 
   async leaveRoom(roomId: string) {
@@ -290,6 +299,7 @@ class ApiClient {
     blockAttemptCount?: number;
     longestFocusStreak: number;
     notes?: string;
+    events?: FocusEvent[];
   }) {
     return this.request<{
       success: boolean;
@@ -311,6 +321,15 @@ class ApiClient {
     if (params?.limit) query.append('limit', String(params.limit));
     const qs = query.toString() ? `?${query.toString()}` : '';
     return this.request<{ success: boolean; sessions: any[]; pagination: any }>(`/sessions/history${qs}`);
+  }
+
+  async getActiveSession() {
+    try {
+      return await this.request<{ success: boolean; session: FocusSession | null }>('/sessions/active');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return { success: false, session: null };
+      throw error;
+    }
   }
 
   async getSession(id: string) {

@@ -126,8 +126,9 @@ export default function SessionSummaryPage() {
           Session Summary
         </h1>
         <p className="text-xs sm:text-sm text-zinc-400">
-          {session.activityType} • {session.plannedDuration}m Planned • {session.room?.name || 'Solo Focus'}
+          {session.specificActivity || session.activityType} · {session.plannedDuration}m planned · {session.room?.name || 'Solo focus'}
         </p>
+        {session.endTime && <p className="text-xs text-zinc-400">Elapsed time {formatSeconds(Math.max(0, Math.floor((Date.parse(session.endTime) - Date.parse(session.startTime)) / 1000)))}</p>}
 
         {/* Points Earned Banner */}
         <div className="pt-2 flex justify-center">

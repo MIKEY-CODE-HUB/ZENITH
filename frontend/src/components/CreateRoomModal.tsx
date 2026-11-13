@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ActivityType } from '@/lib/types';
+import { ActivityCategory, ActivityType } from '@/lib/types';
 import { api } from '@/lib/api';
-import { X, Sparkles, Camera, Lock, Globe } from 'lucide-react';
+import { X, Sparkles, Lock, Globe } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface CreateRoomModalProps {
@@ -17,10 +17,9 @@ export function CreateRoomModal({ isOpen, onClose, onCreated }: CreateRoomModalP
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [activityType, setActivityType] = useState<ActivityType>('Coding');
+  const [category, setCategory] = useState<ActivityCategory>('EDUCATION');
   const [duration, setDuration] = useState(50);
   const [isPrivate, setIsPrivate] = useState(false);
-  const [maxParticipants, setMaxParticipants] = useState(10);
-  const [camera, setCamera] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,10 +42,11 @@ export function CreateRoomModal({ isOpen, onClose, onCreated }: CreateRoomModalP
         name,
         description,
         activityType,
+        category,
         duration,
         isPrivate,
-        maxParticipants,
-        camera,
+        maxParticipants: category === 'INTERACTION' ? 6 : 10,
+        camera: false,
         mic: false,
       });
 
@@ -68,7 +68,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreated }: CreateRoomModalP
         <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
           <div>
             <h2 className="text-sm font-semibold text-white">Create Focus Room</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">Start a collaborative silent session with peers.</p>
+            <p className="text-xs text-zinc-400 mt-0.5">Choose what people will use this room for.</p>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.05] transition-colors">
             <X className="h-4 w-4" />
@@ -107,9 +107,21 @@ export function CreateRoomModal({ isOpen, onClose, onCreated }: CreateRoomModalP
             />
           </div>
 
+          <label className="block text-xs text-zinc-300">
+            Room category
+            <select value={category} onChange={event => setCategory(event.target.value as ActivityCategory)}
+              className="mt-1 block w-full rounded-lg border border-white/10 bg-zinc-900 px-3 py-2">
+              <option value="EDUCATION">Education</option>
+              <option value="EXERCISE">Exercise</option>
+              <option value="SIDE_QUEST">Side Quest</option>
+              <option value="INTERACTION">Interaction · optional voice</option>
+            </select>
+          </label>
+          {category === 'INTERACTION' && <p className="text-xs text-zinc-400">Up to 6 people. Entry costs 30% of weekly points.</p>}
+
           {/* Activity Selector */}
           <div>
-            <label className="text-xs font-medium text-zinc-300 block mb-1.5">Category</label>
+            <label className="text-xs font-medium text-zinc-300 block mb-1.5">Activity</label>
             <div className="flex flex-wrap gap-1.5">
               {activities.map((act) => (
                 <button
@@ -147,27 +159,6 @@ export function CreateRoomModal({ isOpen, onClose, onCreated }: CreateRoomModalP
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Camera Toggle */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setCamera(!camera)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
-                camera
-                  ? 'bg-white/[0.04] border-white/20 text-white'
-                  : 'bg-white/[0.02] border-white/[0.06] text-zinc-500'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Camera className="h-3.5 w-3.5 text-zinc-400" />
-                <span>Camera Accountability</span>
-              </div>
-              <span className={`text-[11px] font-mono ${camera ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                {camera ? 'Required' : 'Disabled'}
-              </span>
-            </button>
           </div>
 
           <div className="pt-2">

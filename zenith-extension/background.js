@@ -55,6 +55,7 @@ const TIER_2_ALWAYS_ALLOWED = [
 const trustedOrigins = new Set([
   'https://zenith-dusky-theta.vercel.app',
   'https://zenith-git-fix-zenith-room-re-944e0c-mikey-sketch-hubs-projects.vercel.app',
+  'https://zenith-git-fix-zenith-launch-6c62e3-mikey-sketch-hubs-projects.vercel.app',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
 ]);

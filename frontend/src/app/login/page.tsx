@@ -38,7 +38,8 @@ export default function LoginPage() {
         setLoading(true);
         setError(null);
         try {
-          await googleAuth({ idToken: credential });
+          const inviteRoomId = new URLSearchParams(window.location.search).get('invite') ?? undefined;
+          await googleAuth({ idToken: credential }, inviteRoomId);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Google sign-in failed.');
         } finally {

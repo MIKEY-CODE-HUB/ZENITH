@@ -20,6 +20,11 @@ export function SessionTimelineView({
   idleDurationSeconds,
 }: SessionTimelineProps) {
   const totalSeconds = Math.max(60, plannedDurationMinutes * 60);
+  const labels: Record<string, string> = {
+    TAB_SWITCH: 'Left the focus tab', IDLE: 'Idle threshold reached', FOCUSED: 'Returned to focus',
+    WINDOW_FOCUS: 'Returned to the tab', WARNING: 'Focus warning', BLOCK_ATTEMPT: 'Shield intervention',
+    SESSION_START: 'Session started', SESSION_END: 'Session finished',
+  };
 
   // If detailed events are available, generate timeline segments; otherwise use aggregate blocks
   return (
@@ -76,6 +81,16 @@ export function SessionTimelineView({
           <span>{plannedDurationMinutes}:00</span>
         </div>
       </div>
+      {events.length > 0 && (
+        <ol className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-white/10 p-3 text-xs" aria-label="Focus events">
+          {events.map((event, index) => (
+            <li className="flex items-center justify-between gap-3" key={event.id ?? index}>
+              <span>{labels[event.eventType] ?? event.eventType.replaceAll('_', ' ').toLowerCase()}</span>
+              <time className="text-zinc-400" dateTime={event.startTime}>{new Date(event.startTime).toLocaleTimeString()}</time>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }

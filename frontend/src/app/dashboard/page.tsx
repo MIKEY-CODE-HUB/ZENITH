@@ -42,6 +42,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [showStartModal, setShowStartModal] = useState<boolean>(false);
+  const [activeSession, setActiveSession] = useState<FocusSession | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -50,11 +51,12 @@ export default function DashboardPage() {
       return;
     }
     let cancelled = false;
-    Promise.all([api.getDashboardStats(), api.getRooms()])
-      .then(([statsRes, roomsRes]) => {
+    Promise.all([api.getDashboardStats(), api.getRooms(), api.getActiveSession()])
+      .then(([statsRes, roomsRes, activeRes]) => {
         if (cancelled) return;
         setStats(statsRes.stats);
         setRooms(roomsRes.rooms);
+        setActiveSession(activeRes.session);
       })
       .catch((err) => {
         if (!cancelled) setDashboardError(err instanceof Error ? err.message : 'Dashboard unavailable.');
@@ -181,15 +183,23 @@ export default function DashboardPage() {
               </button>
 
               <button
-                onClick={() => setShowStartModal(true)}
+                onClick={() => {
+                  if (activeSession) {
+                    sessionStorage.setItem('active_session_id', activeSession.id);
+                    router.push(`/focus/${activeSession.roomId ?? activeSession.id}`);
+                  } else {
+                    setShowStartModal(true);
+                  }
+                }}
                 className="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white text-zinc-950 text-xs sm:text-sm font-bold hover:bg-zinc-100 transition-all shadow-xl hover:shadow-white/10 group active:scale-95"
               >
                 <Sparkles className="h-4 w-4 text-emerald-600 transition-transform group-hover:scale-110" />
-                <span>Start Focus</span>
+                <span>{activeSession ? 'Resume Focus' : 'Start Focus'}</span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </button>
             </div>
           </div>
+          {activeSession && <p className="relative mt-4 text-sm text-zinc-200">In progress · {activeSession.specificActivity || activeSession.activityType}</p>}
         </div>
 
         {/* Weekly Progress & Verified Points Ledger */}

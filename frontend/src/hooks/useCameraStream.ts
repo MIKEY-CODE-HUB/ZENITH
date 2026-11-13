@@ -1,79 +1,55 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
-export function useCameraStream(initialCameraOn = true) {
-  const [isCameraOn, setIsCameraOn] = useState(initialCameraOn);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+export function useCameraStream() {
+  const [requested, setRequested] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const startStream = useCallback(async () => {
-    try {
-      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        setError('Media devices not supported in this environment');
-        return;
-      }
-
-      // Audio is strictly false (Zero audio / no mic in focus rooms)
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: isCameraOn ? { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' } : false,
-        audio: false,
-      });
-
-      setStream(mediaStream);
-      setHasPermission(true);
-      setError(null);
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
-    } catch (err: any) {
-      console.warn('Camera access denied or unavailable:', err.message);
-      setError('Camera unavailable. Continuing with avatar accountability.');
-      setHasPermission(false);
-    }
-  }, [isCameraOn]);
-
-  const stopStream = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-  }, [stream]);
-
   useEffect(() => {
-    if (isCameraOn) {
-      startStream();
-    } else {
-      stopStream();
+    if (!requested) {
+      setStream(null);
+      return;
     }
+    let cancelled = false;
+    let acquired: MediaStream | null = null;
+
+    async function start() {
+      setError(null);
+      try {
+        acquired = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+          audio: false,
+        });
+        if (cancelled) acquired.getTracks().forEach(track => track.stop());
+        else setStream(acquired);
+      } catch (error) {
+        if (cancelled) return;
+        setError(error instanceof DOMException && error.name === 'NotAllowedError'
+          ? 'Allow camera access in your browser to see a preview.'
+          : 'Camera unavailable. You can still start your focus session.');
+        setRequested(false);
+      }
+    }
+    void start();
 
     return () => {
-      stopStream();
+      cancelled = true;
+      acquired?.getTracks().forEach(track => track.stop());
     };
-  }, [isCameraOn]);
+  }, [requested]);
 
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-    }
-  }, [stream, videoRef]);
-
-  const toggleCamera = () => {
-    setIsCameraOn((prev) => !prev);
-  };
+    if (videoRef.current) videoRef.current.srcObject = stream;
+  }, [stream]);
 
   return {
     videoRef,
-    stream,
-    isCameraOn,
-    hasPermission,
+    isCameraOn: Boolean(stream),
+    pending: requested && !stream,
     error,
-    toggleCamera,
+    toggleCamera: () => setRequested(previous => !previous),
   };
 }

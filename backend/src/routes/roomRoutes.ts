@@ -8,6 +8,8 @@ router.get('/', optionalAuthMiddleware, RoomController.getRooms);
 router.get('/:idOrCode', optionalAuthMiddleware, RoomController.getRoom);
 router.post('/', authMiddleware, RoomController.createRoom);
 router.post('/allocate', authMiddleware, RoomController.allocateRoom);
+router.post('/:roomId/invite', authMiddleware, RoomController.manageInvite);
+router.delete('/:roomId/invite', authMiddleware, RoomController.manageInvite);
 router.post('/:roomId/join', authMiddleware, RoomController.joinRoom);
 router.post('/:roomId/leave', authMiddleware, RoomController.leaveRoom);
 

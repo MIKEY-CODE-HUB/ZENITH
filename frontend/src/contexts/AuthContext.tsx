@@ -10,7 +10,7 @@ interface AuthContextType {
   loading: boolean;
   login: (loginIdentifier: string, password: string) => Promise<void>;
   register: (data: { name: string; username: string; email?: string; phoneNumber?: string; password: string; preferredActivity?: string }) => Promise<void>;
-  googleAuth: (data: { idToken?: string; credential?: string }) => Promise<void>;
+  googleAuth: (data: { idToken?: string; credential?: string }, inviteRoomId?: string) => Promise<void>;
   sendPhoneOtp: (phoneNumber: string) => Promise<{ success: boolean; message: string; cooldownSeconds: number; devCode?: string }>;
   verifyPhoneOtp: (phoneNumber: string, otpCode: string, name?: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<{ success: boolean; message: string; devToken?: string }>;
@@ -82,17 +82,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const googleAuth = async (data: { idToken?: string; credential?: string }) => {
+  const googleAuth = async (data: { idToken?: string; credential?: string }, inviteRoomId?: string) => {
     const res = await api.googleAuth(data);
-    if (res && res.success && res.token) {
-      api.setToken(res.token);
-      setUser(res.user);
-      if (typeof window !== 'undefined') {
-        window.location.href = '/dashboard';
-      } else {
-        router.push('/dashboard');
-      }
-    }
+    if (!res.success || !res.token) throw new Error('Google sign-in did not establish a session.');
+    api.setToken(res.token);
+    setUser(res.user);
+    const destination = inviteRoomId && /^[a-f0-9-]{36}$/i.test(inviteRoomId)
+      ? `/invite/${inviteRoomId}`
+      : '/dashboard';
+    window.location.assign(destination);
   };
 
   const sendPhoneOtp = async (phoneNumber: string) => {

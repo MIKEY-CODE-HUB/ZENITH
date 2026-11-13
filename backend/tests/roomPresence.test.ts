@@ -179,10 +179,26 @@ describe('🌐 Live Rooms, Real-Time Presence & WebRTC Signaling Suite', () => {
     const c1UserLeftPromise = new Promise<any>((resolve) => {
       client1.on('user_left', (data) => resolve(data));
     });
+    const reconnecting = once(client1, 'room_presence_list');
 
     client2.disconnect();
     const leftEvent = await c1UserLeftPromise;
     assert.strictEqual(leftEvent.userId, 'user-bob-uuid');
+    const [duringDisconnect] = await reconnecting;
+    assert.equal(duringDisconnect.totalCount, 2);
+    assert.equal(duringDisconnect.participants.find((peer: { userId: string }) => peer.userId === leftEvent.userId).reconnecting, true);
+
+    const client2Reconnected = Client(`http://localhost:${port}`, {
+      transports: ['websocket'], reconnection: false,
+      auth: { token: generateToken({ userId: leftEvent.userId, username: 'bob' }) },
+    });
+    sockets.push(client2Reconnected);
+    await once(client2Reconnected, 'connect');
+    const rejoined = once(client2Reconnected, 'room_presence_list');
+    client2Reconnected.emit('join_room', { roomId });
+    const [afterReconnect] = await rejoined;
+    assert.equal(afterReconnect.totalCount, 2);
+    assert.equal(afterReconnect.participants.find((peer: { userId: string }) => peer.userId === leftEvent.userId).reconnecting, false);
 
     client1.disconnect();
   });

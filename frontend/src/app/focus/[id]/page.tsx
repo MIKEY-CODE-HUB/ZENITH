@@ -10,12 +10,12 @@ import { api, ApiConnectionError, ApiError } from '@/lib/api';
 import { ATMOSPHERES, getAtmosphereById, AtmosphereTheme } from '@/lib/atmospheres';
 import { AtmosphereCanvas } from '@/components/AtmosphereCanvas';
 import { RoomHeader } from '@/components/RoomHeader';
+import { RoomInviteControls } from '@/components/RoomInviteControls';
 import { AdaptiveVideoGallery, VideoLayoutMode } from '@/components/AdaptiveVideoGallery';
 import { FloatingControlDock } from '@/components/FloatingControlDock';
 import { SoundscapeMixerModal } from '@/components/SoundscapeMixerModal';
 import { MusicPlayerModal } from '@/components/MusicPlayerModal';
 import { AtmosphereSelectorModal } from '@/components/AtmosphereSelectorModal';
-import { DistractionOverlay } from '@/components/DistractionOverlay';
 import {
   ReportParticipantModal,
   ModerationBallotBanner,
@@ -139,8 +139,6 @@ export default function LiveRoomPage() {
     socket: sessionId ? socket : null,
     roomId: sessionId ? activeRoomId : '',
     userId: user?.id || 'guest',
-    enableCameraDefault: Boolean(sessionId),
-    enableMicDefault: false,
     allowVoice: isInteractionRoom,
   });
 
@@ -180,10 +178,15 @@ export default function LiveRoomPage() {
       let step = 'Restore your focus session';
       try {
         const storedId = sessionStorage.getItem('active_session_id');
-        const stored = storedId ? (await api.getSession(storedId).catch((error) => {
+        const active = await api.getActiveSession();
+        const stored = active.success ? active.session : storedId ? (await api.getSession(storedId).catch(error => {
           if (error instanceof ApiError && error.status === 404) return null;
           throw error;
         }))?.session : null;
+        if (active.success && storedId && !stored && roomIdOrCode === storedId) {
+          router.replace(`/focus/summary/${storedId}`);
+          return;
+        }
         const solo = roomIdOrCode === 'custom' || (stored?.id === roomIdOrCode && !stored.roomId);
         step = 'Load the room';
         const currentRoom = solo ? null : (await api.getRoom(roomIdOrCode)).room as Room;
@@ -204,8 +207,8 @@ export default function LiveRoomPage() {
         sessionStorage.setItem('active_session_id', session.id);
         setRoom(currentRoom);
         setSessionId(session.id);
-        setCategory(session.category);
-        setActivityName(session.activityType);
+        setCategory(session.category ?? 'EDUCATION');
+        setActivityName(session.specificActivity || session.activityType);
         setPlannedMinutes(session.plannedDuration);
         const end = Date.parse(session.startTime) + session.plannedDuration * 60_000;
         setDeadline(end);
@@ -247,7 +250,6 @@ export default function LiveRoomPage() {
 
   // Focus Tracker Hook (Page Visibility API + Idle Detection)
   const {
-    focusStatus,
     focusedSeconds,
     distractedSeconds,
     idleSeconds,
@@ -255,15 +257,17 @@ export default function LiveRoomPage() {
     warningCount,
     currentFocusStreak,
     longestFocusStreak,
-    isFrozen,
-    lastDistractionDuration,
     warningMessage,
-    returnToRoom,
+    dismissWarning,
+    blockAttemptCount,
+    getEvents,
   } = useFocusTracker({
     sessionId: sessionId || undefined,
     shieldActive,
-    idleThresholdSeconds: 60,
-    isActiveSession: Boolean(sessionId) && !ending,
+    idleThresholdSeconds: user?.settings?.idleThresholdSeconds ?? 60,
+    warningThresholdSeconds: user?.settings?.warningThresholdSeconds ?? 10,
+    trackKeyboardInactivity: category !== 'EXERCISE',
+    showWarnings: user?.settings?.distractionAlerts ?? true,
     onStatusChange: (newStatus: FocusStatus) => {
       if (socket && room) {
         socket.emit('focus_status_changed', {
@@ -311,17 +315,6 @@ export default function LiveRoomPage() {
       );
     });
 
-    socket.on('user_joined', (data: { participant: ParticipantPresence }) => {
-      setParticipants((prev) => {
-        const filtered = prev.filter((p) => p.socketId !== data.participant.socketId && p.userId !== data.participant.userId);
-        return [...filtered, data.participant];
-      });
-    });
-
-    socket.on('user_left', (data: { socketId: string; userId?: string }) => {
-      setParticipants((prev) => prev.filter((p) => p.socketId !== data.socketId && (!data.userId || p.userId !== data.userId)));
-    });
-
     socket.on('participant_status_updated', (data: { socketId: string; userId: string; focusStatus: FocusStatus; focusStreakMinutes: number }) => {
       setParticipants((prev) =>
         prev.map((p) =>
@@ -367,11 +360,9 @@ export default function LiveRoomPage() {
     join();
 
     return () => {
-      socket.emit('leave_room', { roomId: activeRoomId });
+      if (socket.connected) socket.emit('leave_room', { roomId: activeRoomId });
       socket.off('room_presence_list');
       socket.off('participant_media_updated');
-      socket.off('user_joined');
-      socket.off('user_left');
       socket.off('participant_status_updated');
       socket.off('participant_speaking');
       socket.off('moderation_incident_started');
@@ -389,7 +380,7 @@ export default function LiveRoomPage() {
     try {
       await api.endSession(sessionId, {
         focusedDuration: focusedSeconds, distractedDuration: distractedSeconds, idleDuration: idleSeconds,
-        tabSwitchCount, warningCount, longestFocusStreak,
+        tabSwitchCount, warningCount, blockAttemptCount, longestFocusStreak, events: getEvents(),
       });
       if (room) await api.leaveRoom(room.id).catch(() => {});
       window.postMessage({ type: 'ZENITH_ROOM_ENDED', focusSessionId: sessionId }, window.location.origin);
@@ -497,6 +488,13 @@ export default function LiveRoomPage() {
         onExit={() => setShowExitConfirm(true)}
       />
 
+      {room?.isPrivate && room.creator?.id === user?.id && (
+        <details className="absolute left-4 top-16 z-30 max-w-[calc(100%-2rem)] rounded-xl bg-zinc-950/90 p-2 text-sm text-zinc-100">
+          <summary className="cursor-pointer px-2 py-1">Room invite</summary>
+          <RoomInviteControls roomId={room.id} />
+        </details>
+      )}
+
       {(finishError || presenceError || deviceError) && (
         <div role="alert" className="absolute left-1/2 top-32 z-40 -translate-x-1/2 rounded-lg bg-zinc-950 px-4 py-2 text-sm text-rose-300">
           {finishError || presenceError || deviceError}
@@ -544,18 +542,15 @@ export default function LiveRoomPage() {
         focusScore={currentFocusRate}
         estimatedPoints={estimatedPoints}
         onEndSession={() => setShowExitConfirm(true)}
+        onOpenMusic={() => setIsMusicModalOpen(true)}
       />
 
       {/* ── DISTRACTION WARNING OVERLAY ── */}
-      {isFrozen && (
-        <DistractionOverlay
-          isOpen={isFrozen}
-          message={warningMessage}
-          distractionSeconds={lastDistractionDuration}
-          tabSwitchCount={tabSwitchCount}
-          onReturnToRoom={returnToRoom}
-          onLeaveSession={handleEndSession}
-        />
+      {warningMessage && (
+        <div className="absolute bottom-24 left-1/2 z-40 flex w-max max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-xl bg-zinc-950/90 p-3 text-sm text-amber-100">
+          <p role="status">{warningMessage}</p>
+          <button type="button" className="underline" onClick={dismissWarning}>Dismiss</button>
+        </div>
       )}
 
       {/* ── CONFIRM EXIT MODAL ── */}

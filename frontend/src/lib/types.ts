@@ -96,6 +96,7 @@ export interface Room {
 }
 
 export interface ParticipantPresence {
+  reconnecting?: boolean;
   socketId: string;
   userId: string;
   name: string;
@@ -167,6 +168,7 @@ export interface FocusSession {
   startTime: string;
   endTime?: string | null;
   plannedDuration: number;
+  protectionEnabled?: boolean;
   focusedDuration: number;
   idleDuration: number;
   distractedDuration: number;

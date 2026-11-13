@@ -41,6 +41,7 @@ interface FloatingControlDockProps {
   focusScore: number;
   estimatedPoints: number;
   onEndSession: () => void;
+  onOpenMusic: () => void;
 }
 
 export function FloatingControlDock({
@@ -58,6 +59,7 @@ export function FloatingControlDock({
   focusScore,
   estimatedPoints,
   onEndSession,
+  onOpenMusic,
 }: FloatingControlDockProps) {
   // Active panel: 'theme' | 'music' | 'time' | 'xp' | 'camera' | null
   const [activePanel, setActivePanel] = useState<'theme' | 'music' | 'time' | 'xp' | 'camera' | null>(null);
@@ -219,6 +221,7 @@ export function FloatingControlDock({
                   />
                 </div>
               </div>
+              <button type="button" className="text-emerald-300 underline" onClick={() => { setActivePanel(null); onOpenMusic(); }}>Open music player</button>
             </div>
           )}
 

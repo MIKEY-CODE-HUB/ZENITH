@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { RoomInviteControls } from '@/components/RoomInviteControls';
+import { api, ApiError } from '@/lib/api';
 import { useCameraStream } from '@/hooks/useCameraStream';
 import {
   Camera,
@@ -16,6 +18,7 @@ import {
 export default function PreSessionSetupPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const roomIdOrCode = params.id as string;
 
   const [room, setRoom] = useState<any>(null);
@@ -24,7 +27,7 @@ export default function PreSessionSetupPage() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { videoRef, isCameraOn, toggleCamera } = useCameraStream(true);
+  const { videoRef, isCameraOn, pending: cameraPending, error: cameraError, toggleCamera } = useCameraStream();
 
   useEffect(() => {
     async function loadRoom() {
@@ -51,7 +54,18 @@ export default function PreSessionSetupPage() {
     try {
       setStarting(true);
       if (!room) throw new Error('The room could not be loaded.');
-      await api.joinRoom(room.id);
+      try {
+        await api.joinRoom(room.id);
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 402 || room.category !== 'INTERACTION') throw error;
+        const { quote } = await api.getInteractionQuote();
+        if (!quote.canAfford) throw new Error('You need weekly points to enter this room.');
+        if (!window.confirm(`Join for approximately ${quote.cost} weekly points?`)) {
+          setStarting(false);
+          return;
+        }
+        await api.authorizeInteraction(room.id);
+      }
 
       // 1. Start Focus Session
       const sessionRes = await api.startSession({
@@ -99,6 +113,10 @@ export default function PreSessionSetupPage() {
           </div>
         )}
 
+        {room?.isPrivate && user && room.creator?.id === user.id && <RoomInviteControls roomId={room.id} />}
+
+        {cameraError && <p role="status" className="text-sm text-amber-200">{cameraError}</p>}
+
         {/* Camera Preview */}
         <div className="space-y-3">
           <div className="relative aspect-video max-w-md mx-auto rounded-xl bg-black/60 border border-white/[0.08] overflow-hidden flex items-center justify-center">
@@ -113,7 +131,7 @@ export default function PreSessionSetupPage() {
             ) : (
               <div className="flex flex-col items-center justify-center text-center p-4">
                 <CameraOff className="h-6 w-6 text-zinc-500 mb-1" />
-                <p className="text-xs font-medium text-zinc-300">Camera Inactive</p>
+                <p className="text-xs font-medium text-zinc-300">{cameraPending ? 'Waiting for camera access…' : 'Camera off'}</p>
               </div>
             )}
 

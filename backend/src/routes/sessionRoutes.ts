@@ -8,6 +8,7 @@ router.post('/start', authMiddleware, SessionController.startSession);
 router.post('/:sessionId/events', authMiddleware, SessionController.logEvents);
 router.post('/:sessionId/end', authMiddleware, SessionController.endSession);
 router.get('/history', authMiddleware, SessionController.getHistory);
+router.get('/active', authMiddleware, SessionController.getActiveSession);
 router.get('/:id', authMiddleware, SessionController.getSession);
 
 export default router;
