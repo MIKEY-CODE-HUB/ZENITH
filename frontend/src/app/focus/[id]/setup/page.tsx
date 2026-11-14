@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { RoomInviteControls } from '@/components/RoomInviteControls';
+import { useAuth } from '@/contexts/AuthContext';
+import { api, ApiError } from '@/lib/api';
 import { useCameraStream } from '@/hooks/useCameraStream';
 import {
   Camera,
@@ -16,6 +18,7 @@ import {
 export default function PreSessionSetupPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const roomIdOrCode = params.id as string;
 
   const [room, setRoom] = useState<any>(null);
@@ -24,7 +27,7 @@ export default function PreSessionSetupPage() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { videoRef, isCameraOn, toggleCamera } = useCameraStream(true);
+  const { videoRef, isCameraOn, pending: cameraPending, error: cameraError, toggleCamera } = useCameraStream();
 
   useEffect(() => {
     async function loadRoom() {
@@ -51,7 +54,18 @@ export default function PreSessionSetupPage() {
     try {
       setStarting(true);
       if (!room) throw new Error('The room could not be loaded.');
-      await api.joinRoom(room.id);
+      try {
+        await api.joinRoom(room.id);
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 402 || room.category !== 'INTERACTION') throw error;
+        const { quote } = await api.getInteractionQuote();
+        if (!quote.canAfford) throw new Error('You need weekly points to enter this room.');
+        if (!window.confirm(`Join for approximately ${quote.cost} weekly points?`)) {
+          setStarting(false);
+          return;
+        }
+        await api.authorizeInteraction(room.id);
+      }
 
       // 1. Start Focus Session
       const sessionRes = await api.startSession({
@@ -64,6 +78,7 @@ export default function PreSessionSetupPage() {
       if (sessionRes.success && sessionRes.session) {
         const sessionId = sessionRes.session.id;
         sessionStorage.setItem('active_session_id', sessionId);
+        sessionStorage.setItem('active_session_protection', String(sessionRes.session.protectionEnabled ?? true));
         sessionStorage.setItem('active_session_duration', String(duration));
 
 
@@ -77,7 +92,7 @@ export default function PreSessionSetupPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-6 bg-[#09090b] text-zinc-100">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-6  text-zinc-100">
       <div className="w-full max-w-lg rounded-2xl bg-[#121215] border border-white/[0.08] p-6 sm:p-8 shadow-2xl space-y-6">
         {/* Header */}
         <div className="text-center space-y-1.5 border-b border-white/[0.06] pb-5">
@@ -93,11 +108,21 @@ export default function PreSessionSetupPage() {
           </p>
         </div>
 
+        {room && user && room.creator?.id === user.id && (
+          <details className="space-y-3">
+            <summary className="cursor-pointer text-sm text-[#efd3ac]">Share your room</summary>
+            <RoomInviteControls roomId={room.id} />
+          </details>
+        )}
+
         {error && (
           <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs font-medium text-center">
             {error}
           </div>
         )}
+
+
+        {cameraError && <p role="status" className="text-sm text-amber-200">{cameraError}</p>}
 
         {/* Camera Preview */}
         <div className="space-y-3">
@@ -113,11 +138,11 @@ export default function PreSessionSetupPage() {
             ) : (
               <div className="flex flex-col items-center justify-center text-center p-4">
                 <CameraOff className="h-6 w-6 text-zinc-500 mb-1" />
-                <p className="text-xs font-medium text-zinc-300">Camera Inactive</p>
+                <p className="text-xs font-medium text-zinc-300">{cameraPending ? 'Waiting for camera access…' : 'Camera off'}</p>
               </div>
             )}
 
-            <div className="absolute bottom-2.5 flex items-center gap-2 bg-[#09090b]/80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10">
+            <div className="absolute bottom-2.5 flex items-center gap-2 /80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10">
               <button
                 onClick={toggleCamera}
                 className={`p-1 rounded text-xs transition-colors ${
@@ -159,9 +184,9 @@ export default function PreSessionSetupPage() {
         <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center gap-3">
           <Lock className="h-4 w-4 text-emerald-400 shrink-0" />
           <div className="text-left text-xs">
-            <p className="font-medium text-zinc-200">Enforcement Ready</p>
+            <p className="font-medium text-zinc-200">Distraction Shield</p>
             <p className="text-[11px] text-zinc-400 leading-relaxed mt-0.5">
-              Distraction Shield will engage upon entry. Switching tabs will trigger an immediate snap-back.
+              Chrome protection starts when the Zenith extension confirms it. Approved work sites stay available.
             </p>
           </div>
         </div>

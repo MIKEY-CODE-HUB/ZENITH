@@ -1,788 +1,171 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Shield, Trash2 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { api } from '@/lib/api';
-import { BlockedResource, BlockerStatistics } from '@/lib/types';
-import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS } from '@/lib/shieldDomains';
 import { ZenithPolicyEngine } from '@/lib/policyEngine';
-import { useRouter } from 'next/navigation';
-import {
-  Shield,
-  ShieldAlert,
-  ShieldCheck,
-  Plus,
-  Trash2,
-  CheckCircle2,
-  AlertTriangle,
-  Flame,
-  Zap,
-  Lock,
-  Check,
-  Play,
-  Square,
-  Clock,
-  Sparkles,
-  Laptop,
-  Globe,
-  Smartphone,
-  Eye,
-  Layers,
-  ArrowRight,
-  Terminal,
-  Copy,
-  Key,
-} from 'lucide-react';
+import { ALWAYS_ALLOWED_APPS, ALWAYS_ALLOWED_DOMAINS, ALWAYS_BLOCKED_APPS, ALWAYS_BLOCKED_DOMAINS } from '@/lib/shieldDomains';
+import type { BlockedResource } from '@/lib/types';
+import { ShieldSetup } from '@/components/ShieldSetup';
+
+const field = 'rounded-lg border border-white/15 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus-visible:outline-emerald-400';
+const panel = 'rounded-2xl border border-white/10 bg-zinc-900/70 p-5 sm:p-6';
 
 export default function BlockerDashboardPage() {
-  const router = useRouter();
   const [resources, setResources] = useState<BlockedResource[]>([]);
-  const [stats, setStats] = useState<BlockerStatistics['stats'] | null>(null);
-  const [activeSession, setActiveSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [blockerMode, setBlockerMode] = useState<'MONITOR' | 'BLOCK' | 'STRICT'>('STRICT');
-  const [shieldToggling, setShieldToggling] = useState<boolean>(false);
-
-  // Desktop Blocker Pairing Token State
-  const [pairingToken, setPairingToken] = useState<string | null>(null);
-  const [generatingToken, setGeneratingToken] = useState<boolean>(false);
-  const [copiedToken, setCopiedToken] = useState<boolean>(false);
-
-  // Form State for Tier 3 Custom Rules
-  const [newIdentifier, setNewIdentifier] = useState('');
-  const [newDisplayName, setNewDisplayName] = useState('');
-  const [newIsAllowlist, setNewIsAllowlist] = useState<boolean>(false);
-  const [activeCustomTab, setActiveCustomTab] = useState<'blocklist' | 'allowlist'>('blocklist');
-  const [submitting, setSubmitting] = useState(false);
-  const [notification, setNotification] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [type, setType] = useState<BlockedResource['type']>('WEBSITE');
+  const [identifier, setIdentifier] = useState('');
+  const [allow, setAllow] = useState(false);
+  const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(checkLiveStatus, 3000);
-    return () => clearInterval(interval);
+    let cancelled = false;
+    void api.getBlockerResources().then(result => {
+      if (cancelled) return;
+      if (!result.success) throw new Error('Could not load Shield rules.');
+      setResources(result.resources);
+    }).catch(() => {
+      if (!cancelled) setError('Could not load Shield rules. Sign in or reload this page to try again.');
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
   }, []);
 
-  async function checkLiveStatus() {
+  async function saveRule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+    setFeedback('');
+    const clean = type === 'WEBSITE'
+      ? ZenithPolicyEngine.normalizeRuleDomain(identifier)
+      : identifier.trim().replace(/\.(?:app|exe)$/i, '');
+    const validation = ZenithPolicyEngine.validateCustomRule(identifier, type, allow);
+    if (!validation.valid || !clean || clean.length > (type === 'WEBSITE' ? 253 : 100)) {
+      setError(validation.error || 'The website or app name is too long.');
+      return;
+    }
+    setSaving(true);
     try {
-      const data = await api.getBlockerLiveStatus().catch(() => null);
-      if (data && data.active) {
-        setActiveSession(data);
-        if (data.mode) setBlockerMode(data.mode as any);
-      } else {
-        setActiveSession(null);
-      }
-    } catch (e) {}
-  }
-
-  async function loadData() {
-    try {
-      setLoading(true);
-      const [resRes, statsRes] = await Promise.all([
-        api.getBlockerResources().catch(() => ({ success: false, resources: [] })),
-        api.getBlockerStatistics().catch(() => ({ success: false, stats: null, activeSession: null })),
-      ]);
-
-      if (resRes.success && resRes.resources) {
-        setResources(resRes.resources);
-      }
-      if (statsRes.success && statsRes.stats) {
-        setStats(statsRes.stats);
-        if (statsRes.activeSession) {
-          setActiveSession(statsRes.activeSession);
-          if (statsRes.activeSession?.mode) {
-            setBlockerMode(statsRes.activeSession.mode);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load blocker data:', err);
+      const result = await api.createBlockerResource({ type, identifier: clean, displayName: clean, isAllowlist: allow });
+      if (!result.success) throw new Error('Could not save the rule.');
+      setResources(current => [...current.filter(rule => rule.id !== result.resource.id), result.resource]);
+      setIdentifier('');
+      setFeedback(`${clean} added to your ${allow ? 'allowlist' : 'blocklist'}.`);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Could not save the rule.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
-  const handleToggleMasterShield = async () => {
+  async function changeRule(rule: BlockedResource, remove = false) {
+    setError('');
+    setFeedback('');
+    setSaving(true);
     try {
-      setShieldToggling(true);
-      if (activeSession) {
-        await api.deactivateBlocker(activeSession.focusSessionId || activeSession.sessionId || '');
-        setActiveSession(null);
-        if (typeof window !== 'undefined') {
-          window.postMessage({
-            type: 'ZENITH_ROOM_ENDED', focusSessionId: activeSession.focusSessionId || activeSession.sessionId,
-          }, window.location.origin);
-        }
-        setNotification('Distraction Shield deactivated. All apps and external sites unlocked.');
+      if (remove) {
+        const result = await api.deleteBlockerResource(rule.id);
+        if (!result.success) throw new Error('Could not remove the rule.');
+        setResources(current => current.filter(item => item.id !== rule.id));
+        setFeedback(`${rule.displayName} removed.`);
       } else {
-        const res = await api.activateBlocker('', blockerMode);
-        if (res.success) {
-          setActiveSession(res.blockerSession);
-          setNotification('Shield session saved. Start a focus room to apply Chrome protection.');
-        }
+        const result = await api.updateBlockerResource(rule.id, { enabled: !rule.enabled });
+        if (!result.success) throw new Error('Could not update the rule.');
+        setResources(current => current.map(item => item.id === rule.id ? result.resource : item));
+        setFeedback(`${rule.displayName} ${result.resource.enabled ? 'enabled' : 'disabled'}.`);
       }
-      setTimeout(() => setNotification(null), 4000);
-      await checkLiveStatus();
-    } catch (err: any) {
-      setNotification(err.message || 'Could not update the Shield.');
-      setTimeout(() => setNotification(null), 4000);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Could not update the rule.');
     } finally {
-      setShieldToggling(false);
+      setSaving(false);
     }
-  };
-
-  const handleSimulateInterception = async () => {
-    try {
-      api.recordBlockerAttempt({
-        sessionId: activeSession?.sessionId || activeSession?.focusSessionId,
-        resourceType: 'WEBSITE',
-        resourceIdentifier: 'instagram.com (Simulated)',
-        action: 'BLOCKED',
-      }).catch(() => {});
-    } catch (e) {}
-
-    const returnUrl = typeof window !== 'undefined' ? window.location.href : '/blocker';
-    router.push(`/blocker/blocked?domain=instagram.com&url=https://instagram.com&room=${encodeURIComponent(returnUrl)}`);
-  };
-
-  const handleGeneratePairToken = async () => {
-    try {
-      setGeneratingToken(true);
-      const res = await api.getDesktopPairToken();
-      if (res.success && res.token) {
-        setPairingToken(res.token);
-        setNotification('Desktop Companion Pairing Token generated successfully!');
-        setTimeout(() => setNotification(null), 4000);
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to generate desktop companion token');
-    } finally {
-      setGeneratingToken(false);
-    }
-  };
-
-  const handleCopyPairCommand = () => {
-    if (!pairingToken) return;
-    const cmd = `npm run blocker -- --pair ${pairingToken}`;
-    navigator.clipboard.writeText(cmd);
-    setCopiedToken(true);
-    setNotification('Copied pairing command to clipboard!');
-    setTimeout(() => {
-      setCopiedToken(false);
-      setNotification(null);
-    }, 3000);
-  };
-
-  const handleToggleResource = async (res: BlockedResource) => {
-    try {
-      const updated = await api.updateBlockerResource(res.id, { enabled: !res.enabled });
-      if (updated.success) {
-        setResources((prev) =>
-          prev.map((r) => (r.id === res.id ? { ...r, enabled: !r.enabled } : r))
-        );
-      }
-    } catch (err) {
-      console.error('Failed to toggle resource:', err);
-    }
-  };
-
-  const handleDeleteResource = async (id: string) => {
-    try {
-      await api.deleteBlockerResource(id);
-      setResources((prev) => prev.filter((r) => r.id !== id));
-      setNotification('Distraction removed from My Blocklist.');
-      setTimeout(() => setNotification(null), 3000);
-    } catch (err) {
-      console.error('Failed to delete resource:', err);
-    }
-  };
-
-  // Tier 3: Add Custom Distraction or Allowed Platform
-  const handleAddCustom = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-    if (!newIdentifier.trim()) return;
-
-    try {
-      setSubmitting(true);
-      const raw = newIdentifier.trim();
-      const isWebsite = raw.includes('.') || raw.startsWith('http') || raw.includes('/');
-      const resourceType = isWebsite ? 'WEBSITE' : 'APPLICATION';
-      const cleanIdent = isWebsite ? ZenithPolicyEngine.normalizeDomain(raw) : raw;
-      const name = newDisplayName.trim() || (isWebsite ? cleanIdent.split('.')[0].toUpperCase() : cleanIdent);
-
-      // Pre-validation and conflict check using authoritative policy engine
-      const validation = ZenithPolicyEngine.validateCustomRule(cleanIdent, resourceType, newIsAllowlist);
-      if (!validation.valid) {
-        setErrorMessage(validation.error || 'Invalid rule configuration.');
-        setSubmitting(false);
-        return;
-      }
-
-      const res = await api.createBlockerResource({
-        type: resourceType,
-        identifier: cleanIdent,
-        displayName: name,
-        category: 'CUSTOM',
-        isAllowlist: newIsAllowlist,
-        enabled: true,
-      });
-
-      if (res.success) {
-        setResources((prev) => [...prev.filter((r) => r.id !== res.resource.id), res.resource]);
-        setNewIdentifier('');
-        setNewDisplayName('');
-        setNotification(
-          `Added "${name}" to ${newIsAllowlist ? 'My Allowlists' : 'My Blocklist'} (${resourceType === 'WEBSITE' ? 'Web Domain' : 'Desktop App'})`
-        );
-        setTimeout(() => setNotification(null), 4000);
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to save custom rule');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // User-defined custom rules (Tier 3)
-  const myBlocklist = resources.filter((r) => !r.isAllowlist);
-  const myAllowlist = resources.filter((r) => r.isAllowlist);
+  }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-[#07080b] text-zinc-100">
+    <div className="flex min-h-[calc(100vh-4rem)] bg-zinc-950 text-zinc-100">
       <Sidebar />
+      <main className="mx-auto w-full min-w-0 max-w-5xl space-y-6 p-5 sm:p-8">
+        <header>
+          <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight"><Shield aria-hidden="true" className="text-emerald-400" /> Distraction Shield</h1>
+          <p className="mt-2 text-sm text-zinc-300">Shield turns on automatically in a focus session with protection enabled. It stops when you finish or the timer expires.</p>
+        </header>
 
-      <main className="flex-1 p-5 sm:p-8 max-w-6xl mx-auto space-y-8">
-        {/* Atmospheric Header with Glow Accents */}
-        <div className="relative p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-emerald-950/20 via-[#10121a] to-[#121420] border border-white/[0.08] shadow-2xl overflow-hidden">
-          {/* Subtle Ambient Background Lighting */}
-          <div className="absolute -top-24 -left-24 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-24 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+        <ShieldSetup />
 
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-1.5 max-w-xl">
-              <div className="flex items-center gap-2 text-xs font-semibold tracking-wider uppercase text-emerald-400">
-                <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                <Shield className="h-3.5 w-3.5" />
-                <span>Zero-Tolerance Focus Guardian</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                Distraction Shield
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
-                Dual-layer enforcement: locks external websites with <strong>instant 0ms snap-back</strong> and auto-hides distracting desktop applications.
-              </p>
-            </div>
-
-            {/* Master Switch & Simulate Actions */}
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={handleToggleMasterShield}
-                disabled={shieldToggling}
-                className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl font-bold text-xs transition-all shadow-xl active:scale-95 ${
-                  activeSession
-                    ? 'bg-rose-500 text-white hover:bg-rose-600 shadow-rose-950/60 ring-2 ring-rose-400/40'
-                    : 'bg-emerald-400 text-zinc-950 hover:bg-emerald-300 shadow-emerald-950/60 ring-2 ring-emerald-400/30'
-                }`}
-              >
-                {activeSession ? (
-                  <>
-                    <Square className="h-4 w-4 fill-current" />
-                    <span>Deactivate Shield</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-4 w-4 fill-current" />
-                    <span>Arm Distraction Shield</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={handleSimulateInterception}
-                className="px-4 py-3 rounded-2xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-xs font-medium text-zinc-200 transition-colors"
-                title="Test distraction telemetry event"
-              >
-                Simulate Block
-              </button>
-            </div>
-          </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <section aria-labelledby="tier-1-heading" className="rounded-2xl border border-rose-400/25 bg-rose-950/20 p-5 sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-rose-300">Tier 1</p>
+            <h2 id="tier-1-heading" className="mt-1 text-xl font-semibold">Always blocked</h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">Social media, streaming and games in Zenith’s built-in list are blocked during protected sessions.</p>
+            <h3 className="mt-4 text-sm font-medium">Websites</h3>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-300">{ALWAYS_BLOCKED_DOMAINS.map(item => item.name).join(', ')}</p>
+            <h3 className="mt-4 text-sm font-medium">Apps</h3>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-300">{ALWAYS_BLOCKED_APPS.map(item => item.name).join(', ')}</p>
+          </section>
+          <section aria-labelledby="tier-2-heading" className="rounded-2xl border border-emerald-400/25 bg-emerald-950/20 p-5 sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-200">Tier 2</p>
+            <h2 id="tier-2-heading" className="mt-1 text-xl font-semibold">Always allowed</h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">Built-in study and work tools stay available during protected sessions.</p>
+            <h3 className="mt-4 text-sm font-medium">Websites</h3>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-300">{ALWAYS_ALLOWED_DOMAINS.map(item => item.name).join(', ')}</p>
+            <h3 className="mt-4 text-sm font-medium">Apps</h3>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-300">{ALWAYS_ALLOWED_APPS.map(item => item.name).join(', ')}</p>
+          </section>
         </div>
 
-        {/* Live Notification Banners */}
-        {notification && (
-          <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center gap-2.5 shadow-lg animate-in fade-in duration-150">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-            <span>{notification}</span>
+        <section id="my-rules" aria-labelledby="tier-3-heading" className={`${panel} scroll-mt-24 space-y-4`}>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">Tier 3</p>
+            <h2 id="tier-3-heading" className="mt-1 text-xl font-semibold">My rules</h2>
+            <p className="mt-2 text-sm text-zinc-300">Choose Block or Allow and paste a website link. Rules apply to the domain and its subdomains. Add an app by name, a Windows executable name, or an Android package ID. Built-in rules take priority.</p>
           </div>
-        )}
-
-        {errorMessage && (
-          <div className="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-center gap-2.5 shadow-lg animate-in fade-in duration-150">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
-        {/* Real-time System Status Card */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#11131a] border border-white/[0.08] flex flex-wrap items-center justify-between gap-4 text-xs shadow-md">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className={`h-2.5 w-2.5 rounded-full ${activeSession ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
-              <span className="font-semibold text-white">
-                Status: {activeSession ? 'Armed & Enforcing (Active Session)' : 'Standby (Click Arm to Begin)'}
-              </span>
-            </div>
-            <span className="text-zinc-600">•</span>
-            <div className="flex items-center gap-1.5 text-zinc-300">
-              <Laptop className="h-3.5 w-3.5 text-emerald-400" />
-              <span>macOS Daemon & Chrome Interceptor: <strong className="text-emerald-400">0ms Snap-Back Active</strong></span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 text-zinc-400 font-mono text-[11px]">
-            <span className="text-rose-400">{ALWAYS_BLOCKED_DOMAINS.length} Core Locked</span>
-            <span>•</span>
-            <span className="text-emerald-400">{ALWAYS_ALLOWED_DOMAINS.length} Core Allowed</span>
-            <span>•</span>
-            <span className="text-amber-400">{myBlocklist.filter((m) => m.enabled).length} Custom Active</span>
-          </div>
-        </div>
-
-        {/* ═══════════════════════════════════════════════════════
-            THREE-TIER DISTRACTION SHIELD SYSTEM
-        ═══════════════════════════════════════════════════════ */}
-        <div className="space-y-7">
-
-          {/* TIER 1: ALWAYS BLOCKED (Zenith Core Protection) */}
-          <div className="rounded-3xl bg-gradient-to-b from-[#161218] to-[#121215] border border-rose-500/25 p-6 sm:p-7 space-y-5 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.07] pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-rose-500/15 text-rose-400 border border-rose-500/30 shadow-inner">
-                  <ShieldAlert className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Tier 1: Always Blocked</h2>
-                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                      Core Protection
-                    </span>
+          <form onSubmit={saveRule} className="grid gap-3 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-end">
+            <label className="grid gap-1 text-sm">Action
+              <select className={field} value={allow ? 'allow' : 'block'} onChange={event => setAllow(event.target.value === 'allow')}>
+                <option value="block">Block</option><option value="allow">Allow</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">Type
+              <select className={field} value={type} onChange={event => setType(event.target.value === 'WEBSITE' ? 'WEBSITE' : 'APPLICATION')}>
+                <option value="WEBSITE">Website</option><option value="APPLICATION">App</option>
+              </select>
+            </label>
+            <label className="grid min-w-0 gap-1 text-sm">{type === 'WEBSITE' ? 'Website link' : 'App name'}
+              <input className={field} required value={identifier} onChange={event => setIdentifier(event.target.value)} placeholder={type === 'WEBSITE' ? 'https://example.com' : 'Chess'} />
+            </label>
+            <button disabled={loading || saving} className="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 disabled:opacity-50">Add rule</button>
+          </form>
+          {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+          {feedback && <p role="status" className="text-sm text-emerald-200">{feedback}</p>}
+          {loading && <p role="status" className="text-sm text-zinc-300">Loading rules…</p>}
+          {!loading && !error && resources.length === 0 && <p className="text-sm text-zinc-300">You have no custom rules yet.</p>}
+          {resources.length > 0 && (
+            <ul className="divide-y divide-white/10">
+              {resources.map(rule => (
+                <li key={rule.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="break-words font-medium">{rule.displayName}</p>
+                    <p className="text-xs text-zinc-300">{rule.isAllowlist ? 'Allow' : 'Block'} · {rule.type === 'WEBSITE' ? 'Website' : 'App'}</p>
                   </div>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Automatically enforced during active focus rooms. Zenith pulls you back immediately upon any tab switch or access.
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-mono text-rose-400/90 font-semibold self-start sm:self-center">
-                {ALWAYS_BLOCKED_DOMAINS.length} High-Distraction Platforms
-              </span>
-            </div>
-
-            {/* Badges Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 pt-1">
-              {ALWAYS_BLOCKED_DOMAINS.map((item) => (
-                <div
-                  key={item.domain}
-                  className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-rose-500/30 transition-all group"
-                >
-                  <div className="min-w-0 pr-2">
-                    <div className="flex items-center gap-1.5">
-                      <Lock className="h-3 w-3 text-rose-400 shrink-0" />
-                      <span className="text-xs font-semibold text-zinc-100 truncate">{item.name}</span>
+                  {rule.userId ? (
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-2">
+                        <input type="checkbox" aria-label={`Enable ${rule.displayName}`} checked={rule.enabled} disabled={saving} onChange={() => void changeRule(rule)} /> Enabled
+                      </label>
+                      <button type="button" disabled={saving} className="rounded p-1 text-zinc-300 hover:text-rose-300 disabled:opacity-50" aria-label={`Remove ${rule.displayName}`} onClick={() => void changeRule(rule, true)}>
+                        <Trash2 aria-hidden="true" size={16} />
+                      </button>
                     </div>
-                    <span className="text-[10px] text-zinc-500 font-mono block truncate mt-0.5">
-                      {item.domain}
-                    </span>
-                  </div>
-                  <span className="text-[9px] font-semibold text-zinc-400 px-2 py-0.5 rounded-md bg-white/[0.04] shrink-0 border border-white/5">
-                    {item.category}
-                  </span>
-                </div>
+                  ) : <span className="text-xs text-zinc-300">Default rule</span>}
+                </li>
               ))}
-            </div>
-            <p className="text-[11px] text-zinc-500 italic pt-1">
-              Protected by Zenith: These domains cannot be removed to guarantee complete immunity against doomscrolling.
-            </p>
-          </div>
-
-          {/* TIER 2: ALWAYS ALLOWED (Essential Tools) */}
-          <div className="rounded-3xl bg-gradient-to-b from-[#111916] to-[#121215] border border-emerald-500/25 p-6 sm:p-7 space-y-5 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.07] pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-inner">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Tier 2: Always Allowed</h2>
-                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      Essential Tools
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Essential coding, problem-solving, and study platforms. These are NEVER blocked under any mode.
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-mono text-emerald-400 font-semibold self-start sm:self-center">
-                {ALWAYS_ALLOWED_DOMAINS.length} Protected Tools
-              </span>
-            </div>
-
-            {/* Badges Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 pt-1">
-              {ALWAYS_ALLOWED_DOMAINS.map((item) => (
-                <div
-                  key={item.domain}
-                  className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-emerald-500/30 transition-all group"
-                >
-                  <div className="min-w-0 pr-2">
-                    <div className="flex items-center gap-1.5">
-                      <Check className="h-3 w-3 text-emerald-400 shrink-0" />
-                      <span className="text-xs font-semibold text-zinc-100 truncate">{item.name}</span>
-                    </div>
-                    <span className="text-[10px] text-zinc-500 font-mono block truncate mt-0.5">
-                      {item.domain}
-                    </span>
-                  </div>
-                  <span className="text-[9px] font-semibold text-emerald-400/80 px-2 py-0.5 rounded-md bg-emerald-500/10 shrink-0 border border-emerald-500/20">
-                    {item.category}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* TIER 3: PERSONAL CUSTOMIZATION (Allow & Block Rules) */}
-          <div className="rounded-3xl bg-gradient-to-b from-[#1a1712] to-[#121215] border border-amber-500/25 p-6 sm:p-7 space-y-6 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.07] pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-inner">
-                  <Shield className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Tier 3: Personal Customization</h2>
-                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                      User Rules
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Add custom domains or applications to either your personal blocklist or allowlist. Protected Tier 1 &amp; Tier 2 rules always take precedence.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setActiveCustomTab('blocklist')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                    activeCustomTab === 'blocklist'
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
-                      : 'bg-white/[0.03] text-zinc-400 hover:text-white border border-white/5'
-                  }`}
-                >
-                  Blocklist ({myBlocklist.length})
-                </button>
-                <button
-                  onClick={() => setActiveCustomTab('allowlist')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                    activeCustomTab === 'allowlist'
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                      : 'bg-white/[0.03] text-zinc-400 hover:text-white border border-white/5'
-                  }`}
-                >
-                  Allowlists ({myAllowlist.length})
-                </button>
-              </div>
-            </div>
-
-            {/* Add Custom Entry Form */}
-            <form onSubmit={handleAddCustom} className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                    <Plus className="h-3.5 w-3.5 text-amber-400" />
-                    <span>Create Custom Rule</span>
-                  </span>
-                  {/* Action Segmented Toggle */}
-                  <div className="flex items-center gap-1 p-0.5 rounded-lg bg-[#09090b] border border-white/10 ml-2">
-                    <button
-                      type="button"
-                      onClick={() => setNewIsAllowlist(false)}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                        !newIsAllowlist
-                          ? 'bg-rose-500 text-white shadow-sm'
-                          : 'text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      Block
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewIsAllowlist(true)}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                        newIsAllowlist
-                          ? 'bg-emerald-500 text-zinc-950 shadow-sm'
-                          : 'text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      Allow
-                    </button>
-                  </div>
-                </div>
-                <span className="text-[11px] text-zinc-500">Auto-detects web domain or desktop application</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                <div className="sm:col-span-6">
-                  <input
-                    type="text"
-                    placeholder="Enter link or app (e.g. news.ycombinator.com or Discord)"
-                    value={newIdentifier}
-                    onChange={(e) => setNewIdentifier(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#09090b] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400 transition-colors font-mono"
-                    required
-                  />
-                </div>
-
-                <div className="sm:col-span-3">
-                  <input
-                    type="text"
-                    placeholder="Display name (optional)"
-                    value={newDisplayName}
-                    onChange={(e) => setNewDisplayName(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#09090b] border border-white/10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400 transition-colors"
-                  />
-                </div>
-
-                <div className="sm:col-span-3">
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95 disabled:opacity-50 ${
-                      newIsAllowlist
-                        ? 'bg-emerald-400 hover:bg-emerald-300 text-zinc-950'
-                        : 'bg-rose-500 hover:bg-rose-400 text-white'
-                    }`}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>{newIsAllowlist ? 'Add to Allowlist' : 'Add to Blocklist'}</span>
-                  </button>
-                </div>
-              </div>
-            </form>
-
-            {/* List of Custom Rules Filtered by Tab */}
-            {(() => {
-              const currentList = activeCustomTab === 'blocklist' ? myBlocklist : myAllowlist;
-
-              if (currentList.length === 0) {
-                return (
-                  <div className="p-8 text-center rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-1.5">
-                    <p className="text-xs text-zinc-400 font-medium">
-                      {activeCustomTab === 'blocklist' ? 'Your custom blocklist is empty.' : 'Your custom allowlist is empty.'}
-                    </p>
-                    <p className="text-[11px] text-zinc-500">
-                      {activeCustomTab === 'blocklist'
-                        ? 'Zenith core protections (Tier 1) are active automatically. Add specific websites or macOS applications above.'
-                        : 'Essential tools (Tier 2) are always allowed. Add additional platforms you need for your study sessions above.'}
-                    </p>
-                  </div>
-                );
-              }
-
-              return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {currentList.map((item) => {
-                    const isApp = item.type === 'APPLICATION';
-                    const isAllowed = item.isAllowlist;
-
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => handleToggleResource(item)}
-                        className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer select-none transition-all ${
-                          item.enabled
-                            ? isAllowed
-                              ? 'bg-emerald-500/[0.04] border-emerald-500/20 hover:border-emerald-500/40 text-zinc-200'
-                              : 'bg-white/[0.03] border-white/[0.08] hover:border-amber-500/30 text-zinc-200'
-                            : 'bg-transparent border-white/[0.04] text-zinc-600 line-through opacity-50'
-                        }`}
-                      >
-                        <div className="min-w-0 pr-2">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`h-2 w-2 rounded-full shrink-0 ${
-                                item.enabled
-                                  ? isAllowed
-                                    ? 'bg-emerald-400'
-                                    : 'bg-rose-400'
-                                  : 'bg-zinc-700'
-                              }`}
-                            />
-                            <p className="text-xs font-semibold truncate">{item.displayName}</p>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] text-zinc-500 font-mono truncate">
-                              {item.identifier}
-                            </span>
-                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border flex items-center gap-1 ${
-                              isAllowed
-                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                            }`}>
-                              <span>{isAllowed ? 'Allow' : 'Block'}</span>
-                            </span>
-                            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-white/5 flex items-center gap-1">
-                              {isApp ? <Smartphone className="h-2.5 w-2.5" /> : <Globe className="h-2.5 w-2.5" />}
-                              <span>{isApp ? 'App' : 'Web'}</span>
-                            </span>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteResource(item.id);
-                          }}
-                          className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors ml-2"
-                          title="Remove custom rule"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════
-              NATIVE DESKTOP BLOCKER COMPANION (PHASE 2)
-          ═══════════════════════════════════════════════════════ */}
-          <div className="rounded-3xl bg-gradient-to-b from-[#131622] to-[#111218] border border-indigo-500/25 p-6 sm:p-7 space-y-5 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.07] pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-inner">
-                  <Laptop className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Native Desktop Blocker Daemon</h2>
-                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                      Phase 2 Companion
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-0.5">
-                    Operates alongside the Chrome extension to intercept native apps (Discord, Spotify, Steam, Games) and refocus Zenith in &lt;400ms.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={handleGeneratePairToken}
-                disabled={generatingToken}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 shrink-0"
-              >
-                <Key className="h-3.5 w-3.5" />
-                <span>{generatingToken ? 'Generating...' : pairingToken ? 'Regenerate Pairing Token' : 'Generate Pairing Token'}</span>
-              </button>
-            </div>
-
-            {/* Pairing Token Terminal Snippet */}
-            {pairingToken ? (
-              <div className="p-4 rounded-2xl bg-black/60 border border-indigo-500/30 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300">
-                    <Terminal className="h-4 w-4 text-indigo-400" />
-                    <span>One-Line Pairing Command (Terminal)</span>
-                  </div>
-                  <button
-                    onClick={handleCopyPairCommand}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-xs font-medium text-indigo-200 transition-colors"
-                  >
-                    {copiedToken ? (
-                      <>
-                        <Check className="h-3.5 w-3.5 text-emerald-400" />
-                        <span className="text-emerald-300">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5" />
-                        <span>Copy Command</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="p-3 rounded-xl bg-zinc-950 font-mono text-[11px] text-emerald-400 border border-white/5 overflow-x-auto whitespace-nowrap">
-                  npm run blocker -- --pair {pairingToken}
-                </div>
-
-                <p className="text-[11px] text-zinc-400">
-                  Run this command once in your terminal. It pairs your local desktop blocker with your authenticated Zenith session and saves credentials securely to <code className="text-zinc-200 font-mono bg-zinc-800 px-1 py-0.5 rounded">~/.zenith/desktop-token.json</code>.
-                </p>
-              </div>
-            ) : (
-              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-zinc-400">
-                <div className="space-y-1">
-                  <p className="font-semibold text-zinc-200">How to launch the Desktop Companion:</p>
-                  <ol className="list-decimal list-inside space-y-0.5 text-zinc-400 text-[11px]">
-                    <li>Click <strong>Generate Pairing Token</strong> above to get your authenticated 7-day key.</li>
-                    <li>Open your Terminal in the Zenith repository.</li>
-                    <li>Run <code className="text-emerald-400 font-mono bg-black/40 px-1 py-0.5 rounded">npm run blocker</code> to start the guardian.</li>
-                  </ol>
-                </div>
-                <div className="shrink-0 p-3 rounded-xl bg-black/40 border border-white/5 font-mono text-[11px] text-zinc-300">
-                  npm run blocker
-                </div>
-              </div>
-            )}
-
-            {/* Architecture & Guarantees */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-[11px]">
-              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1">
-                <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                  Multi-User Isolated
-                </span>
-                <p className="text-zinc-500">
-                  Strictly synchronized with your individual account. Telemetry is attributed only to your session.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1">
-                <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
-                  <Lock className="h-3.5 w-3.5 text-indigo-400" />
-                  Non-Destructive Hiding
-                </span>
-                <p className="text-zinc-500">
-                  Hides distracting apps safely using macOS System Events. Never terminates processes or causes data loss.
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] space-y-1">
-                <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-blue-400" />
-                  Zero Lingering Locks
-                </span>
-                <p className="text-zinc-500">
-                  Exits gracefully on Ctrl+C (SIGINT/SIGTERM) with instant standby when your focus room session concludes.
-                </p>
-              </div>
-            </div>
-          </div>
-
-        </div>
+            </ul>
+          )}
+        </section>
 
       </main>
     </div>

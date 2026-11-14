@@ -1,11 +1,17 @@
+import { COZY_THEMES, cozyGradient, getCozySceneMood, type CozySceneMood } from './cozyThemes';
+import { MOTION_SCENERIES, parseSceneryUrl } from './sceneryMedia';
+import type { AmbientSound } from './ambientAudio';
+
 export interface Scenery {
   id: string;
   name: string;
   tagline: string;
-  category: 'Cozy' | 'Lofi' | 'Nature' | 'Dark Academia' | 'Minimal';
+  category: string;
   bgImageUrl: string;
+  videoUrl?: string;
+  mood?: CozySceneMood;
   gradientOverlay: string;
-  defaultSound: 'rain' | 'fire' | 'cafe' | 'forest' | 'alpha';
+  defaultSound: AmbientSound;
   accentColor: string;
 }
 
@@ -81,3 +87,32 @@ export const SCENERIES: Scenery[] = [
     accentColor: '#10b981',
   },
 ];
+
+SCENERIES.unshift(...COZY_THEMES.map(theme => ({
+  id: theme.id, name: theme.name, tagline: getCozySceneMood(theme.art)?.label ?? theme.group, category: theme.group,
+  mood: getCozySceneMood(theme.art),
+  bgImageUrl: theme.art ? `/scenery/${theme.art}.webp` : '',
+  gradientOverlay: cozyGradient(theme.glow, theme.base),
+  defaultSound: theme.art === 'rain' ? 'rain' as const : 'white' as const,
+  accentColor: theme.glow,
+})));
+
+export function customScenery(value: string): Scenery | null {
+  const media = parseSceneryUrl(value);
+  if (!media) return null;
+  return {
+    id: 'custom', name: 'Custom background', category: 'Custom', tagline: '',
+    bgImageUrl: media.kind === 'image' ? media.url : '',
+    videoUrl: media.kind === 'video' ? media.url : undefined,
+    gradientOverlay: cozyGradient('#986a45', '#33271f'),
+    defaultSound: 'rain', accentColor: '#b68966',
+  };
+}
+
+SCENERIES.unshift(...MOTION_SCENERIES.map(theme => ({
+  id: theme.id, name: theme.name, category: 'Video', tagline: 'Looping video',
+  mood: getCozySceneMood(theme.art),
+  bgImageUrl: `/scenery/${theme.art}.webp`, videoUrl: `/scenery/${theme.art}-motion.mp4`,
+  gradientOverlay: cozyGradient(theme.tint, '#29201c'),
+  defaultSound: 'rain' as const, accentColor: theme.tint,
+})));

@@ -48,10 +48,14 @@ export class BlockerService {
     enabled?: boolean;
   }) {
     const targetUserId = userId || (await this.getDefaultUserId());
-    const cleanIdentifier = data.type === 'WEBSITE' ? this.normalizeDomain(data.identifier) : data.identifier.trim();
+    if ((data.type !== 'WEBSITE' && data.type !== 'APPLICATION') || typeof data.identifier !== 'string') {
+      throw new Error('Enter a website link or an app name.');
+    }
+    const cleanIdentifier = data.type === 'WEBSITE'
+      ? ZenithPolicyEngine.normalizeRuleDomain(data.identifier)
+      : data.identifier.trim().replace(/\.(?:app|exe)$/i, '');
 
-    // Authoritative policy validation and conflict check
-    const validation = ZenithPolicyEngine.validateCustomRule(cleanIdentifier, data.type, !!data.isAllowlist);
+    const validation = ZenithPolicyEngine.validateCustomRule(data.identifier, data.type, !!data.isAllowlist);
     if (!validation.valid) {
       throw new Error(validation.error || 'Invalid rule configuration.');
     }
@@ -91,17 +95,22 @@ export class BlockerService {
     isAllowlist: boolean;
     category: string;
   }>) {
+    const targetUserId = userId || (await this.getDefaultUserId());
     const resource = await prisma.blockedResource.update({
-      where: { id },
-      data,
+      where: { id, userId: targetUserId },
+      data: {
+        displayName: data.displayName, enabled: data.enabled,
+        isAllowlist: data.isAllowlist, category: data.category,
+      },
     });
     return resource;
   }
 
   // 4. Delete Resource
   static async deleteResource(userId: string | undefined, id: string) {
+    const targetUserId = userId || (await this.getDefaultUserId());
     await prisma.blockedResource.delete({
-      where: { id },
+      where: { id, userId: targetUserId },
     });
     return { success: true };
   }
@@ -132,9 +141,13 @@ export class BlockerService {
 
     const ownedSession = await prisma.focusSession.findFirst({
       where: { id: targetSessionId, userId: targetUserId, status: 'ACTIVE' },
-      select: { id: true },
+      select: { id: true, protectionEnabled: true, startTime: true, plannedDuration: true },
     });
     if (!ownedSession) throw new Error('Active focus session not found.');
+    if (!ownedSession.protectionEnabled) throw new Error('Protection is off for this focus session.');
+
+    const expiresAt = this.protectionDeadline(ownedSession);
+    if (expiresAt <= Date.now()) throw new Error('Focus session has expired.');
 
     // Upsert BlockerSession
     const session = await prisma.blockerSession.upsert({
@@ -153,7 +166,7 @@ export class BlockerService {
       },
     });
 
-    // Generate temporary 2-hour scoped Blocker Token for Extension & Desktop agent
+    // Allow status checks through the timer and its one-minute completion window.
     const blockerToken = jwt.sign(
       {
         userId: targetUserId,
@@ -162,7 +175,7 @@ export class BlockerService {
         type: 'BLOCKER_AUTH',
       },
       getJwtSecret(),
-      { expiresIn: '2h' }
+      { expiresIn: Math.max(1, Math.ceil((expiresAt - Date.now()) / 1000)) }
     );
 
     // Fetch active block list and allow list
@@ -190,6 +203,10 @@ export class BlockerService {
         allowedApps,
       },
     };
+  }
+
+  static protectionDeadline(session: { startTime: Date; plannedDuration: number }) {
+    return session.startTime.getTime() + (session.plannedDuration + 1) * 60_000;
   }
 
   // 6. Deactivate Blocker Session

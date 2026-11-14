@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { SpotifyPlayer } from '@/components/SpotifyPlayer';
+import { useAmbient } from '@/contexts/AmbientContext';
 import { ZENITH_TRACKS, musicPlayer, Track } from '@/lib/musicEngine';
-import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Music, X, ExternalLink, Radio } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Music, X, Radio } from 'lucide-react';
 
 interface MusicPlayerModalProps {
   isOpen: boolean;
@@ -11,6 +13,7 @@ interface MusicPlayerModalProps {
 
 export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
   const [activeTab, setActiveTab] = useState<'zenith' | 'spotify'>('zenith');
+  const { setIsSoundModalOpen } = useAmbient();
   const [currentTrack, setCurrentTrack] = useState<Track>(musicPlayer.getCurrentTrack());
   const [isPlaying, setIsPlaying] = useState<boolean>(musicPlayer.isPlaying());
   const [volume, setVolume] = useState<number>(musicPlayer.getVolume());
@@ -24,11 +27,9 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
     return unsub;
   }, []);
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-      <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0d0f14]/95 p-6 shadow-2xl text-zinc-100 space-y-6">
+    <div hidden={!isOpen} className={isOpen ? "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" : "hidden"}>
+      <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0d0f14]/95 p-6 shadow-2xl text-zinc-100 space-y-6 max-h-[90dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
@@ -37,7 +38,7 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
             </div>
             <div>
               <h2 className="text-base font-semibold text-white tracking-tight">Audio & Focus Music</h2>
-              <p className="text-xs text-zinc-400">Atmospheric focus audio and provider handoff</p>
+              <p className="text-xs text-zinc-400">Play ambience or bring a Spotify playlist</p>
             </div>
           </div>
           <button
@@ -146,33 +147,12 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
               ))}
             </div>
           </div>
-        ) : (
-          <div className="space-y-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-[#1DB954]/20 flex items-center justify-center text-[#1DB954]">
-                <Music className="h-5 w-5" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-white">Spotify Official Integration</h4>
-                <p className="text-zinc-400 text-[11px]">Developer Policy Compliant Playback Handoff</p>
-              </div>
-            </div>
-
-            <p className="text-zinc-400 leading-relaxed">
-              In accordance with official Spotify Developer Terms, playback control requires a Spotify Premium account. You can connect your account to control your active Spotify playlists directly from Zenith without leaving your focus session.
-            </p>
-
-            <a
-              href="https://open.spotify.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg bg-[#1DB954] text-white font-semibold hover:bg-[#1aa34a] transition-colors"
-            >
-              <span>Launch Spotify Web Player</span>
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          </div>
-        )}
+        ) : null}
+        <SpotifyPlayer visible={activeTab === 'spotify'} />
+        {activeTab === 'zenith' && <button type="button" className="text-sm underline" onClick={() => {
+          onClose();
+          setIsSoundModalOpen(true);
+        }}>Open white noise and ambience</button>}
 
         <div className="flex justify-end pt-2 border-t border-white/10">
           <button

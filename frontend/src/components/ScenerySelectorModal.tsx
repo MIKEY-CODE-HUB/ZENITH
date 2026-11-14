@@ -1,134 +1,167 @@
 'use client';
 
-import React from 'react';
-import { useAmbient } from '@/contexts/AmbientContext';
-import { SCENERIES } from '@/lib/sceneries';
-import { X, Check, Sparkles, Volume2, Image as ImageIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
+import { getDefaultScenery, SCENERY_PAGES, type SceneryPage, useAmbient } from '@/contexts/AmbientContext';
+import { AtmosphericScene } from '@/components/AtmosphericScene';
+import { loadSceneryMedia, parseSceneryUrl, sceneryLinkError } from '@/lib/sceneryMedia';
+import { type Scenery, SCENERIES, customScenery } from '@/lib/sceneries';
+
+const sections = Object.entries(SCENERY_PAGES) as [SceneryPage, string][];
+const categories = ['Cozy scenes', 'Reading rooms', 'Rain & snow', 'Quiet mornings', 'Outdoors', 'Video', 'Still colors', 'All'];
+const featuredIds = ['walnut-window', 'moss-library', 'snow-cabin', 'tea-at-dusk', 'early-bakery', 'fern-path', 'violet-lake', 'linen-desk', 'rose-canyon'];
+const featuredScenes = featuredIds.flatMap(id => SCENERIES.filter(scene => scene.id === id));
 
 export function ScenerySelectorModal() {
-  const {
-    isSceneryModalOpen,
-    setIsSceneryModalOpen,
-    currentScenery,
-    setSceneryId,
-  } = useAmbient();
+  const { isSceneryModalOpen, setIsSceneryModalOpen, sceneryPage, pageSceneries, setPageScenery } = useAmbient();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [page, setPage] = useState<SceneryPage>('home');
+  const [category, setCategory] = useState('Cozy scenes');
+  const [preview, setPreview] = useState<Scenery | null>(null);
+  const [customUrl, setCustomUrl] = useState('');
+  const [customError, setCustomError] = useState('');
+  const [checking, setChecking] = useState(false);
+  const previewRequest = useRef(0);
 
-  if (!isSceneryModalOpen) return null;
+  function selectPreview(scenery: Scenery | null) {
+    previewRequest.current++;
+    setChecking(false);
+    setCustomError('');
+    setPreview(scenery);
+    setCustomUrl(scenery?.id === 'custom' ? scenery.videoUrl || scenery.bgImageUrl : '');
+  }
 
-  const categories = ['All', 'Cozy', 'Lofi', 'Nature', 'Dark Academia', 'Minimal'] as const;
-  const [activeCategory, setActiveCategory] = React.useState<string>('All');
+  async function previewCustom() {
+    const media = parseSceneryUrl(customUrl);
+    if (!media) {
+      setCustomError(sceneryLinkError(customUrl));
+      return;
+    }
+    const request = ++previewRequest.current;
+    setChecking(true);
+    setCustomError('');
+    try {
+      await loadSceneryMedia(media.url, media.kind);
+      if (request === previewRequest.current) {
+        setPreview(customScenery(media.url));
+        setCustomUrl(media.url);
+      }
+    } catch (error) {
+      if (request === previewRequest.current && error instanceof Error) setCustomError(error.message);
+    } finally {
+      if (request === previewRequest.current) setChecking(false);
+    }
+  }
 
-  const filteredSceneries = activeCategory === 'All'
-    ? SCENERIES
-    : SCENERIES.filter((s) => s.category === activeCategory);
+  useEffect(() => {
+    if (!isSceneryModalOpen) return;
+    setPage(sceneryPage);
+    setCategory('Cozy scenes');
+    selectPreview(pageSceneries[sceneryPage]);
+    const element = dialog.current;
+    element?.showModal();
+    return () => { previewRequest.current++; element?.close(); };
+  }, [isSceneryModalOpen, sceneryPage]);
+
+  const displayed = preview ?? getDefaultScenery(page);
+  const themes = category === 'Cozy scenes'
+    ? featuredScenes
+    : SCENERIES.filter(scene => category === 'All' || scene.category === category);
+  const customLinkReady = !customUrl.trim() ||
+    (preview?.id === 'custom' && customUrl === (preview.videoUrl || preview.bgImageUrl));
 
   return (
-    <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-2xl bg-[#121215] border border-white/10 shadow-2xl p-6 space-y-5 max-h-[85vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.06] border border-white/10 text-white">
-              <ImageIcon className="h-4 w-4 text-emerald-400" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-white tracking-tight">
-                Study Sceneries & Ambience
-              </h2>
-              <p className="text-xs text-zinc-400">
-                Immersive photographic and minimalist backdrops for deep focus
-              </p>
-            </div>
-          </div>
-
+    <dialog
+      ref={dialog}
+      aria-labelledby="scenery-title"
+      onCancel={() => setIsSceneryModalOpen(false)}
+      className="zenith-room-dialog m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-3xl overflow-y-auto rounded-3xl p-5 sm:p-6"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 id="scenery-title" className="font-serif text-3xl tracking-tight">Cozy atmospheres</h2>
+        <button type="button" aria-label="Close" className="rounded-lg p-2 hover:bg-[rgb(var(--tint))]/10" onClick={() => setIsSceneryModalOpen(false)}>
+          <X size={20} />
+        </button>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1" aria-label="Page to customize" role="group">
+        {sections.map(([id, label]) => (
           <button
-            onClick={() => setIsSceneryModalOpen(false)}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+            key={id}
+            type="button"
+            aria-pressed={page === id}
+            onClick={() => {
+              setPage(id);
+              selectPreview(pageSceneries[id]);
+            }}
+            className="zenith-room-tab"
           >
-            <X className="h-4 w-4" />
+            {label}
           </button>
-        </div>
-
-        {/* Category Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
-                activeCategory === cat
-                  ? 'bg-white text-zinc-950 font-semibold'
-                  : 'bg-white/[0.03] text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] border border-white/[0.05]'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {/* Sceneries Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto pr-1 flex-1">
-          {filteredSceneries.map((scenery) => {
-            const isSelected = currentScenery.id === scenery.id;
-
-            return (
-              <div
-                key={scenery.id}
-                onClick={() => {
-                  setSceneryId(scenery.id);
-                  setIsSceneryModalOpen(false);
-                }}
-                className={`group relative aspect-[16/10] rounded-xl overflow-hidden border cursor-pointer transition-all ${
-                  isSelected
-                    ? 'border-emerald-400 ring-2 ring-emerald-500/20 shadow-lg shadow-emerald-950/40'
-                    : 'border-white/[0.08] hover:border-white/20'
-                }`}
-              >
-                {/* Background Image / Color */}
-                {scenery.bgImageUrl ? (
-                  <img
-                    src={scenery.bgImageUrl}
-                    alt={scenery.name}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-[#09090b]" />
-                )}
-
-                {/* Dark Vignette Overlay */}
-                <div
-                  className="absolute inset-0 transition-opacity"
-                  style={{ background: scenery.gradientOverlay }}
-                />
-
-                {/* Content Overlay */}
-                <div className="absolute inset-0 p-3.5 flex flex-col justify-between z-10">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-white/80 bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10">
-                      {scenery.category}
-                    </span>
-
-                    {isSelected && (
-                      <span className="flex items-center justify-center h-5 w-5 rounded-full bg-emerald-500 text-zinc-950">
-                        <Check className="h-3 w-3 stroke-[3]" />
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-semibold text-white drop-shadow-sm group-hover:text-emerald-300 transition-colors">
-                      {scenery.name}
-                    </h3>
-                    <p className="text-[11px] text-zinc-300/90 line-clamp-1 mt-0.5">
-                      {scenery.tagline}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        ))}
+      </div>
+      <div className="relative mt-4 flex aspect-[2.45/1] min-h-36 items-end overflow-hidden rounded-2xl border border-white/10 bg-[#30251d] p-4 text-white">
+        <AtmosphericScene scene={displayed} fallbackImage={getDefaultScenery(page).bgImageUrl} />
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#110d0c]/90 via-transparent to-transparent" />
+        <div className="relative z-10">
+          <p className="font-serif text-2xl sm:text-3xl">{displayed.name}</p>
+          {(displayed.mood || displayed.videoUrl) && (
+            <p className="mt-1 text-xs text-[#ecd8c1]">{displayed.videoUrl ? 'Looping video' : displayed.mood?.label}</p>
+          )}
         </div>
       </div>
-    </div>
+      <div className="mt-4 flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Theme collection">
+        {categories.map(group => (
+          <button key={group} type="button" className="zenith-room-tab shrink-0" aria-pressed={group === category}
+            onClick={() => setCategory(group)}>{group}</button>
+        ))}
+      </div>
+      <div className="mt-2 grid max-h-64 grid-cols-2 gap-2.5 overflow-y-auto sm:grid-cols-3" role="group" aria-label="Preview an atmosphere">
+        {themes.map(scenery => (
+          <button key={scenery.id} type="button" aria-pressed={displayed.id === scenery.id}
+            onClick={() => selectPreview(scenery)}
+            className="flex flex-col overflow-hidden rounded-xl border border-[#efd3ac]/20 text-left text-sm hover:bg-white/5 aria-pressed:border-[#efd3ac]"
+            title={scenery.name}>
+            <span className="block h-16 w-full shrink-0 overflow-hidden" style={{ backgroundImage: scenery.gradientOverlay }} aria-hidden>
+              {scenery.bgImageUrl && <img src={scenery.bgImageUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer"
+                className="h-full w-full object-cover" />}
+            </span>
+            <span className="block px-2.5 py-2">
+              <span className="block font-medium">{scenery.name}</span>
+              {scenery.mood && <span className="mt-0.5 block text-xs text-[#dbc5b3]">{scenery.videoUrl ? 'Looping video' : scenery.mood.label}</span>}
+            </span>
+          </button>
+        ))}
+      </div>
+      <details className="mt-4 rounded-xl border border-[#efd3ac]/15 px-3 py-2"
+        key={page} open={preview?.id === 'custom' || undefined}>
+        <summary className="cursor-pointer text-sm text-[#ecd8c1]">Use a custom image or video</summary>
+        <form className="mt-4 space-y-2" onSubmit={event => { event.preventDefault(); void previewCustom(); }}>
+          <label htmlFor="scenery-url" className="text-sm font-medium">Custom image or video link</label>
+          <p className="text-xs text-[#e3d1c0]">From Google Images, open the image and choose Copy image address.</p>
+          <div className="flex flex-wrap gap-2">
+            <input id="scenery-url" type="url" value={customUrl} placeholder="https://example.com/wallpaper.jpg"
+              onChange={event => {
+                previewRequest.current++;
+                setChecking(false);
+                setCustomError('');
+                setCustomUrl(event.target.value);
+              }} className="zenith-room-field !mt-0 min-w-0 flex-1" />
+            <button disabled={checking || !customUrl.trim()} className="zenith-room-quiet">
+              {checking ? 'Checking…' : 'Preview link'}
+            </button>
+          </div>
+          {customError && <p role="alert" className="text-sm text-rose-200">{customError}</p>}
+        </form>
+      </details>
+      <div className="sticky -bottom-5 z-10 mt-4 flex flex-wrap justify-between gap-3 border-t border-white/10 bg-[#281f19] py-3 sm:-bottom-6">
+        <button type="button" onClick={() => selectPreview(null)} className="rounded-lg px-3 py-2 text-sm underline underline-offset-4">Restore default</button>
+        <button type="button" disabled={checking || !customLinkReady} onClick={() => {
+          setPageScenery(page, preview);
+          setIsSceneryModalOpen(false);
+        }} className="zenith-room-primary">
+          Apply to {SCENERY_PAGES[page]}
+        </button>
+      </div>
+    </dialog>
   );
 }

@@ -21,14 +21,14 @@
  *    - Graceful SIGINT/SIGTERM shutdown with zero lingering processes or locks.
  */
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('node:child_process');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const BACKEND_URL = process.env.ZENITH_BACKEND_URL || 'http://127.0.0.1:5001';
+const defaultBackendUrl = 'http://127.0.0.1:5001';
 const CONFIG_DIR = path.join(os.homedir(), '.zenith');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'desktop-token.json');
 
@@ -70,57 +70,67 @@ const TIER_2_ALWAYS_ALLOWED_APPS = [
   'Antigravity'
 ];
 
-// Parse Command Line Arguments
+let savedPairing = {};
+try {
+  savedPairing = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')) || {};
+} catch (error) {
+  if (error.code !== 'ENOENT') console.error('Could not read saved Zenith pairing. Pair again from Distraction Shield.');
+}
+
 const args = process.argv.slice(2);
-let token = process.env.ZENITH_AUTH_TOKEN || process.env.ZENITH_TOKEN || '';
-
+let token = process.env.ZENITH_AUTH_TOKEN || process.env.ZENITH_TOKEN || savedPairing.token || '';
+let backendInput = process.env.ZENITH_BACKEND_URL || savedPairing.backendUrl || defaultBackendUrl;
+let shouldSave = false;
 for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--pair' || args[i] === '-p') {
-    const pairToken = args[i + 1];
-    if (pairToken) {
-      try {
-        if (!fs.existsSync(CONFIG_DIR)) {
-          fs.mkdirSync(CONFIG_DIR, { recursive: true });
-        }
-        fs.writeFileSync(CONFIG_FILE, JSON.stringify({ token: pairToken, pairedAt: new Date().toISOString() }, null, 2));
-        console.log('\x1b[32m%s\x1b[0m', '✅ Desktop companion successfully paired and credentials saved to ~/.zenith/desktop-token.json');
-        token = pairToken;
-        i++;
-      } catch (err) {
-        console.error('Failed to save pairing token:', err.message);
-      }
-    }
-  } else if (args[i] === '--token' || args[i] === '-t') {
-    token = args[i + 1] || '';
-    i++;
-  } else if (args[i] === '--help' || args[i] === '-h') {
-    console.log(`
-ZENITH Desktop Blocker & Focus Companion Daemon v11.0
+  const option = args[i];
+  if (option === '--help' || option === '-h') {
+    console.log(`Usage: node zenith-companion.js [--backend URL] [--pair TOKEN | --token TOKEN]
 
-Usage:
-  node zenith-companion.js [options]
-
-Options:
-  --pair, -p <TOKEN>     Pair companion with your Zenith account and save credentials
-  --token, -t <TOKEN>    Use an explicit JWT token for this session
-  --help, -h             Show this help menu
-
-Environment Variables:
-  ZENITH_AUTH_TOKEN      Set your pairing token
-  ZENITH_BACKEND_URL     Backend URL (default: http://127.0.0.1:5001)
-    `);
+--pair saves the token and Zenith origin for later runs. --token uses a token for this run only.`);
     process.exit(0);
+  }
+  if (!['--pair', '-p', '--token', '-t', '--backend'].includes(option) || !args[i + 1] || args[i + 1].startsWith('-')) {
+    console.error('Invalid option. Run with --help for usage.');
+    process.exit(1);
+  }
+  if (option === '--backend') backendInput = args[++i];
+  else {
+    token = args[++i];
+    shouldSave = option === '--pair' || option === '-p';
   }
 }
 
-// If no token from CLI or ENV, check ~/.zenith/desktop-token.json
-if (!token && fs.existsSync(CONFIG_FILE)) {
+let BACKEND_URL;
+try {
+  const backend = new URL(backendInput);
+  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(backend.hostname);
+  if ((backend.protocol !== 'https:' && !(backend.protocol === 'http:' && loopback)) || backend.username ||
+      backend.password || backend.pathname !== '/' || backend.search || backend.hash) throw new Error('Invalid backend origin');
+  BACKEND_URL = backend.origin;
+} catch {
+  console.error('Use a Zenith HTTPS origin, or an HTTP loopback origin for local development.');
+  process.exit(1);
+}
+
+if (!token) {
+  console.error('Pair from the Distraction Shield page in Zenith and run the copied command.');
+  process.exit(1);
+}
+
+if (process.platform !== 'darwin') {
+  console.error('The Zenith desktop companion requires macOS.');
+  process.exit(1);
+}
+
+if (shouldSave) {
   try {
-    const saved = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-    if (saved && saved.token) {
-      token = saved.token;
-    }
-  } catch (e) {}
+    fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ token, backendUrl: BACKEND_URL }, null, 2), { mode: 0o600 });
+    fs.chmodSync(CONFIG_FILE, 0o600);
+  } catch {
+    console.error('Could not save the Zenith pairing. Check access to ~/.zenith.');
+    process.exit(1);
+  }
 }
 
 console.log('\x1b[36m%s\x1b[0m', '════════════════════════════════════════════════════════════════');
@@ -129,13 +139,6 @@ console.log('\x1b[36m%s\x1b[0m', '  🚀 Three-Tier Native App Guardian (Multi-U
 console.log('\x1b[36m%s\x1b[0m', '════════════════════════════════════════════════════════════════');
 console.log(`📡 Backend URL: ${BACKEND_URL}`);
 console.log(`💻 Operating System: ${process.platform} (${os.release()})`);
-if (token) {
-  console.log(`🔐 Authentication: Paired (Token length: ${token.length})`);
-} else {
-  console.log('\x1b[33m⚠️  Authentication: Unpaired (Running in auto-pairing standby mode)\x1b[0m');
-  console.log('💡 Tip: Pair in 1-click from the Zenith web app or run:');
-  console.log('   node zenith-companion.js --pair <YOUR_TOKEN>\n');
-}
 console.log('Press Ctrl+C anytime to stop.\n');
 
 let isSessionActive = false;
@@ -154,53 +157,42 @@ let lastReportedResource = '';
 let lastReportedTime = 0;
 let lastSnapTime = 0;
 
-/**
- * High-performance, non-blocking frontmost application inspection (macOS)
- */
+let lastMacError = 0;
+function reportMacError() {
+  const now = Date.now();
+  if (now - lastMacError < 30_000) return;
+  lastMacError = now;
+  console.error('Zenith could not control macOS apps. Allow Terminal to control System Events under Privacy & Security → Automation, and enable Terminal under Accessibility if prompted.');
+}
+
 function getFrontmostApp() {
-  if (process.platform !== 'darwin') return null;
   try {
-    const cmd = `osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`;
-    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], timeout: 800 }).trim();
-  } catch (e) {
+    return execFileSync('/usr/bin/osascript', ['-e', 'tell application "System Events" to get name of first application process whose frontmost is true'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 800,
+    }).trim();
+  } catch {
+    reportMacError();
     return null;
   }
 }
 
-/**
- * Safely hides a distracting application process and brings Zenith browser to the front.
- */
-function hideAppAndRefocusBrowser(appName) {
-  if (process.platform !== 'darwin') return;
-  try {
-    // 1. Hide the distracting application
-    execSync(`osascript -e 'tell application "System Events" to set visible of process "${appName}" to false'`, {
-      stdio: 'ignore',
-      timeout: 1000,
-    });
-  } catch (e) {}
-
-  try {
-    // 2. Refocus primary browser window with Zenith focus room
-    const script = `
+function hideBlockedApp(appName) {
+  const script = `on run argv
+    set appName to item 1 of argv
+    tell application "System Events"
+      set visible of process appName to false
       try
-        tell application "Google Chrome" to activate
-      on error
-        try
-          tell application "Brave Browser" to activate
-        on error
-          try
-            tell application "Arc" to activate
-          on error
-            try
-              tell application "Safari" to activate
-            end try
-          end try
-        end try
+        if exists process "Google Chrome" then set frontmost of process "Google Chrome" to true
       end try
-    `;
-    execSync(`osascript -e '${script}'`, { stdio: 'ignore', timeout: 1000 });
-  } catch (e) {}
+    end tell
+  end run`;
+  try {
+    execFileSync('/usr/bin/osascript', ['-e', script, appName], { stdio: 'pipe', timeout: 1200 });
+    return true;
+  } catch {
+    reportMacError();
+    return false;
+  }
 }
 
 /**
@@ -282,11 +274,8 @@ function recordDistractionAttempt(resourceName) {
   const headers = {
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(postData),
+    Authorization: `Bearer ${token}`,
   };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
   const req = client.request(
     urlObj,
     {
@@ -294,85 +283,73 @@ function recordDistractionAttempt(resourceName) {
       headers,
       timeout: 2000,
     },
-    () => {}
+    (response) => response.resume()
   );
+  req.on('timeout', () => req.destroy());
   req.on('error', () => {});
   req.write(postData);
   req.end();
 }
 
-/**
- * Synchronizes user-scoped session state and policy lists from the backend.
- */
+let checking = false;
+let lastStatus = '';
 function checkSessionStatus() {
-  const urlObj = new URL(`${BACKEND_URL}/api/blocker/live-status`);
-  const client = urlObj.protocol === 'https:' ? https : http;
-
-  const headers = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const req = client.get(urlObj, { headers, timeout: 2000 }, (res) => {
-    let data = '';
-    res.on('data', (chunk) => { data += chunk; });
-    res.on('end', () => {
+  if (checking) return;
+  checking = true;
+  const url = new URL('/api/blocker/live-status', BACKEND_URL);
+  const client = url.protocol === 'https:' ? https : http;
+  const req = client.get(url, { headers: { Authorization: `Bearer ${token}` }, timeout: 3000 }, (response) => {
+    let body = '';
+    response.on('data', (chunk) => { body += chunk; });
+    response.on('aborted', () => updateStatus(false, 'Zenith disconnected. Check the site URL and your connection.'));
+    response.on('end', () => {
+      if (response.statusCode !== 200) {
+        updateStatus(false, `Zenith returned HTTP ${response.statusCode}. Check the site URL and pair again from the same Zenith site.`);
+        return;
+      }
       try {
-        const json = JSON.parse(data);
-        const wasActive = isSessionActive;
-        isSessionActive = !!json.active;
-
-        if (json.active) {
-          currentSessionData = {
-            sessionId: json.sessionId,
-            userId: json.userId,
-            user: json.user,
-            mode: json.mode || 'STRICT',
-            blockedApps: json.blockedApps || TIER_1_ALWAYS_BLOCKED_APPS,
-            allowedApps: json.allowedApps || TIER_2_ALWAYS_ALLOWED_APPS,
-            blockedWebsites: json.blockedWebsites || [],
-            allowedWebsites: json.allowedWebsites || [],
-            activityType: json.activityType,
-          };
+        const policy = JSON.parse(body);
+        if (policy.message?.startsWith('Authentication required')) {
+          updateStatus(false, 'Pairing expired or belongs to another backend. Generate a new pairing token.');
+        } else if (policy.active === true && ['STRICT', 'BLOCK'].includes(policy.mode) && policy.sessionId) {
+          currentSessionData = policy;
+          updateStatus(true, `Desktop protection active (${policy.mode}).`);
+        } else {
+          updateStatus(false, 'Desktop protection on standby. Start a protected focus session on this Zenith site.');
         }
-
-        if (!wasActive && isSessionActive) {
-          console.log(`\x1b[32m\n🔥 [FOCUS SESSION ENGAGED]\x1b[0m Activity: \x1b[1m${currentSessionData.activityType || 'Deep Focus'}\x1b[0m | Mode: \x1b[1m${currentSessionData.mode}\x1b[0m | User: \x1b[1m${currentSessionData.user?.name || currentSessionData.user?.username || 'Authenticated'}\x1b[0m`);
-          console.log(`🛡️  Enforcing ${currentSessionData.blockedApps.length} blocked applications and ${currentSessionData.allowedApps.length} permitted tools.\n`);
-        } else if (wasActive && !isSessionActive) {
-          console.log(`\x1b[33m\n💤 [FOCUS SESSION ENDED]\x1b[0m Standby mode engaged. All native applications unlocked.\n`);
-        }
-      } catch (err) {}
+      } catch {
+        updateStatus(false, 'Could not read Zenith status. Check the site URL.');
+      }
     });
   });
-
-  req.on('error', () => {
-    if (isSessionActive) {
-      console.log('\x1b[33m⚠️  Backend disconnected. Reverting to standby failsafe.\x1b[0m');
-      isSessionActive = false;
-    }
-  });
+  req.on('timeout', () => req.destroy(new Error('timeout')));
+  req.on('error', () => updateStatus(false, 'Could not reach Zenith. Check the site URL and your connection.'));
+  req.on('close', () => { checking = false; });
 }
 
-// 1. Session Status Polling Loop (Every 1.2s)
-setInterval(checkSessionStatus, 1200);
+function updateStatus(active, message) {
+  isSessionActive = active;
+  if (message === lastStatus) return;
+  lastStatus = message;
+  console.log(message);
+}
+
+setInterval(checkSessionStatus, 2000);
 checkSessionStatus();
 
-// 2. High-Frequency Native Enforcement Loop (400ms low-overhead cycle)
 setInterval(() => {
+  if (!isSessionActive) return;
   const frontApp = getFrontmostApp();
   if (!frontApp) return;
-
   const evaluation = evaluateDesktopApp(frontApp);
-
-  if (evaluation.action === 'BLOCK') {
-    const now = Date.now();
-    if (now - lastSnapTime > 1500) {
-      lastSnapTime = now;
-      console.log(`\x1b[31m🚨 DISTRACTION INTERCEPTED!\x1b[0m [${frontApp}] opened during active focus session (${evaluation.reason}). Hiding application and refocusing ZENITH...`);
-      recordDistractionAttempt(`Desktop App: ${frontApp}`);
-    }
-    hideAppAndRefocusBrowser(frontApp);
+  if (evaluation.action !== 'BLOCK' || Date.now() - lastSnapTime < 1500) return;
+  lastSnapTime = Date.now();
+  if (hideBlockedApp(frontApp)) {
+    console.log(`Blocked ${frontApp}.`);
+    try {
+      execFileSync('/usr/bin/osascript', ['-e', 'on run argv\ndisplay notification ("Blocked " & item 1 of argv & " during your focus session.") with title "Zenith Shield"\nend run', frontApp], { stdio: 'ignore', timeout: 800 });
+    } catch {}
+    recordDistractionAttempt(`Desktop App: ${frontApp}`);
   }
 }, 400);
 

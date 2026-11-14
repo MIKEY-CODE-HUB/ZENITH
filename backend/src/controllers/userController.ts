@@ -4,6 +4,34 @@ import { prisma } from '../config/prisma.js';
 import { StreakAchievementService } from '../services/streakAchievementService.js';
 
 export class UserController {
+  public static async exportData(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user!.userId },
+        select: {
+          id: true, name: true, username: true, email: true, avatarUrl: true,
+          preferredActivity: true, typicalDuration: true, createdAt: true, settings: true,
+          focusSessions: {
+            orderBy: { startTime: 'desc' },
+            include: { events: { orderBy: { startTime: 'asc' } }, blockAttempts: true },
+          },
+          pointTransactions: { orderBy: { createdAt: 'desc' } },
+          userAchievements: { include: { achievement: true } },
+          blockedResources: true, activityBlockLists: true, blockerSessions: true, focusGoals: true,
+          participants: { select: { roomId: true, joinedAt: true, leftAt: true, status: true, role: true } },
+          createdRooms: { select: { id: true, name: true, category: true, isPrivate: true, createdAt: true } },
+        },
+      });
+      if (!user) {
+        res.status(404).json({ success: false, error: 'User not found.' });
+        return;
+      }
+      res.setHeader('Cache-Control', 'no-store').json({ success: true, data: user });
+    } catch {
+      res.status(500).json({ success: false, error: 'Could not export your Zenith data.' });
+    }
+  }
+
   public static async getProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.userId;
@@ -32,12 +60,12 @@ export class UserController {
       const bestScore = user.focusSessions.reduce((max, s) => Math.max(max, s.focusScore), 0);
       const longestSessionSeconds = user.focusSessions.reduce((max, s) => Math.max(max, s.focusedDuration), 0);
 
-      const { passwordHash: _, ...safeUser } = user;
-
       res.json({
         success: true,
         profile: {
-          ...safeUser,
+          id: user.id, name: user.name, username: user.username, email: user.email,
+          avatarUrl: user.avatarUrl, preferredActivity: user.preferredActivity, typicalDuration: user.typicalDuration,
+          settings: user.settings, userAchievements: user.userAchievements, createdAt: user.createdAt,
           currentStreak: streak,
           totalFocusedMinutes: Math.round(totalFocusedSeconds / 60),
           totalSessionsCount: user.focusSessions.length,
@@ -74,16 +102,16 @@ export class UserController {
         return;
       }
 
-      // Validate customThemeUrl against script injection
-      if (req.body.customThemeUrl) {
-        const themeUrl = String(req.body.customThemeUrl).trim();
-        if (
-          themeUrl.startsWith('javascript:') ||
-          themeUrl.startsWith('data:text/html') ||
-          themeUrl.includes('<script>') ||
-          themeUrl.includes('onerror=')
-        ) {
-          res.status(400).json({ success: false, error: 'Invalid or unsafe theme URL detected' });
+      let customThemeUrl: string | null | undefined = req.body.customThemeUrl;
+      if (customThemeUrl === '') customThemeUrl = null;
+      if (customThemeUrl !== undefined && customThemeUrl !== null) {
+        try {
+          if (typeof customThemeUrl !== 'string' || customThemeUrl.length > 2048) throw new Error('Invalid URL');
+          const parsed = new URL(customThemeUrl.trim());
+          if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw new Error('Invalid URL');
+          customThemeUrl = parsed.href;
+        } catch {
+          res.status(400).json({ success: false, error: 'Use a public HTTPS link for your custom background.' });
           return;
         }
       }
@@ -101,7 +129,7 @@ export class UserController {
           sessionCompleteAlerts: sessionCompleteAlerts !== undefined ? Boolean(sessionCompleteAlerts) : undefined,
           streakReminders: streakReminders !== undefined ? Boolean(streakReminders) : undefined,
           appearanceMode: req.body.appearanceMode || undefined,
-          customThemeUrl: req.body.customThemeUrl !== undefined ? req.body.customThemeUrl : undefined,
+          customThemeUrl,
           customThemeTarget: req.body.customThemeTarget || undefined,
           videoLayout: req.body.videoLayout || undefined,
         },
@@ -117,7 +145,7 @@ export class UserController {
           sessionCompleteAlerts: sessionCompleteAlerts !== undefined ? sessionCompleteAlerts : true,
           streakReminders: streakReminders !== undefined ? streakReminders : true,
           appearanceMode: req.body.appearanceMode || 'dark',
-          customThemeUrl: req.body.customThemeUrl || null,
+          customThemeUrl: customThemeUrl ?? null,
           customThemeTarget: req.body.customThemeTarget || 'BOTH',
           videoLayout: req.body.videoLayout || 'footer',
         },

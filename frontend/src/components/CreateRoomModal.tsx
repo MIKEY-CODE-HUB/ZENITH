@@ -1,186 +1,190 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ActivityType } from '@/lib/types';
-import { api } from '@/lib/api';
-import { X, Sparkles, Camera, Lock, Globe } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ArrowRight, KeyRound, Plus, X } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { api, ApiError, type RoomInvitation } from '@/lib/api';
+import { type ActivityCategory, type ActivityType, type Room } from '@/lib/types';
+import { RoomInviteControls } from '@/components/RoomInviteControls';
 
-interface CreateRoomModalProps {
-  isOpen: boolean;
+type Mode = 'host' | 'member';
+const activities: ActivityType[] = ['Study', 'Work', 'Coding', 'Gym', 'Creative', 'Reading', 'Practice', 'Other'];
+
+export function CreateRoomModal({ initialMode = 'host', onClose, onCreated }: {
+  initialMode?: Mode;
   onClose: () => void;
-  onCreated?: (room: any) => void;
-}
-
-export function CreateRoomModal({ isOpen, onClose, onCreated }: CreateRoomModalProps) {
+  onCreated: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [activityType, setActivityType] = useState<ActivityType>('Coding');
-  const [duration, setDuration] = useState(50);
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [maxParticipants, setMaxParticipants] = useState(10);
-  const [camera, setCamera] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { user, loading: authLoading } = useAuth();
+  const [mode, setMode] = useState<Mode>(initialMode);
+  const [category, setCategory] = useState<ActivityCategory>('EDUCATION');
+  const [inviteCode, setInviteCode] = useState('');
+  const [quote, setQuote] = useState<{ cost: number; canAfford: boolean } | null>(null);
+  const [created, setCreated] = useState<{ room: Room; invitation: RoomInvitation } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    const element = dialog.current;
+    element?.showModal();
+    return () => element?.close();
+  }, []);
 
-  const activities: ActivityType[] = ['Study', 'Work', 'Coding', 'Gym', 'Creative', 'Reading', 'Practice', 'Other'];
-  const durations = [25, 50, 90];
+  function selectMode(next: Mode) {
+    setMode(next);
+    setError('');
+    setQuote(null);
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      setError('Please enter a room name');
+  async function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get('roomName')).trim();
+    if (!name) {
+      setError('Enter a room name.');
       return;
     }
-
+    setBusy(true);
+    setError('');
     try {
-      setLoading(true);
-      setError(null);
-      const res = await api.createRoom({
+      const { room, invitation } = await api.hostRoom({
         name,
-        description,
-        activityType,
-        duration,
-        isPrivate,
-        maxParticipants,
-        camera,
+        description: String(form.get('description')).trim(),
+        activityType: String(form.get('activity')),
+        category,
+        duration: Number(form.get('duration')),
+        isPrivate: !form.has('listed'),
+        maxParticipants: category === 'INTERACTION' ? 6 : 10,
+        camera: false,
         mic: false,
       });
-
-      if (res.success && res.room) {
-        if (onCreated) onCreated(res.room);
-        onClose();
-        router.push(`/focus/${res.room.id}/setup`);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to create focus room');
+      setCreated({ room, invitation });
+      onCreated();
+    } catch (failure) {
+      setError(failure instanceof ApiError && failure.status === 404
+        ? 'Hosting with codes is unavailable on this deployment.'
+        : failure instanceof Error ? failure.message : 'Could not create your room.');
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
-  };
+  }
+
+  async function join(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || quote?.canAfford === false) return;
+    setBusy(true);
+    setError('');
+    try {
+      const { room } = await api.joinRoomByCode(inviteCode.trim(), Boolean(quote));
+      onClose();
+      router.push(`/focus/${room.id}/setup`);
+    } catch (failure) {
+      if (!quote && failure instanceof ApiError && failure.status === 402) {
+        try {
+          setQuote((await api.getInteractionQuote()).quote);
+        } catch {
+          setError('Could not load the points cost. Try again.');
+        }
+      } else {
+        setError(failure instanceof ApiError && failure.status === 404
+          ? 'That code is invalid or expired. Ask your host for a new code.'
+          : failure instanceof Error ? failure.message : 'Could not join the room.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const title = created ? 'Your room is ready' : 'Create or join a room';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-md rounded-2xl bg-[#121215] border border-white/[0.08] p-6 shadow-2xl space-y-5">
-        <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
-          <div>
-            <h2 className="text-sm font-semibold text-white">Create Focus Room</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">Start a collaborative silent session with peers.</p>
-          </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.05] transition-colors">
-            <X className="h-4 w-4" />
-          </button>
+    <dialog ref={dialog} aria-labelledby="room-entry-title"
+      onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}
+      className="zenith-room-dialog m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-3xl p-5 sm:p-7">
+      <header className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <h2 id="room-entry-title" className="font-serif text-3xl tracking-tight">{title}</h2>
+          <p className="mt-1 text-sm text-[#e3d1c0]">{created ? created.room.name : 'Host a room or use a code from your host.'}</p>
         </div>
+        <button type="button" aria-label="Close room dialog" disabled={busy} onClick={onClose} className="rounded-lg p-2 hover:bg-white/10 disabled:opacity-50">
+          <X size={20} />
+        </button>
+      </header>
 
-        {error && (
-          <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs font-medium">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Room Name */}
-          <div>
-            <label className="text-xs font-medium text-zinc-300 block mb-1">Room Title</label>
-            <input
-              type="text"
-              placeholder="e.g. Deep Work Lab, Systems Architecture"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg bg-[#18181c] border border-white/[0.08] px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-white/20 focus:outline-none transition-colors"
-              required
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="text-xs font-medium text-zinc-300 block mb-1">Session Goal (Optional)</label>
-            <input
-              type="text"
-              placeholder="e.g. Shipping migration, reading research papers"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-lg bg-[#18181c] border border-white/[0.08] px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-white/20 focus:outline-none transition-colors"
-            />
-          </div>
-
-          {/* Activity Selector */}
-          <div>
-            <label className="text-xs font-medium text-zinc-300 block mb-1.5">Category</label>
-            <div className="flex flex-wrap gap-1.5">
-              {activities.map((act) => (
-                <button
-                  type="button"
-                  key={act}
-                  onClick={() => setActivityType(act)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                    activityType === act
-                      ? 'bg-white text-zinc-950 shadow-sm'
-                      : 'bg-white/[0.03] text-zinc-400 hover:text-white border border-white/[0.06]'
-                  }`}
-                >
-                  {act}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Duration Selector */}
-          <div>
-            <label className="text-xs font-medium text-zinc-300 block mb-1.5">Block Length</label>
-            <div className="grid grid-cols-3 gap-2">
-              {durations.map((dur) => (
-                <button
-                  type="button"
-                  key={dur}
-                  onClick={() => setDuration(dur)}
-                  className={`py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    duration === dur
-                      ? 'bg-white text-zinc-950 shadow-sm'
-                      : 'bg-white/[0.03] text-zinc-400 hover:text-white border border-white/[0.06]'
-                  }`}
-                >
-                  {dur}m
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Camera Toggle */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setCamera(!camera)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
-                camera
-                  ? 'bg-white/[0.04] border-white/20 text-white'
-                  : 'bg-white/[0.02] border-white/[0.06] text-zinc-500'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Camera className="h-3.5 w-3.5 text-zinc-400" />
-                <span>Camera Accountability</span>
-              </div>
-              <span className={`text-[11px] font-mono ${camera ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                {camera ? 'Required' : 'Disabled'}
-              </span>
+      {created ? (
+        <div className="space-y-5">
+          <RoomInviteControls roomId={created.room.id} initialInvitation={created.invitation} />
+          <Link className="zenith-room-primary w-full justify-center" onClick={onClose} href={`/focus/${created.room.id}/setup`}>Enter as host <ArrowRight size={16} /></Link>
+        </div>
+      ) : (
+        <>
+          <div role="group" aria-label="Room role" className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-black/20 p-1.5">
+            <button type="button" disabled={busy} aria-pressed={mode === 'host'} onClick={() => selectMode('host')} className="zenith-room-tab">
+              <Plus size={16} /> Join as host
+            </button>
+            <button type="button" disabled={busy} aria-pressed={mode === 'member'} onClick={() => selectMode('member')} className="zenith-room-tab">
+              <KeyRound size={16} /> Join as member
             </button>
           </div>
-
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-lg bg-white py-2.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-100 transition-colors shadow-sm disabled:opacity-50"
-            >
-              {loading ? 'Creating room...' : 'Create Focus Room'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          {error && <p role="alert" className="mb-4 rounded-xl border border-rose-300/30 bg-rose-950/45 px-3 py-2 text-sm text-rose-100">{error}</p>}
+          {authLoading ? <p role="status" className="text-sm">Checking your account…</p> : !user ? (
+            <Link href={`/login?roomAction=${mode}`} className="zenith-room-primary w-full justify-center">
+              Sign in to {mode === 'host' ? 'host a room' : 'join with a code'} <ArrowRight size={16} />
+            </Link>
+          ) : mode === 'host' ? (
+            <form onSubmit={create}>
+              <fieldset disabled={busy} className="space-y-4 disabled:opacity-60">
+                <label className="block text-sm">Room name
+                  <input name="roomName" required maxLength={72} placeholder="Sunday study group" className="zenith-room-field" />
+                </label>
+                <label className="block text-sm">What are you working on? <span className="text-xs text-[#e3d1c0]">(optional)</span>
+                  <input name="description" maxLength={240} placeholder="Review graphs and solve two practice problems" className="zenith-room-field" />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-sm">Category
+                    <select value={category} onChange={event => setCategory(event.target.value as ActivityCategory)} className="zenith-room-field">
+                      <option value="EDUCATION">Education</option><option value="EXERCISE">Exercise</option>
+                      <option value="SIDE_QUEST">Side Quest</option><option value="INTERACTION">Interaction</option>
+                    </select>
+                  </label>
+                  <label className="block text-sm">Activity
+                    <select name="activity" defaultValue="Study" className="zenith-room-field">{activities.map(activity => <option key={activity}>{activity}</option>)}</select>
+                  </label>
+                </div>
+                <label className="block text-sm">Session length
+                  <select name="duration" defaultValue="50" className="zenith-room-field">
+                    {[25, 50, 90].map(minutes => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
+                  </select>
+                </label>
+                <label className="flex items-start gap-2 text-sm text-[#e3d1c0]">
+                  <input name="listed" type="checkbox" className="mt-1 accent-[#efd3ac]" />
+                  List this room so others can find it
+                </label>
+                {category === 'INTERACTION' && <p className="text-sm text-[#e3d1c0]">Up to six people. Entry costs 30% of weekly points.</p>}
+                <button className="zenith-room-primary w-full justify-center">{busy ? 'Creating…' : 'Create room'} <ArrowRight size={16} /></button>
+              </fieldset>
+            </form>
+          ) : (
+            <form onSubmit={join}>
+              <fieldset disabled={busy} className="space-y-4 disabled:opacity-60">
+                <label className="block text-sm">Room code
+                  <input required autoCapitalize="characters" spellCheck={false} maxLength={32} placeholder="7F2A-B140-8C93-E561"
+                    value={inviteCode} onChange={event => { setInviteCode(event.target.value.toUpperCase()); setQuote(null); setError(''); }}
+                    className="zenith-room-field font-mono tracking-wider" />
+                </label>
+                {quote && <p className="text-sm text-[#efd3ac]">{quote.canAfford ? `This Interaction room costs ${quote.cost} weekly points to enter.` : 'You need weekly points to join this Interaction room.'}</p>}
+                <button disabled={quote?.canAfford === false} className="zenith-room-primary w-full justify-center">
+                  {busy ? 'Checking code…' : quote?.canAfford ? `Join for ${quote.cost} points` : 'Join room'} <ArrowRight size={16} />
+                </button>
+              </fieldset>
+            </form>
+          )}
+        </>
+      )}
+    </dialog>
   );
 }

@@ -5,6 +5,8 @@ import { FocusScoringService } from '../services/focusScoringService.js';
 import { StreakAchievementService } from '../services/streakAchievementService.js';
 import { PointService } from '../services/pointService.js';
 
+const trackedEventTypes = new Set(['TAB_SWITCH', 'IDLE', 'FOCUSED', 'WINDOW_FOCUS', 'WARNING', 'BLOCK_ATTEMPT']);
+
 export class SessionController {
   public static async startSession(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
@@ -16,8 +18,14 @@ export class SessionController {
         specificActivity,
         atmosphere = 'Rainy Window',
         plannedDuration = 50,
+        protectionEnabled = true,
+        goalId,
       } = req.body;
 
+      if (typeof protectionEnabled !== 'boolean') {
+        res.status(400).json({ success: false, error: 'protectionEnabled must be a boolean.' });
+        return;
+      }
       const duration = Number(plannedDuration);
       if (!Number.isInteger(duration) || duration < 1 || duration > 240) {
         res.status(400).json({ success: false, error: 'Focus duration must be between 1 and 240 minutes.' });
@@ -41,6 +49,10 @@ export class SessionController {
         });
         if (active) return active;
 
+        if (goalId && (typeof goalId !== 'string' || !await tx.focusGoal.findFirst({
+          where: { id: goalId, userId, completedAt: null }, select: { id: true },
+        }))) throw new Error('GOAL_UNAVAILABLE');
+
         // Abandon any previous orphan active session
         await tx.focusSession.updateMany({
           where: { userId, status: 'ACTIVE' },
@@ -60,27 +72,30 @@ export class SessionController {
             specificActivity: specificActivity || activityType,
             atmosphere,
             plannedDuration: duration,
+            protectionEnabled,
+            goalId: goalId || null,
             status: 'ACTIVE',
             startTime: new Date(),
           },
         });
 
-        // Automatically activate BlockerSession for live-status synchronization
-        await tx.blockerSession.upsert({
-          where: { focusSessionId: session.id },
-          update: {
-            mode: 'STRICT',
-            status: 'ACTIVE',
-            startedAt: new Date(),
-            endedAt: null,
-          },
-          create: {
-            userId,
-            focusSessionId: session.id,
-            mode: 'STRICT',
-            status: 'ACTIVE',
-          },
-        });
+        if (protectionEnabled) {
+          await tx.blockerSession.upsert({
+            where: { focusSessionId: session.id },
+            update: {
+              mode: 'STRICT',
+              status: 'ACTIVE',
+              startedAt: new Date(),
+              endedAt: null,
+            },
+            create: {
+              userId,
+              focusSessionId: session.id,
+              mode: 'STRICT',
+              status: 'ACTIVE',
+            },
+          });
+        }
 
         // Log session start event
         await tx.focusEvent.create({
@@ -101,6 +116,10 @@ export class SessionController {
       }
       res.status(201).json({ success: true, session });
     } catch (error: any) {
+      if (error.message === 'GOAL_UNAVAILABLE') {
+        res.status(404).json({ success: false, error: 'That focus goal is unavailable.' });
+        return;
+      }
       console.error('Error starting session:', error);
       res.status(500).json({ success: false, error: error.message || 'Failed to start session' });
     }
@@ -223,6 +242,22 @@ export class SessionController {
           data: { status: 'COMPLETED', endedAt: new Date() },
         });
 
+        if (Array.isArray(req.body?.events)) {
+          const end = session.startTime.getTime() + (elapsed + 1) * 1000;
+          const events = req.body.events.slice(0, 1000).flatMap((event: unknown) => {
+            if (!event || typeof event !== 'object' || !('eventType' in event) ||
+                typeof event.eventType !== 'string' || !trackedEventTypes.has(event.eventType) ||
+                !('startTime' in event) || typeof event.startTime !== 'string') return [];
+            const time = Date.parse(event.startTime);
+            if (!Number.isFinite(time) || time < session.startTime.getTime() || time > end) return [];
+            return [{
+              sessionId, userId, eventType: event.eventType, startTime: new Date(time),
+              metadata: 'metadata' in event && typeof event.metadata === 'string' ? event.metadata.slice(0, 400) : null,
+            }];
+          });
+          if (events.length) await tx.focusEvent.createMany({ data: events });
+        }
+
         // Log session end event
         await tx.focusEvent.create({
           data: {
@@ -293,17 +328,67 @@ export class SessionController {
     }
   }
 
+  public static async abandonSession(req: AuthenticatedRequest, res: Response): Promise<void> {
+    const userId = req.user!.userId;
+    const { sessionId } = req.params;
+    try {
+      const session = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'membership_' + userId}))`;
+        const current = await tx.focusSession.findFirst({ where: { id: sessionId, userId } });
+        if (!current || current.status !== 'ACTIVE') return current;
+        const endTime = new Date();
+        const notes = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) || null : null;
+        const result = await tx.focusSession.updateMany({
+          where: { id: sessionId, status: 'ACTIVE' }, data: { status: 'ABANDONED', endTime, notes },
+        });
+        if (result.count > 0) {
+          await tx.blockerSession.updateMany({
+            where: { focusSessionId: sessionId, status: 'ACTIVE' }, data: { status: 'COMPLETED', endedAt: endTime },
+          });
+        }
+        return await tx.focusSession.findUnique({ where: { id: sessionId } });
+      });
+      if (!session) {
+        res.status(404).json({ success: false, error: 'Session not found.' });
+        return;
+      }
+      if (session.status !== 'ABANDONED') {
+        res.status(409).json({ success: false, error: 'This session has already finished.' });
+        return;
+      }
+      res.json({ success: true, session });
+    } catch {
+      res.status(500).json({ success: false, error: 'Could not discard your session.' });
+    }
+  }
+
+  public static async getActiveSession(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const session = await prisma.focusSession.findFirst({
+        where: { userId: req.user!.userId, status: 'ACTIVE' },
+        orderBy: { startTime: 'desc' },
+      });
+      res.setHeader('Cache-Control', 'no-store').json({ success: true, session });
+    } catch {
+      res.status(500).json({ success: false, error: 'Could not restore your focus session.' });
+    }
+  }
+
   public static async getHistory(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.userId;
       const { activity, page = '1', limit = '10' } = req.query;
 
-      const pageNum = parseInt(page as string, 10) || 1;
-      const limitNum = parseInt(limit as string, 10) || 10;
+      const pageNum = Math.min(10_000, Math.max(1, parseInt(page as string, 10) || 1));
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 10));
       const skip = (pageNum - 1) * limitNum;
 
       const where: any = { userId, status: 'COMPLETED' };
       if (activity && activity !== 'All') {
+        if (typeof activity !== 'string') {
+          res.status(400).json({ success: false, error: 'Select a single activity.' });
+          return;
+        }
         where.activityType = activity;
       }
 
@@ -352,9 +437,31 @@ export class SessionController {
         return;
       }
 
-      res.json({ success: true, session });
+      const completion = session.events.find(event => event.eventType === 'SESSION_END');
+      const savedBreakdown = completion?.metadata ? readScoreBreakdown(completion.metadata) : null;
+      const scoreBreakdown = session.status === 'COMPLETED' ? savedBreakdown ?? FocusScoringService.calculateScore({
+        plannedDurationMinutes: session.plannedDuration,
+        focusedDurationSeconds: session.focusedDuration,
+        distractedDurationSeconds: session.distractedDuration,
+        idleDurationSeconds: session.idleDuration,
+        tabSwitchCount: session.tabSwitchCount,
+        warningCount: session.warningCount,
+        blockAttemptCount: session.blockAttemptCount,
+      }) : null;
+      res.setHeader('Cache-Control', 'no-store').json({ success: true, session, scoreBreakdown });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message || 'Failed to fetch session' });
     }
+  }
+}
+
+function readScoreBreakdown(metadata: string) {
+  try {
+    const { points: _points, ...breakdown } = JSON.parse(metadata);
+    return typeof breakdown.finalScore === 'number' && typeof breakdown.totalPenalty === 'number'
+      ? { ...breakdown, version: breakdown.version ?? 1 }
+      : null;
+  } catch {
+    return null;
   }
 }

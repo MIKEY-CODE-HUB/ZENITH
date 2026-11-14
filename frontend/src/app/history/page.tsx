@@ -6,39 +6,34 @@ import { Sidebar } from '@/components/Sidebar';
 import { FocusSession } from '@/lib/types';
 import { formatDate, formatSeconds, formatDurationHuman } from '@/lib/utils';
 import { History, Clock, Flame, ArrowRight, Filter, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function HistoryPage() {
-  const router = useRouter();
   const [sessions, setSessions] = useState<FocusSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedActivity, setSelectedActivity] = useState('All');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [error, setError] = useState('');
 
   const activities = ['All', 'Coding', 'Study', 'Work', 'Creative', 'Reading', 'Gym', 'Other'];
 
-  const fetchHistory = async () => {
-    try {
-      setLoading(true);
-      const res = await api.getHistory({
-        activity: selectedActivity,
-        limit: 50,
-      });
-      if (res.success && res.sessions) {
-        setSessions(res.sessions);
-      }
-    } catch (err) {
-      console.error('Error fetching history:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchHistory();
-  }, [selectedActivity]);
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    api.getHistory({ activity: selectedActivity, page, limit: 20 }).then(result => {
+      if (cancelled) return;
+      setSessions(result.sessions);
+      setTotalPages(result.pagination.totalPages);
+    }).catch(error => {
+      if (!cancelled) setError(error instanceof Error ? error.message : 'Could not load your history.');
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedActivity, page]);
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-[#09090b] text-zinc-100">
+    <div className="flex min-h-[calc(100vh-4rem)] text-zinc-100">
       <Sidebar />
 
       <main className="flex-1 p-5 sm:p-8 max-w-7xl mx-auto space-y-6">
@@ -60,7 +55,7 @@ export default function HistoryPage() {
           {activities.map((act) => (
             <button
               key={act}
-              onClick={() => setSelectedActivity(act)}
+              onClick={() => { setSelectedActivity(act); setPage(1); }}
               className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                 selectedActivity === act
                   ? 'bg-white text-zinc-950 shadow-sm'
@@ -73,18 +68,18 @@ export default function HistoryPage() {
         </div>
 
         {/* Sessions Table / Cards */}
-        {loading ? (
+        {error ? <p role="alert" className="text-sm text-rose-300">{error}</p> : loading ? (
           <div className="space-y-2.5">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-16 rounded-xl bg-[#121215]/60 border border-white/[0.06] animate-pulse" />
+              <div key={i} className="h-16 rounded-xl cozy-glass border border-white/[0.06] animate-pulse" />
             ))}
           </div>
         ) : sessions.length > 0 ? (
-          <div className="rounded-xl bg-[#121215] border border-white/[0.07] overflow-hidden divide-y divide-white/[0.05]">
+          <div className="rounded-xl cozy-glass border border-white/[0.07] overflow-hidden divide-y divide-white/[0.05]">
             {sessions.map((session) => (
-              <div
+              <Link
                 key={session.id}
-                onClick={() => router.push(`/focus/summary/${session.id}`)}
+                href={`/focus/summary/${session.id}`}
                 className="p-4 sm:p-5 hover:bg-white/[0.02] transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer group"
               >
                 <div className="flex items-center gap-3.5">
@@ -93,7 +88,7 @@ export default function HistoryPage() {
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-white group-hover:text-zinc-200 transition-colors">
-                      {session.room?.name || `${session.activityType} Solo Session`}
+                      {session.specificActivity || session.activityType}
                     </h3>
                     <p className="text-xs text-zinc-400 mt-0.5">
                       {formatDate(session.startTime)} • Planned: {session.plannedDuration}m
@@ -118,13 +113,20 @@ export default function HistoryPage() {
                     <ArrowRight className="h-4 w-4 text-zinc-500 group-hover:text-zinc-200 group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (
-          <div className="p-10 rounded-xl bg-[#121215] border border-white/[0.07] text-center space-y-2">
+          <div className="p-10 rounded-xl cozy-glass border border-white/[0.07] text-center space-y-2">
             <p className="text-xs text-zinc-400">No session history found for this category filter.</p>
           </div>
+        )}
+        {!loading && !error && totalPages > 1 && (
+          <nav aria-label="History pages" className="flex items-center justify-between gap-3 text-sm">
+            <button type="button" onClick={() => setPage(page - 1)} disabled={page <= 1} className="underline disabled:opacity-40">Previous</button>
+            <span>Page {page} of {totalPages}</span>
+            <button type="button" onClick={() => setPage(page + 1)} disabled={page >= totalPages} className="underline disabled:opacity-40">Next</button>
+          </nav>
         )}
       </main>
     </div>

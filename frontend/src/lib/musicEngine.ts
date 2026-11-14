@@ -23,6 +23,18 @@ export interface MusicProvider {
 
 export const ZENITH_TRACKS: Track[] = [
   {
+    id: 'window-seat', title: 'Window Seat', artist: 'Zenith', category: 'Lo-fi',
+    audioUrl: '/audio/window-seat.mp3', duration: 24, coverUrl: '/scenery/rain.webp',
+  },
+  {
+    id: 'library-after-hours', title: 'Library After Hours', artist: 'Zenith', category: 'Deep Focus',
+    audioUrl: '/audio/library-after-hours.mp3', duration: 24, coverUrl: '/scenery/library.webp',
+  },
+  {
+    id: 'slow-morning', title: 'Slow Morning', artist: 'Zenith', category: 'Chill',
+    audioUrl: '/audio/slow-morning.mp3', duration: 24, coverUrl: '/scenery/tea.webp',
+  },
+  {
     id: 'zenith-lofi-1',
     title: 'Rainy Tokyo Midnight',
     artist: 'Zenith Sound Lab',
@@ -70,6 +82,7 @@ class ZenithMusicPlayer {
   constructor() {
     if (typeof window !== 'undefined') {
       this.audio = new Audio();
+      this.audio.preload = 'none';
       this.audio.volume = this.volumeLevel;
       this.audio.src = ZENITH_TRACKS[0].audioUrl;
 

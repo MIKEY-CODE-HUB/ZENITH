@@ -6,7 +6,7 @@ import { ArrowLeft, CheckCircle, Award, Users, AlertCircle, FileText } from 'luc
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 py-16 px-4 sm:px-6 lg:px-8 selection:bg-zinc-800">
+    <div className="min-h-screen text-zinc-100 py-16 px-4 sm:px-6 lg:px-8 selection:bg-zinc-800">
       <main className="max-w-3xl mx-auto space-y-10">
         <Link
           href="/"

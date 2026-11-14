@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import cron from 'node-cron';
 import { prisma } from './config/prisma.js';
 import { logger } from './config/logger.js';
+import { isClientOriginAllowed } from './config/clientOrigins.js';
 import cors from 'cors';
 import authRoutes from './routes/authRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
@@ -18,8 +19,10 @@ import blockerRoutes from './routes/blockerRoutes.js';
 import interactionRoutes from './routes/interactionRoutes.js';
 import pointRoutes from './routes/pointRoutes.js';
 import moderationRoutes from './routes/moderationRoutes.js';
+import focusGoalRoutes from './routes/focusGoalRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializeSocket } from './sockets/socketManager.js';
+import { removeExpiredPresence } from './sockets/roomSocketHandlers.js';
 import { validateJwtSecret } from './utils/jwt.js';
 
 // Enforce strong JWT secret configuration
@@ -29,7 +32,6 @@ const app = express();
 const server = http.createServer(app);
 
 const PORT = process.env.PORT || 5001;
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
 
 app.use((req, res, next) => {
   const incomingId = req.get('x-request-id');
@@ -46,7 +48,7 @@ app.use((req, res, next) => {
 // Global Middleware
 app.use(
   cors({
-    origin: [CLIENT_ORIGIN, 'http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: (origin, callback) => callback(null, isClientOriginAllowed(origin)),
     credentials: true,
   })
 );
@@ -81,6 +83,7 @@ app.use('/api/blocker', blockerRoutes);
 app.use('/api/interaction', interactionRoutes);
 app.use('/api/points', pointRoutes);
 app.use('/api/moderation', moderationRoutes);
+app.use('/api/goals', focusGoalRoutes);
 
 // Global Error Handler
 app.use(errorHandler);
@@ -91,11 +94,11 @@ let reconciliation: ReturnType<typeof cron.schedule> | null = null;
 if (process.env.NODE_ENV !== 'test') {
   reconciliation = cron.schedule('* * * * *', async () => {
     try {
-      await prisma.$transaction(async (tx) => {
+      const expiredMembers = await prisma.$transaction(async (tx) => {
         const [lock] = await tx.$queryRaw<{ acquired: boolean }[]>`
           SELECT pg_try_advisory_xact_lock(hashtext('zenith.reconcile.expired_blockers')) AS acquired
         `;
-        if (!lock.acquired) return;
+        if (!lock.acquired) return [];
         const expiredSessions = await tx.$executeRaw`
           UPDATE focus_sessions SET status = 'ABANDONED', "endTime" = NOW(), "updatedAt" = NOW()
           WHERE status = 'ACTIVE'
@@ -109,14 +112,11 @@ if (process.env.NODE_ENV !== 'test') {
             AND (focus.status <> 'ACTIVE'
               OR NOW() > focus."startTime" + (GREATEST(30, focus."plannedDuration") + 15) * INTERVAL '1 minute')
         `;
-        const releasedSeats = await tx.$executeRaw`
+        const released = await tx.$queryRaw<{ roomId: string; userId: string }[]>`
           UPDATE room_participants AS member SET status = 'LEFT', "leftAt" = NOW()
-          WHERE member.status = 'ACTIVE' AND member."joinedAt" < NOW() - INTERVAL '5 minutes'
-            AND NOT EXISTS (
-              SELECT 1 FROM focus_sessions AS focus
-              WHERE focus."userId" = member."userId" AND focus."roomId" = member."roomId"
-                AND focus.status = 'ACTIVE'
-            )
+          WHERE member.status = 'ACTIVE'
+            AND COALESCE(member."presenceExpiresAt", member."joinedAt" + INTERVAL '5 minutes') <= NOW()
+          RETURNING member."roomId", member."userId"
         `;
         const expiredBallots = await tx.$executeRaw`
           UPDATE moderation_incidents
@@ -124,10 +124,12 @@ if (process.env.NODE_ENV !== 'test') {
               "resolutionReason" = 'Voting window expired without satisfying quorum or majority threshold.'
           WHERE status IN ('OPEN', 'VOTING') AND "votingExpiresAt" <= NOW()
         `;
-        if (updated || expiredSessions || releasedSeats || expiredBallots) {
-          logger.info('sessions.reconciled', { completedBlockers: updated, expiredSessions, releasedSeats, expiredBallots });
+        if (updated || expiredSessions || released.length || expiredBallots) {
+          logger.info('sessions.reconciled', { completedBlockers: updated, expiredSessions, releasedSeats: released.length, expiredBallots });
         }
+        return released;
       });
+      removeExpiredPresence(io, expiredMembers);
     } catch (err) {
       logger.error('blocker.reconciliation_failed', { errorType: err instanceof Error ? err.name : 'UnknownError' });
     }

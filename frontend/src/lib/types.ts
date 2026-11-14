@@ -96,6 +96,7 @@ export interface Room {
 }
 
 export interface ParticipantPresence {
+  reconnecting?: boolean;
   socketId: string;
   userId: string;
   name: string;
@@ -155,6 +156,17 @@ export interface BlockerSession {
   status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 }
 
+export interface FocusGoal {
+  id: string;
+  title: string;
+  outcome: string | null;
+  notes: string | null;
+  targetMinutes: number;
+  focusedMinutes: number;
+  dueDate: string | null;
+  completedAt: string | null;
+}
+
 export interface FocusSession {
   id: string;
   userId: string;
@@ -167,6 +179,7 @@ export interface FocusSession {
   startTime: string;
   endTime?: string | null;
   plannedDuration: number;
+  protectionEnabled?: boolean;
   focusedDuration: number;
   idleDuration: number;
   distractedDuration: number;
@@ -186,6 +199,7 @@ export interface FocusSession {
 }
 
 export interface ScoreBreakdown {
+  version: number;
   baseScore: number;
   tabSwitchPenalty: number;
   distractionPenalty: number;
@@ -289,4 +303,21 @@ export interface DashboardStats {
   totalLifetimeSessions: number;
   recentSessions: FocusSession[];
   insights: string[];
+}
+
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  username: string;
+  email?: string | null;
+  avatarUrl?: string | null;
+  preferredActivity: string;
+  typicalDuration: number;
+  currentStreak: number;
+  totalFocusedMinutes: number;
+  totalSessionsCount: number;
+  averageFocusScore: number;
+  bestFocusScore: number;
+  userAchievements: { id: string; achievement?: { title: string; icon: string; category: string } }[];
 }

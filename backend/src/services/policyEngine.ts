@@ -144,6 +144,20 @@ export class ZenithPolicyEngine {
   /**
    * Validates custom rule and checks for protected tier conflicts.
    */
+  public static normalizeRuleDomain(input: string): string {
+    const value = input.trim();
+    if (!value || /[\s\\]/.test(value)) return '';
+    try {
+      const uri = new URL(/^[a-z][a-z\d+.-]*:\/\//i.test(value) ? value : `https://${value}`);
+      if (!['http:', 'https:'].includes(uri.protocol) || uri.username || uri.password) return '';
+      const host = this.normalizeDomain(uri.hostname).replace(/\.$/, '');
+      const hostFormat = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+      return host === 'localhost' || (host.length <= 253 && hostFormat.test(host)) ? host : '';
+    } catch {
+      return '';
+    }
+  }
+
   public static validateCustomRule(
     identifier: string,
     type: 'WEBSITE' | 'APPLICATION',
@@ -153,11 +167,11 @@ export class ZenithPolicyEngine {
       return { valid: false, error: 'Identifier cannot be empty.' };
     }
 
-    const clean = type === 'WEBSITE' ? this.normalizeDomain(identifier) : identifier.trim();
+    const clean = type === 'WEBSITE' ? this.normalizeRuleDomain(identifier) : identifier.trim().replace(/\.(?:app|exe)$/i, '');
 
     if (type === 'WEBSITE') {
       // Basic domain format check
-      if (!clean.includes('.') && clean !== 'localhost') {
+      if (!clean) {
         return {
           valid: false,
           error: `Invalid domain format "${identifier}". Please enter a valid domain like "reddit.com" or "news.ycombinator.com".`,
@@ -190,6 +204,7 @@ export class ZenithPolicyEngine {
         }
       }
     } else {
+      if (!clean || clean.length > 100) return { valid: false, error: 'Enter an app name up to 100 characters.' };
       // Application conflict validation
       // Conflict Check 1: User tries to ALLOW an Always-Blocked Tier 1 app
       if (isAllowlist) {

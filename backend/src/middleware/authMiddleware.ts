@@ -34,7 +34,17 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
   next();
 }
 
-export function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export function optionalAuthMiddleware(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
+  setOptionalUser(req, false);
+  next();
+}
+
+export function blockerStatusAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
+  setOptionalUser(req, true);
+  next();
+}
+
+function setOptionalUser(req: AuthenticatedRequest, allowBlockerToken: boolean): void {
   const authHeader = req.headers.authorization;
   let token: string | undefined;
 
@@ -50,10 +60,9 @@ export function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response,
 
   if (token) {
     const payload = verifyToken(token);
-    if (payload) {
+    if (payload && (!('type' in payload) || (allowBlockerToken &&
+        payload.type === 'BLOCKER_AUTH' && 'focusSessionId' in payload && typeof payload.focusSessionId === 'string'))) {
       req.user = payload;
     }
   }
-
-  next();
 }

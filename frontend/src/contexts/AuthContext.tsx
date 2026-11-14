@@ -5,11 +5,20 @@ import { api, ApiError } from '@/lib/api';
 import { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 
+export function loginDestination(search: string) {
+  const query = new URLSearchParams(search);
+  const invite = query.get('invite');
+  if (invite && /^[a-f0-9-]{36}$/i.test(invite)) return `/invite/${invite}`;
+  const action = query.get('roomAction');
+  return action === 'host' || action === 'member' ? `/rooms?roomAction=${action}` : '/dashboard';
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (loginIdentifier: string, password: string) => Promise<void>;
   register: (data: { name: string; username: string; email?: string; phoneNumber?: string; password: string; preferredActivity?: string }) => Promise<void>;
+  passwordAuth: (action: 'register' | 'login', data: { username: string; password: string; name?: string }) => Promise<void>;
   googleAuth: (data: { idToken?: string; credential?: string }) => Promise<void>;
   sendPhoneOtp: (phoneNumber: string) => Promise<{ success: boolean; message: string; cooldownSeconds: number; devCode?: string }>;
   verifyPhoneOtp: (phoneNumber: string, otpCode: string, name?: string) => Promise<void>;
@@ -82,17 +91,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const passwordAuth: AuthContextType['passwordAuth'] = async (action, data) => {
+    const res = await api.passwordAuth(action, data);
+    if (!res.success || !res.token) throw new Error('Could not start your Zenith session.');
+    api.setToken(res.token);
+    setUser(res.user);
+  };
+
   const googleAuth = async (data: { idToken?: string; credential?: string }) => {
     const res = await api.googleAuth(data);
-    if (res && res.success && res.token) {
-      api.setToken(res.token);
-      setUser(res.user);
-      if (typeof window !== 'undefined') {
-        window.location.href = '/dashboard';
-      } else {
-        router.push('/dashboard');
-      }
-    }
+    if (!res.success || !res.token) throw new Error('Google sign-in did not establish a session.');
+    api.setToken(res.token);
+    setUser(res.user);
   };
 
   const sendPhoneOtp = async (phoneNumber: string) => {
@@ -124,9 +134,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await api.logout();
     setUser(null);
     if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+      window.location.href = '/';
     } else {
-      router.push('/login');
+      router.push('/');
     }
   };
 
@@ -137,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         login,
         register,
+        passwordAuth,
         googleAuth,
         sendPhoneOtp,
         verifyPhoneOtp,

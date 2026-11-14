@@ -5,13 +5,14 @@ import { api } from '@/lib/api';
 import { Sidebar } from '@/components/Sidebar';
 import { AchievementBadge } from '@/components/AchievementBadge';
 import { Achievement } from '@/lib/types';
-import { Trophy, Award, Sparkles } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 
 export default function AchievementsPage() {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [unlockedCount, setUnlockedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     async function loadAchievements() {
@@ -24,7 +25,7 @@ export default function AchievementsPage() {
           setTotalCount(res.totalCount || 0);
         }
       } catch (err) {
-        console.error('Error fetching achievements:', err);
+        setError(true);
       } finally {
         setLoading(false);
       }
@@ -33,50 +34,32 @@ export default function AchievementsPage() {
   }, []);
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-[#09090b] text-zinc-100">
+    <div className="flex min-h-[calc(100vh-4rem)] text-zinc-100">
       <Sidebar />
 
-      <main className="flex-1 p-5 sm:p-8 max-w-7xl mx-auto space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-6">
+      <main className="zenith-room-content mx-auto min-w-0 flex-1 px-4 py-6 sm:px-7 sm:py-9 xl:px-10">
+        <header className="zenith-room-intro cozy-glass">
           <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-zinc-400 mb-1">
-              <Trophy className="h-3.5 w-3.5 text-zinc-400" />
-              <span>Milestones</span>
+            <h1 className="font-serif text-4xl tracking-tight text-[#fff5e9] sm:text-5xl">Achievements</h1>
+            <p className="mt-2 text-sm text-[#e3d1c0]">Milestones from your focus sessions.</p>
+          </div>
+          {!loading && !error && (
+            <div className="min-w-[12rem] space-y-2">
+              <div className="flex items-center gap-2 text-sm text-[#f5dfbf]">
+                <Trophy size={16} aria-hidden /> {unlockedCount} of {totalCount} unlocked
+              </div>
+              <progress aria-label="Achievements unlocked" className="zenith-achievement-progress"
+                value={unlockedCount} max={Math.max(totalCount, 1)} />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
-              Achievements
-            </h1>
-            <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-              Earned badges based on verified focus duration, daily consistency, and score milestones.
-            </p>
+          )}
+        </header>
+        {loading ? <p role="status">Loading achievements…</p> : error ? (
+          <p role="alert">Could not load achievements. Sign in or refresh to try again.</p>
+        ) : (
+          <div className="zenith-room-grid">
+            {achievements.map(achievement => <AchievementBadge key={achievement.id} achievement={achievement} />)}
           </div>
-
-          <div className="px-3.5 py-1.5 rounded-lg bg-[#121215] border border-white/[0.08] text-xs font-medium text-zinc-300 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span>Unlocked: {unlockedCount} of {totalCount}</span>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs text-zinc-400">
-            <span>Overall completion</span>
-            <span className="font-mono">{totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0}%</span>
-          </div>
-          <div className="w-full h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-            <div
-              style={{ width: `${totalCount > 0 ? (unlockedCount / totalCount) * 100 : 0}%` }}
-              className="h-full bg-white rounded-full transition-all duration-500"
-            />
-          </div>
-        </div>
-
-        {/* Badges Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {achievements.map((ach) => (
-            <AchievementBadge key={ach.id} achievement={ach} />
-          ))}
-        </div>
+        )}
       </main>
     </div>
   );

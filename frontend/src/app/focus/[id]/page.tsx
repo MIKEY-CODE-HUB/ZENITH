@@ -3,19 +3,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSocket } from '@/contexts/SocketContext';
+import { SocketProvider, useSocket } from '@/contexts/SocketContext';
 import { useFocusTracker } from '@/hooks/useFocusTracker';
+import { useRoomShield } from '@/hooks/useRoomShield';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { api, ApiConnectionError, ApiError } from '@/lib/api';
-import { ATMOSPHERES, getAtmosphereById, AtmosphereTheme } from '@/lib/atmospheres';
+import { ATMOSPHERES, getAtmosphereById, AtmosphereTheme, customRoomAtmosphere } from '@/lib/atmospheres';
+import { AtmosphericScene } from '@/components/AtmosphericScene';
 import { AtmosphereCanvas } from '@/components/AtmosphereCanvas';
 import { RoomHeader } from '@/components/RoomHeader';
+import { RoomInviteControls } from '@/components/RoomInviteControls';
 import { AdaptiveVideoGallery, VideoLayoutMode } from '@/components/AdaptiveVideoGallery';
 import { FloatingControlDock } from '@/components/FloatingControlDock';
 import { SoundscapeMixerModal } from '@/components/SoundscapeMixerModal';
 import { MusicPlayerModal } from '@/components/MusicPlayerModal';
 import { AtmosphereSelectorModal } from '@/components/AtmosphereSelectorModal';
-import { DistractionOverlay } from '@/components/DistractionOverlay';
 import {
   ReportParticipantModal,
   ModerationBallotBanner,
@@ -48,6 +50,10 @@ import {
 } from 'lucide-react';
 
 export default function LiveRoomPage() {
+  return <SocketProvider><LiveRoom /></SocketProvider>;
+}
+
+function LiveRoom() {
   const params = useParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -57,6 +63,8 @@ export default function LiveRoomPage() {
   // Room & Session state
   const [room, setRoom] = useState<Room | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [iceServers, setIceServers] = useState<RTCIceServer[]>();
+  const [voiceVolume, setVoiceVolume] = useState(100);
   const [category, setCategory] = useState<ActivityCategory>('EDUCATION');
   const [activityName, setActivityName] = useState<string>('Deep Focus');
   const [plannedMinutes, setPlannedMinutes] = useState<number>(50);
@@ -68,9 +76,11 @@ export default function LiveRoomPage() {
   const [roomError, setRoomError] = useState<string | null>(null);
   const [presenceError, setPresenceError] = useState<string | null>(null);
   const [finishError, setFinishError] = useState<string | null>(null);
-  const [shieldActive, setShieldActive] = useState(false);
+  const [protectionEnabled, setProtectionEnabled] = useState(true);
   const [deadline, setDeadline] = useState<number | null>(null);
   const finishing = useRef(false);
+  const shield = useRoomShield(sessionId, protectionEnabled, deadline);
+  const shieldActive = shield.status === 'active';
 
   // Video Layout Mode ('footer' [DEFAULT], 'header', 'middle', 'scattered')
   const [videoLayout, setVideoLayout] = useState<VideoLayoutMode>(() => {
@@ -100,6 +110,13 @@ export default function LiveRoomPage() {
     return ATMOSPHERES[0];
   });
 
+  const [roomThemeOverride, setRoomThemeOverride] = useState<string | null>(null);
+  const wallpaperUrl = user?.settings?.customThemeUrl;
+  const wallpaper = wallpaperUrl && user?.settings?.customThemeTarget !== 'DASHBOARD'
+    ? customRoomAtmosphere(wallpaperUrl) : null;
+  const visibleAtmosphere = roomThemeOverride && roomThemeOverride !== 'custom'
+    ? getAtmosphereById(roomThemeOverride) : wallpaper || currentAtmosphere;
+
   // UI Modals & Panels
   const [isAtmosphereModalOpen, setIsAtmosphereModalOpen] = useState(false);
   const [isMusicModalOpen, setIsMusicModalOpen] = useState(false);
@@ -107,6 +124,7 @@ export default function LiveRoomPage() {
   const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
   const [isTapeExpanded, setIsTapeExpanded] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [abandonReason, setAbandonReason] = useState('');
 
   // Community Moderation State
   const [reportingPeer, setReportingPeer] = useState<ParticipantPresence | null>(null);
@@ -136,12 +154,11 @@ export default function LiveRoomPage() {
     toggleCamera,
     toggleMic,
   } = useWebRTC({
-    socket: sessionId ? socket : null,
+    socket: sessionId && room ? socket : null,
     roomId: sessionId ? activeRoomId : '',
     userId: user?.id || 'guest',
-    enableCameraDefault: Boolean(sessionId),
-    enableMicDefault: false,
     allowVoice: isInteractionRoom,
+    iceServers,
   });
 
   // Reset auto-hide idle timer on cursor movement
@@ -180,16 +197,22 @@ export default function LiveRoomPage() {
       let step = 'Restore your focus session';
       try {
         const storedId = sessionStorage.getItem('active_session_id');
-        const stored = storedId ? (await api.getSession(storedId).catch((error) => {
+        const active = await api.getActiveSession();
+        const stored = active.success ? active.session : storedId ? (await api.getSession(storedId).catch(error => {
           if (error instanceof ApiError && error.status === 404) return null;
           throw error;
         }))?.session : null;
+        if (active.success && storedId && !stored && roomIdOrCode === storedId) {
+          router.replace(`/focus/summary/${storedId}`);
+          return;
+        }
         const solo = roomIdOrCode === 'custom' || (stored?.id === roomIdOrCode && !stored.roomId);
         step = 'Load the room';
         const currentRoom = solo ? null : (await api.getRoom(roomIdOrCode)).room as Room;
         if (cancelled) return;
         step = 'Join the room';
         if (currentRoom) await api.joinRoom(currentRoom.id);
+        const relay = currentRoom ? await api.getIceServers(currentRoom.id).catch(() => null) : null;
         if (cancelled) return;
         const reusable = stored?.status === 'ACTIVE' && (stored.roomId ?? null) === (currentRoom?.id ?? null);
         step = 'Start the focus session';
@@ -203,24 +226,19 @@ export default function LiveRoomPage() {
         if (cancelled) return;
         sessionStorage.setItem('active_session_id', session.id);
         setRoom(currentRoom);
+        setIceServers(relay?.iceServers);
         setSessionId(session.id);
-        setCategory(session.category);
-        setActivityName(session.activityType);
+        setProtectionEnabled(session.protectionEnabled ?? (session.id !== storedId || sessionStorage.getItem('active_session_protection') !== 'false'));
+        setCategory(session.category ?? 'EDUCATION');
+        setActivityName(session.specificActivity || session.activityType);
         setPlannedMinutes(session.plannedDuration);
         const end = Date.parse(session.startTime) + session.plannedDuration * 60_000;
         setDeadline(end);
         setRemainingSeconds(Math.max(0, Math.ceil((end - Date.now()) / 1000)));
+        const savedRoomTheme = sessionStorage.getItem(`zenith_room_theme_${session.id}`);
+        setRoomThemeOverride(savedRoomTheme);
         if (session.atmosphere) setCurrentAtmosphere(getAtmosphereById(session.atmosphere));
 
-        if (reusable && sessionStorage.getItem('active_session_protection') === 'false') return;
-        const blocker = await api.activateBlocker(session.id, 'STRICT').catch(() => null);
-        if (blocker?.success && !cancelled) {
-          window.postMessage({
-            type: 'ZENITH_BLOCKER_ACTIVATE', roomUrl: window.location.href,
-            focusSessionId: session.id, blockerToken: blocker.blockerToken,
-            expiresAt: end + 60_000, config: blocker.config,
-          }, window.location.origin);
-        }
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 401) {
@@ -233,21 +251,12 @@ export default function LiveRoomPage() {
       }
     }
 
-    const shieldStatus = (event: MessageEvent) => {
-      if (event.source === window && event.origin === window.location.origin &&
-          event.data?.type === 'ZENITH_SHIELD_STATUS') setShieldActive(event.data.active === true);
-    };
-    window.addEventListener('message', shieldStatus);
     void initialize();
-    return () => {
-      cancelled = true;
-      window.removeEventListener('message', shieldStatus);
-    };
+    return () => { cancelled = true; };
   }, [authLoading, user?.id, roomIdOrCode, router, joinAttempt]);
 
   // Focus Tracker Hook (Page Visibility API + Idle Detection)
   const {
-    focusStatus,
     focusedSeconds,
     distractedSeconds,
     idleSeconds,
@@ -255,15 +264,17 @@ export default function LiveRoomPage() {
     warningCount,
     currentFocusStreak,
     longestFocusStreak,
-    isFrozen,
-    lastDistractionDuration,
     warningMessage,
-    returnToRoom,
+    dismissWarning,
+    blockAttemptCount,
+    getEvents,
   } = useFocusTracker({
     sessionId: sessionId || undefined,
     shieldActive,
-    idleThresholdSeconds: 60,
-    isActiveSession: Boolean(sessionId) && !ending,
+    idleThresholdSeconds: user?.settings?.idleThresholdSeconds ?? 60,
+    warningThresholdSeconds: user?.settings?.warningThresholdSeconds ?? 10,
+    trackKeyboardInactivity: category !== 'EXERCISE',
+    showWarnings: user?.settings?.distractionAlerts ?? true,
     onStatusChange: (newStatus: FocusStatus) => {
       if (socket && room) {
         socket.emit('focus_status_changed', {
@@ -311,17 +322,6 @@ export default function LiveRoomPage() {
       );
     });
 
-    socket.on('user_joined', (data: { participant: ParticipantPresence }) => {
-      setParticipants((prev) => {
-        const filtered = prev.filter((p) => p.socketId !== data.participant.socketId && p.userId !== data.participant.userId);
-        return [...filtered, data.participant];
-      });
-    });
-
-    socket.on('user_left', (data: { socketId: string; userId?: string }) => {
-      setParticipants((prev) => prev.filter((p) => p.socketId !== data.socketId && (!data.userId || p.userId !== data.userId)));
-    });
-
     socket.on('participant_status_updated', (data: { socketId: string; userId: string; focusStatus: FocusStatus; focusStreakMinutes: number }) => {
       setParticipants((prev) =>
         prev.map((p) =>
@@ -367,11 +367,9 @@ export default function LiveRoomPage() {
     join();
 
     return () => {
-      socket.emit('leave_room', { roomId: activeRoomId });
+      if (socket.connected) socket.emit('leave_room', { roomId: activeRoomId });
       socket.off('room_presence_list');
       socket.off('participant_media_updated');
-      socket.off('user_joined');
-      socket.off('user_left');
       socket.off('participant_status_updated');
       socket.off('participant_speaking');
       socket.off('moderation_incident_started');
@@ -381,27 +379,31 @@ export default function LiveRoomPage() {
     };
   }, [socket, connected, activeRoomId, user?.id, sessionId, room]);
 
-  const handleEndSession = async () => {
+  const endSession = async (abandon: boolean) => {
     if (!sessionId || finishing.current) return;
     finishing.current = true;
     setEnding(true);
     setFinishError(null);
     try {
-      await api.endSession(sessionId, {
+      if (abandon) await api.abandonSession(sessionId, abandonReason);
+      else await api.endSession(sessionId, {
         focusedDuration: focusedSeconds, distractedDuration: distractedSeconds, idleDuration: idleSeconds,
-        tabSwitchCount, warningCount, longestFocusStreak,
+        tabSwitchCount, warningCount, blockAttemptCount, longestFocusStreak, events: getEvents(),
       });
-      if (room) await api.leaveRoom(room.id).catch(() => {});
       window.postMessage({ type: 'ZENITH_ROOM_ENDED', focusSessionId: sessionId }, window.location.origin);
+      if (room) await api.leaveRoom(room.id).catch(() => {});
       sessionStorage.removeItem('active_session_id');
       sessionStorage.removeItem('active_session_protection');
-      router.push(`/focus/summary/${sessionId}`);
+      sessionStorage.removeItem(`zenith_room_theme_${sessionId}`);
+      sessionStorage.removeItem(`zenith_tracking_${sessionId}`);
+      router.push(abandon ? '/dashboard' : `/focus/summary/${sessionId}`);
     } catch (err) {
       setFinishError(err instanceof Error ? err.message : 'Could not save your session. Try again.');
       finishing.current = false;
       setEnding(false);
     }
   };
+  const handleEndSession = () => endSession(false);
 
   const finishRef = useRef(handleEndSession);
   finishRef.current = handleEndSession;
@@ -466,36 +468,61 @@ export default function LiveRoomPage() {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-black text-zinc-100 select-none">
-      {/* ── 80-90% ATMOSPHERE & VISUAL ENVIRONMENT (THE HERO) ── */}
-      <div
-        className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out"
-        style={{
-          backgroundImage: `url(${currentAtmosphere.bgImageUrl})`,
-        }}
-      />
-      <div
-        className="absolute inset-0 transition-all duration-1000 ease-in-out"
-        style={{ background: currentAtmosphere.gradientOverlay }}
-      />
-
-      {/* Procedural Canvas Dynamics (Raindrops, Stars, Cyber Grid, Particles) */}
-      <AtmosphereCanvas
-        effectType={currentAtmosphere.effectType}
-        accentColor={currentAtmosphere.accentColor}
-      />
+    <div className="relative h-dvh w-full overflow-hidden bg-black text-zinc-100">
+      <AtmosphericScene scene={visibleAtmosphere} fallbackImage="/scenery/rain.webp" priority paused={isAtmosphereModalOpen} />
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: visibleAtmosphere.gradientOverlay }} />
+      {visibleAtmosphere.effectType !== 'ambient' && (
+        <AtmosphereCanvas effectType={visibleAtmosphere.effectType} accentColor={visibleAtmosphere.accentColor} />
+      )}
 
       {/* ── LAYER A: UNOBTRUSIVE ROOM HEADER ── */}
       <RoomHeader
         roomName={room?.name || 'Solo focus'}
         category={category}
         participantCount={room && connected && participants.length > 0 ? participants.length : room ? null : 1}
-        shieldActive={shieldActive}
+        shieldStatus={shield.status}
+        desktopShield={shield.desktopStatus === 'active' ? shield.desktopPlatform : null}
+        android={shield.android}
         maxParticipants={room?.maxParticipants || 1}
         videoLayout={videoLayout}
         onChangeVideoLayout={handleVideoLayoutChange}
         onExit={() => setShowExitConfirm(true)}
       />
+
+      {shieldActive && shield.desktopStatus === 'permission_required' && (
+        <p role="status" className="absolute inset-x-4 top-14 z-30 mx-auto w-fit rounded-xl border border-amber-300/30 bg-zinc-950/95 px-4 py-3 text-xs text-amber-100 shadow-lg">
+          {shield.desktopPlatform === 'win'
+            ? 'Windows app blocking could not access the foreground window. Check the helper setup and retry.'
+            : 'Mac app blocking needs permission. Check Automation and Accessibility in macOS Privacy & Security.'}
+        </p>
+      )}
+      {shieldActive && (shield.desktopStatus === 'setup_needed' || shield.desktopStatus === 'disconnected') && (
+        <div className="absolute right-4 top-14 z-30 flex gap-3 rounded-lg bg-zinc-950/90 px-3 py-2 text-xs text-zinc-200">
+          <a href="/blocker#install-shield" target="_blank" rel="noreferrer" className="underline">{shield.desktopPlatform === 'win' ? 'Set up Windows app blocking' : 'Set up Mac app blocking'}</a>
+          <button type="button" onClick={shield.retry} className="underline">Reconnect</button>
+        </div>
+      )}
+      {shield.androidHref && (
+        <a href={shield.androidHref} className="absolute right-4 top-14 z-30 rounded-lg bg-emerald-200 px-3 py-2 text-xs font-semibold text-zinc-950">
+          Protect Android apps
+        </a>
+      )}
+      {shield.status === 'unavailable' && (
+        <div className="absolute inset-x-4 top-14 z-30 mx-auto w-fit max-w-[calc(100%-2rem)] rounded-xl border border-amber-300/30 bg-zinc-950/95 px-4 py-3 text-xs text-amber-100 shadow-lg sm:text-sm">
+          <p role="status" className="max-w-md">{shield.message} Distraction warnings can still appear in this room.</p>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+            <button type="button" onClick={shield.retry} className="font-semibold underline">Retry Shield</button>
+            <a href="/blocker#install-shield" target="_blank" rel="noreferrer" className="underline">Install Shield</a>
+          </div>
+        </div>
+      )}
+
+      {room && user && room.creator?.id === user.id && (
+        <details className="absolute left-4 top-16 z-30 max-w-[calc(100%-2rem)] rounded-xl bg-zinc-950/90 p-2 text-sm text-zinc-100">
+          <summary className="cursor-pointer px-2 py-1">Room invite</summary>
+          <RoomInviteControls roomId={room.id} />
+        </details>
+      )}
 
       {(finishError || presenceError || deviceError) && (
         <div role="alert" className="absolute left-1/2 top-32 z-40 -translate-x-1/2 rounded-lg bg-zinc-950 px-4 py-2 text-sm text-rose-300">
@@ -508,6 +535,8 @@ export default function LiveRoomPage() {
         <div className="text-3xl sm:text-5xl font-mono font-extralight tracking-widest text-white/90 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
           {formatSeconds(remainingSeconds)}
         </div>
+        <progress aria-label="Focus session progress" value={Math.max(0, plannedMinutes * 60 - remainingSeconds)}
+          max={Math.max(1, plannedMinutes * 60)} className="mt-2 h-1 w-24 accent-emerald-300 sm:w-32" />
       </div>
 
       {/* ── LAYER D: ADAPTIVE PARTICIPANT GALLERY (10 PEER LIVE MESH) ── */}
@@ -521,16 +550,16 @@ export default function LiveRoomPage() {
         participants={participants}
         remoteStreams={remoteStreams}
         isInteractionRoom={isInteractionRoom}
+        voiceVolume={voiceVolume}
         onReportPeer={(peer) => setReportingPeer(peer)}
       />
 
       {/* ── LAYER E: 5-BUTTON FLOATING BOTTOM CONTROL DOCK (320–420px) ── */}
       <FloatingControlDock
-        currentAtmosphere={currentAtmosphere}
+        currentAtmosphere={visibleAtmosphere}
         onSelectAtmosphere={(atm) => {
-          setCurrentAtmosphere(atm);
-          sessionStorage.setItem('active_session_atmosphere', atm.id);
-          api.updateSettings({ customThemeUrl: atm.bgImageUrl }).catch(() => {});
+          setRoomThemeOverride(atm.id);
+          sessionStorage.setItem(`zenith_room_theme_${sessionId}`, atm.id);
         }}
         isCameraOn={isCameraOn}
         isMicOn={isMicOn}
@@ -544,44 +573,52 @@ export default function LiveRoomPage() {
         focusScore={currentFocusRate}
         estimatedPoints={estimatedPoints}
         onEndSession={() => setShowExitConfirm(true)}
+        onOpenMusic={() => setIsMusicModalOpen(true)}
+        voiceVolume={voiceVolume}
+        onVoiceVolume={setVoiceVolume}
       />
 
       {/* ── DISTRACTION WARNING OVERLAY ── */}
-      {isFrozen && (
-        <DistractionOverlay
-          isOpen={isFrozen}
-          message={warningMessage}
-          distractionSeconds={lastDistractionDuration}
-          tabSwitchCount={tabSwitchCount}
-          onReturnToRoom={returnToRoom}
-          onLeaveSession={handleEndSession}
-        />
+      {warningMessage && (
+        <div className="absolute bottom-24 left-1/2 z-40 flex w-max max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-xl bg-zinc-950/90 p-3 text-sm text-amber-100">
+          <p role="status">{warningMessage}</p>
+          <button type="button" className="underline" onClick={dismissWarning}>Dismiss</button>
+        </div>
       )}
 
       {/* ── CONFIRM EXIT MODAL ── */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
           <div className="w-full max-w-sm rounded-2xl border border-white/15 bg-[#0d0f14]/95 p-6 shadow-2xl text-zinc-100 space-y-4">
-            <h3 className="text-base font-semibold text-white tracking-tight">Complete Session?</h3>
+            <h3 className="text-base font-semibold text-white tracking-tight">End focus session?</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Your focus telemetry and truth stats will be saved to your profile and points will be awarded.
+              Save your summary and any eligible points, or discard the session for zero points.
             </p>
             <div className="p-3 rounded-xl bg-white/[0.04] border border-white/10 text-xs font-mono space-y-1">
               <div>Focused Time: {formatMinutesHuman(Math.round(focusedSeconds / 60))}</div>
               <div>Estimated Points: +{estimatedPoints} ⭐</div>
             </div>
+            <label className="block text-xs text-zinc-300">
+              Reason for discarding (optional)
+              <input value={abandonReason} onChange={event => setAbandonReason(event.target.value)} maxLength={500}
+                className="mt-1 block w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2" />
+            </label>
+            {finishError && <p role="alert" className="text-xs text-rose-300">{finishError}</p>}
             <div className="flex justify-end gap-2.5 pt-2">
               <button
                 onClick={() => setShowExitConfirm(false)}
                 className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
               >
-                Continue Working
+                Keep working
               </button>
+              <button type="button" disabled={ending} onClick={() => void endSession(true)}
+                className="rounded-xl px-3 py-2 text-xs font-medium text-rose-300 hover:bg-white/5 disabled:opacity-50">Discard</button>
               <button
                 onClick={handleEndSession}
+                disabled={ending}
                 className="px-4 py-2 rounded-xl bg-rose-500 text-white text-xs font-semibold hover:bg-rose-400 transition-colors shadow-md"
               >
-                Confirm & Exit
+                Save and exit
               </button>
             </div>
           </div>
@@ -592,10 +629,11 @@ export default function LiveRoomPage() {
       <AtmosphereSelectorModal
         isOpen={isAtmosphereModalOpen}
         onClose={() => setIsAtmosphereModalOpen(false)}
-        selectedId={currentAtmosphere.id}
+        selectedId={visibleAtmosphere.id}
+        customAtmosphere={wallpaper || undefined}
         onSelectAtmosphere={(atm) => {
-          setCurrentAtmosphere(atm);
-          sessionStorage.setItem('active_session_atmosphere', atm.id);
+          setRoomThemeOverride(atm.id);
+          sessionStorage.setItem(`zenith_room_theme_${sessionId}`, atm.id);
         }}
       />
 

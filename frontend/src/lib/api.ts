@@ -1,4 +1,4 @@
-import { BlockedResource, BlockerStatistics, User, Room } from './types';
+import { BlockedResource, BlockerStatistics, FocusEvent, FocusGoal, FocusSession, UserProfile, ScoreBreakdown, User, Room } from './types';
 
 const getApiBaseUrl = () => {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -13,13 +13,15 @@ const getApiBaseUrl = () => {
   return 'http://127.0.0.1:5001/api';
 };
 
+export type RoomInvitation = { token: string; code: string; expiresAt: string };
+
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number) { super(message); }
 }
 
 export class ApiConnectionError extends Error {
-  constructor() {
-    super('Could not connect to Zenith. Check your connection and try again.');
+  constructor(message = 'Could not connect to Zenith. Check your connection and try again.') {
+    super(message);
     this.name = 'ApiConnectionError';
   }
 }
@@ -61,6 +63,9 @@ class ApiClient {
         headers,
       });
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'TimeoutError') {
+        throw new ApiConnectionError('Zenith took too long to respond. Try again.');
+      }
       if (!(error instanceof TypeError)) throw error;
       throw new ApiConnectionError();
     }
@@ -108,9 +113,18 @@ class ApiClient {
     });
   }
 
+  async passwordAuth(action: 'register' | 'login', body: { username: string; password: string; name?: string }) {
+    return this.request<{ success: boolean; user: User; token: string }>(`/auth/password/${action}`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(12_000),
+      body: JSON.stringify(body),
+    });
+  }
+
   async googleAuth(body: { idToken?: string; credential?: string }) {
     return this.request<{ success: boolean; user: any; token: string }>('/auth/google', {
       method: 'POST',
+      signal: AbortSignal.timeout(12_000),
       body: JSON.stringify(body),
     });
   }
@@ -151,7 +165,7 @@ class ApiClient {
   }
 
   async getMe() {
-    return this.request<{ success: boolean; user: any }>('/auth/me');
+    return this.request<{ success: boolean; user: User }>('/auth/me', { signal: AbortSignal.timeout(8_000) });
   }
 
   async updateOnboarding(body: any) {
@@ -175,7 +189,11 @@ class ApiClient {
     return this.request<{ success: boolean; room: any }>(`/rooms/${idOrCode}`);
   }
 
-  async createRoom(body: {
+  async getIceServers(roomId: string) {
+    return this.request<{ success: boolean; iceServers: RTCIceServer[] }>(`/rooms/${roomId}/ice-servers`);
+  }
+
+  async hostRoom(body: {
     name: string;
     description?: string;
     category?: string;
@@ -188,7 +206,7 @@ class ApiClient {
     camera: boolean;
     mic: boolean;
   }) {
-    return this.request<{ success: boolean; room: any }>('/rooms', {
+    return this.request<{ success: boolean; room: Room; invitation: RoomInvitation }>('/rooms/host', {
       method: 'POST',
       body: JSON.stringify(body),
     });
@@ -207,10 +225,25 @@ class ApiClient {
     });
   }
 
-  async joinRoom(roomId: string) {
-    return this.request<{ success: boolean; participant: any; room: any }>(`/rooms/${roomId}/join`, {
+  async joinRoom(roomId: string, invite?: { inviteToken: string; confirmInteraction?: boolean }) {
+    return this.request<{ success: boolean; participant: unknown; room: Room }>(`/rooms/${roomId}/join`, {
       method: 'POST',
+      body: invite ? JSON.stringify(invite) : undefined,
     });
+  }
+
+  async joinRoomByCode(inviteCode: string, confirmInteraction = false) {
+    return this.request<{ success: boolean; room: Room }>('/rooms/join-by-code', {
+      method: 'POST', body: JSON.stringify({ inviteCode, confirmInteraction }),
+    });
+  }
+
+  async createRoomInvite(roomId: string) {
+    return this.request<{ success: boolean } & RoomInvitation>(`/rooms/${roomId}/invite`, { method: 'POST' });
+  }
+
+  async revokeRoomInvite(roomId: string) {
+    return this.request<{ success: boolean }>(`/rooms/${roomId}/invite`, { method: 'DELETE' });
   }
 
   async leaveRoom(roomId: string) {
@@ -259,6 +292,18 @@ class ApiClient {
   }
 
   // Sessions Endpoints
+  async getFocusGoals() {
+    return this.request<{ success: boolean; goals: FocusGoal[] }>('/goals');
+  }
+
+  async createFocusGoal(goal: { title: string; outcome: string; notes: string; targetMinutes: number; dueDate: string }) {
+    return this.request<{ success: boolean; goal: FocusGoal }>('/goals', { method: 'POST', body: JSON.stringify(goal) });
+  }
+
+  async completeFocusGoal(id: string, completed: boolean) {
+    return this.request<{ success: boolean }>(`/goals/${id}`, { method: 'PATCH', body: JSON.stringify({ completed }) });
+  }
+
   async startSession(body: {
     roomId?: string | null;
     category?: string;
@@ -266,6 +311,8 @@ class ApiClient {
     specificActivity?: string;
     atmosphere?: string;
     plannedDuration: number;
+    protectionEnabled?: boolean;
+    goalId?: string;
   }) {
     return this.request<{ success: boolean; session: any }>('/sessions/start', {
       method: 'POST',
@@ -289,6 +336,7 @@ class ApiClient {
     blockAttemptCount?: number;
     longestFocusStreak: number;
     notes?: string;
+    events?: FocusEvent[];
   }) {
     return this.request<{
       success: boolean;
@@ -309,11 +357,26 @@ class ApiClient {
     if (params?.page) query.append('page', String(params.page));
     if (params?.limit) query.append('limit', String(params.limit));
     const qs = query.toString() ? `?${query.toString()}` : '';
-    return this.request<{ success: boolean; sessions: any[]; pagination: any }>(`/sessions/history${qs}`);
+    return this.request<{ success: boolean; sessions: FocusSession[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(`/sessions/history${qs}`);
+  }
+
+  async abandonSession(sessionId: string, reason: string) {
+    return this.request<{ success: boolean; session: FocusSession }>(`/sessions/${sessionId}/abandon`, {
+      method: 'POST', body: JSON.stringify({ reason }),
+    });
+  }
+
+  async getActiveSession() {
+    try {
+      return await this.request<{ success: boolean; session: FocusSession | null }>('/sessions/active');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return { success: false, session: null };
+      throw error;
+    }
   }
 
   async getSession(id: string) {
-    return this.request<{ success: boolean; session: any }>(`/sessions/${id}`);
+    return this.request<{ success: boolean; session: FocusSession; scoreBreakdown?: ScoreBreakdown | null }>(`/sessions/${id}`);
   }
 
   // Analytics Endpoints
@@ -348,7 +411,11 @@ class ApiClient {
 
   // User Profile & Settings & Leaderboard
   async getProfile() {
-    return this.request<{ success: boolean; profile: any }>('/users/profile');
+    return this.request<{ success: boolean; profile: UserProfile }>('/users/profile');
+  }
+
+  async exportAccountData() {
+    return this.request<{ success: boolean; data: unknown }>('/users/export');
   }
 
   async updateSettings(settings: any) {
@@ -423,7 +490,7 @@ class ApiClient {
     });
   }
 
-  async activateBlocker(focusSessionId: string, mode: 'MONITOR' | 'BLOCK' | 'STRICT' = 'BLOCK') {
+  async activateBlocker(focusSessionId: string, mode: 'MONITOR' | 'BLOCK' | 'STRICT' = 'BLOCK', signal?: AbortSignal) {
     return this.request<{
       success: boolean;
       blockerSession: any;
@@ -432,6 +499,7 @@ class ApiClient {
     }>('/blocker/activate', {
       method: 'POST',
       body: JSON.stringify({ focusSessionId, mode }),
+      signal,
     });
   }
 

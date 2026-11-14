@@ -37,6 +37,7 @@ model User {
   createdRooms        Room[]            @relation("CreatedRooms")
   participants        RoomParticipant[]
   focusSessions       FocusSession[]
+  focusGoals          FocusGoal[]
   focusEvents         FocusEvent[]
   userAchievements    UserAchievement[]
   settings            UserSettings?
@@ -104,6 +105,7 @@ model Room {
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
+  invite              RoomInvite?
   participants        RoomParticipant[]
   focusSessions       FocusSession[]
   interactionAuthorizations InteractionAuthorization[]
@@ -113,6 +115,16 @@ model Room {
   @@index([category, status])
   @@index([isPrivate, status])
   @@map("rooms")
+}
+
+model RoomInvite {
+  roomId    String   @id
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  tokenHash String
+  codeHash  String? @unique
+  expiresAt DateTime
+
+  @@map("room_invites")
 }
 
 model RoomParticipant {
@@ -125,6 +137,7 @@ model RoomParticipant {
   status    String    @default("ACTIVE") // ACTIVE, LEFT
   joinedAt  DateTime  @default(now())
   leftAt    DateTime?
+  presenceExpiresAt DateTime?
 
   @@unique([roomId, userId])
   @@index([roomId, status])
@@ -138,6 +151,8 @@ model FocusSession {
   user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   roomId             String?
   room               Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  goalId             String?
+  goal               FocusGoal?      @relation(fields: [goalId], references: [id], onDelete: SetNull)
   category           String          @default("EDUCATION") // EDUCATION, EXERCISE, SIDE_QUEST, INTERACTION
   activityType       String          @default("Deep Focus")
   specificActivity   String?
@@ -145,6 +160,7 @@ model FocusSession {
   startTime          DateTime        @default(now())
   endTime            DateTime?
   plannedDuration    Int             // in minutes
+  protectionEnabled  Boolean         @default(true)
   focusedDuration    Int             @default(0) // in seconds
   idleDuration       Int             @default(0) // in seconds
   distractedDuration Int             @default(0) // in seconds
@@ -166,7 +182,25 @@ model FocusSession {
   blockerSession     BlockerSession?
   pointTransactions  PointTransaction[]
 
+  @@index([goalId, status])
   @@map("focus_sessions")
+}
+
+model FocusGoal {
+  id          String         @id @default(uuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  outcome     String?
+  notes       String?
+  targetMinutes Int
+  dueDate     DateTime?      @db.Date
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+  sessions    FocusSession[]
+
+  @@index([userId, createdAt])
+  @@map("focus_goals")
 }
 
 model FocusEvent {

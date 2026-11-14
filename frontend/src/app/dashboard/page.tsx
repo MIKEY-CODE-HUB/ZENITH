@@ -6,7 +6,8 @@ import { useAmbient } from '@/contexts/AmbientContext';
 import { api } from '@/lib/api';
 import { Sidebar } from '@/components/Sidebar';
 import { StartSessionModal } from '@/components/StartSessionModal';
-import { Room, FocusSession, DashboardStats } from '@/lib/types';
+import { FocusGoals } from '@/components/FocusGoals';
+import { Room, FocusGoal, FocusSession, DashboardStats } from '@/lib/types';
 import { formatMinutesHuman, formatDate } from '@/lib/utils';
 import {
   GraduationCap,
@@ -34,7 +35,7 @@ import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const { currentScenery, isPlayingSound, toggleSound, setIsSceneryModalOpen, activeSound } = useAmbient();
+  const { isPlayingSound, toggleSound, openSceneryModal, activeSound } = useAmbient();
   const router = useRouter();
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -42,6 +43,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [showStartModal, setShowStartModal] = useState<boolean>(false);
+  const [selectedGoal, setSelectedGoal] = useState<FocusGoal | null>(null);
+  const [repeatSession, setRepeatSession] = useState<FocusSession | null>(null);
+  const [activeSession, setActiveSession] = useState<FocusSession | null>(null);
+  const [recentSessions, setRecentSessions] = useState<FocusSession[]>([]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -50,11 +55,17 @@ export default function DashboardPage() {
       return;
     }
     let cancelled = false;
-    Promise.all([api.getDashboardStats(), api.getRooms()])
-      .then(([statsRes, roomsRes]) => {
+    void api.getHistory({ limit: 5 }).then(result => {
+      if (!cancelled) setRecentSessions(result.sessions);
+    }).catch(() => {});
+    void api.getRooms()
+      .then(result => { if (!cancelled) setRooms(result.rooms); })
+      .catch(() => {});
+    Promise.all([api.getDashboardStats(), api.getActiveSession()])
+      .then(([statsRes, activeRes]) => {
         if (cancelled) return;
         setStats(statsRes.stats);
-        setRooms(roomsRes.rooms);
+        setActiveSession(activeRes.session);
       })
       .catch((err) => {
         if (!cancelled) setDashboardError(err instanceof Error ? err.message : 'Dashboard unavailable.');
@@ -68,32 +79,28 @@ export default function DashboardPage() {
     const hour = new Date().getHours();
     if (hour >= 22 || hour < 5) {
       return {
-        greeting: 'Late Night Flow',
+        greeting: 'Good evening',
         icon: Moon,
-        vibe: 'Deep midnight immersion. When the world is asleep, you build.',
         accent: 'from-sky-600/25 via-teal-600/20 to-transparent',
       };
     }
     if (hour >= 5 && hour < 12) {
       return {
-        greeting: 'Dawn Momentum',
+        greeting: 'Good morning',
         icon: Sun,
-        vibe: 'Fresh morning clarity. Seize high-cognitive energy before distractions wake.',
         accent: 'from-amber-600/25 via-orange-600/20 to-transparent',
       };
     }
     if (hour >= 12 && hour < 17) {
       return {
-        greeting: 'Peak Focus Zone',
+        greeting: 'Good afternoon',
         icon: Zap,
-        vibe: 'Afternoon power block. Execute your hardest engineering and problem sets.',
         accent: 'from-emerald-600/25 via-teal-600/20 to-transparent',
       };
     }
     return {
-      greeting: 'Golden Hour Dusk',
+      greeting: 'Good evening',
       icon: Compass,
-      vibe: 'Evening consistency. Lock in your closing study sprint for the day.',
       accent: 'from-rose-600/25 via-amber-600/20 to-transparent',
     };
   };
@@ -113,47 +120,44 @@ export default function DashboardPage() {
 
   if (authLoading || !user || loading || dashboardError) {
     return (
-      <main className="grid min-h-screen place-content-center gap-3 bg-zinc-950 p-6 text-zinc-100">
-        {dashboardError ? <p role="alert">{dashboardError}</p> : <p role="status">Loading your dashboard…</p>}
+      <main className="grid min-h-screen place-content-center gap-3 p-6 text-zinc-100">
+        {dashboardError ? <p role="alert">{dashboardError}</p> : <p role="status">Loading your home…</p>}
         {dashboardError && <button className="text-sky-300 underline" onClick={() => window.location.reload()}>Retry</button>}
       </main>
     );
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-[#07080b] text-zinc-100">
+    <div className="flex min-h-[calc(100vh-4rem)] text-zinc-100">
       <Sidebar />
 
-      <main className="flex-1 p-5 sm:p-9 max-w-6xl mx-auto space-y-9">
+      <main className="min-w-0 flex-1 p-5 sm:p-9 max-w-6xl mx-auto space-y-9">
         {/* Dynamic Atmospheric Hero Banner */}
-        <div className={`relative p-6 sm:p-9 rounded-3xl bg-gradient-to-r ${vibe.accent} bg-[#10121a] border border-white/[0.08] shadow-2xl overflow-hidden`}>
+        <div className={`relative p-6 sm:p-9 rounded-3xl bg-gradient-to-r ${vibe.accent} zenith-home-card cozy-glass border border-white/[0.08] shadow-2xl overflow-hidden`}>
           {/* Subtle Ambient Blur Halos */}
           <div className="absolute -top-24 -right-24 w-80 h-80 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-2 max-w-xl">
-              <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-zinc-300">
                 <VibeIcon className="h-4 w-4 text-emerald-400" />
                 <span className="uppercase tracking-widest text-[11px] font-bold text-white/90">
                   {vibe.greeting} • {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </span>
                 <span className="text-zinc-600">•</span>
                 <button
-                  onClick={() => setIsSceneryModalOpen(true)}
+                  onClick={() => openSceneryModal('dashboard')}
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-[11px] text-zinc-300 transition-colors border border-white/10"
                 >
                   <ImageIcon className="h-3 w-3 text-emerald-400" />
-                  <span>Theme: {currentScenery.name}</span>
+                  <span>Customize Theme</span>
                 </button>
               </div>
 
               <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
                 Welcome back, {user?.name?.split(' ')[0] || 'Scholar'}.
               </h1>
-              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-normal">
-                {vibe.vibe}
-              </p>
             </div>
 
             {/* Quick Actions (Start Session + Soundscape) */}
@@ -181,19 +185,59 @@ export default function DashboardPage() {
               </button>
 
               <button
-                onClick={() => setShowStartModal(true)}
+                onClick={() => {
+                  if (activeSession) {
+                    sessionStorage.setItem('active_session_id', activeSession.id);
+                    router.push(`/focus/${activeSession.roomId ?? activeSession.id}`);
+                  } else {
+                    setShowStartModal(true);
+                  }
+                }}
                 className="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white text-zinc-950 text-xs sm:text-sm font-bold hover:bg-zinc-100 transition-all shadow-xl hover:shadow-white/10 group active:scale-95"
               >
                 <Sparkles className="h-4 w-4 text-emerald-600 transition-transform group-hover:scale-110" />
-                <span>START SESSION</span>
+                <span>{activeSession ? 'Resume Focus' : 'Start Focus'}</span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </button>
             </div>
           </div>
+          {activeSession && <p className="relative mt-4 text-sm text-zinc-200">In progress · {activeSession.specificActivity || activeSession.activityType}</p>}
         </div>
 
+        <FocusGoals onStart={goal => {
+          if (activeSession) {
+            router.push(`/focus/${activeSession.roomId ?? activeSession.id}`);
+            return;
+          }
+          setSelectedGoal(goal);
+          setShowStartModal(true);
+        }} />
+
+        {recentSessions.length > 0 && (
+          <section className="space-y-3 rounded-2xl border border-[rgb(var(--tint))]/10 cozy-glass p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold">Recent sessions</h2>
+              <Link className="text-sm underline" href="/history">View history</Link>
+            </div>
+            <ul className="divide-y divide-[rgb(var(--tint))]/10">
+              {recentSessions.map(session => (
+                <li className="flex flex-wrap items-center justify-between gap-2 py-2" key={session.id}>
+                  <div>
+                    <Link className="text-sm font-medium hover:underline" href={`/focus/summary/${session.id}`}>{session.specificActivity || session.activityType}</Link>
+                    <p className="text-xs text-[rgb(var(--ink-muted))]">{formatDate(session.startTime)} · {session.plannedDuration}m planned</p>
+                  </div>
+                  {!activeSession && <button type="button" className="text-sm underline" onClick={() => {
+                    setRepeatSession(session);
+                    setShowStartModal(true);
+                  }}>Repeat</button>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {/* Weekly Progress & Verified Points Ledger */}
-        <div className="p-6 sm:p-7 rounded-3xl bg-[#10121a] border border-white/[0.08] shadow-xl space-y-4">
+        <div className="p-6 sm:p-7 rounded-3xl cozy-glass border border-white/[0.08] shadow-xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Weekly Momentum</span>
@@ -247,7 +291,7 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* 1. Education */}
-            <div className="p-5 rounded-2xl bg-gradient-to-b from-[#131b2c] to-[#10121a] border border-sky-500/25 hover:border-sky-500/40 transition-all shadow-lg space-y-3 group">
+            <div className="p-5 rounded-2xl cozy-glass bg-gradient-to-b from-[#131b2c]/35 to-[#10121a]/35 border border-sky-500/25 hover:border-sky-500/40 transition-all shadow-lg space-y-3 group">
               <div className="flex items-center justify-between">
                 <div className="p-2.5 rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/30 shadow-inner">
                   <GraduationCap className="h-5 w-5" />
@@ -264,7 +308,7 @@ export default function DashboardPage() {
             </div>
 
             {/* 2. Exercise */}
-            <div className="p-5 rounded-2xl bg-gradient-to-b from-[#1a1712] to-[#10121a] border border-amber-500/25 hover:border-amber-500/40 transition-all shadow-lg space-y-3 group">
+            <div className="p-5 rounded-2xl cozy-glass bg-gradient-to-b from-[#1a1712]/35 to-[#10121a]/35 border border-amber-500/25 hover:border-amber-500/40 transition-all shadow-lg space-y-3 group">
               <div className="flex items-center justify-between">
                 <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-inner">
                   <Dumbbell className="h-5 w-5" />
@@ -281,7 +325,7 @@ export default function DashboardPage() {
             </div>
 
             {/* 3. Side Quest */}
-            <div className="p-5 rounded-2xl bg-gradient-to-b from-[#10191c] to-[#10121a] border border-teal-500/25 hover:border-teal-500/40 transition-all shadow-lg space-y-3 group">
+            <div className="p-5 rounded-2xl cozy-glass bg-gradient-to-b from-[#10191c]/35 to-[#10121a]/35 border border-teal-500/25 hover:border-teal-500/40 transition-all shadow-lg space-y-3 group">
               <div className="flex items-center justify-between">
                 <div className="p-2.5 rounded-xl bg-teal-500/15 text-teal-400 border border-teal-500/30 shadow-inner">
                   <Compass className="h-5 w-5" />
@@ -298,7 +342,7 @@ export default function DashboardPage() {
             </div>
 
             {/* 4. Interaction */}
-            <div className="p-5 rounded-2xl bg-gradient-to-b from-[#111915] to-[#10121a] border border-emerald-500/25 hover:border-emerald-500/40 transition-all shadow-lg space-y-3 group">
+            <div className="p-5 rounded-2xl cozy-glass bg-gradient-to-b from-[#111915]/35 to-[#10121a]/35 border border-emerald-500/25 hover:border-emerald-500/40 transition-all shadow-lg space-y-3 group">
               <div className="flex items-center justify-between">
                 <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-inner">
                   <MessageSquare className="h-5 w-5" />
@@ -335,11 +379,11 @@ export default function DashboardPage() {
               return (
                 <div
                   key={room.id}
-                  className="p-5 rounded-3xl bg-[#10121a] border border-white/[0.08] hover:border-white/20 transition-all space-y-4 shadow-xl relative overflow-hidden group"
+                  className="p-5 rounded-3xl cozy-glass border border-white/[0.08] hover:border-white/20 transition-all space-y-4 shadow-xl relative overflow-hidden group"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
                       <h3 className="text-base font-bold text-white tracking-tight">{room.name}</h3>
                     </div>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/[0.04] text-zinc-400 border border-white/5">
@@ -359,6 +403,7 @@ export default function DashboardPage() {
                   </div>
 
                   <Link
+                    prefetch={false}
                     href={room.category === 'INTERACTION' ? '/rooms' : `/focus/${room.id}`}
                     className="w-full py-2.5 rounded-xl bg-white text-zinc-950 font-bold text-xs hover:bg-zinc-200 transition-colors flex items-center justify-center gap-1.5 shadow-md group-hover:shadow-white/10"
                   >
@@ -374,7 +419,11 @@ export default function DashboardPage() {
 
       {/* Start Session Modal */}
       {showStartModal && (
-        <StartSessionModal availableRooms={rooms} isOpen={showStartModal} onClose={() => setShowStartModal(false)} />
+        <StartSessionModal availableRooms={rooms} isOpen={showStartModal} goal={selectedGoal} repeat={repeatSession} onClose={() => {
+          setSelectedGoal(null);
+          setRepeatSession(null);
+          setShowStartModal(false);
+        }} />
       )}
     </div>
   );

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+type RouteContext = { params: Promise<{ path: string[] }> };
+
 /**
  * Authoritative Next.js API Gateway / Catch-all Proxy.
  * 
@@ -9,8 +11,9 @@ import { NextRequest, NextResponse } from 'next/server';
  * Stateful demo fallbacks have been removed to prevent state illusions.
  */
 
-async function handleProxy(req: NextRequest, { params }: { params: { path?: string[] } }): Promise<Response> {
-  const pathStr = (params.path || []).map(encodeURIComponent).join('/');
+async function handleProxy(req: NextRequest, { params }: RouteContext): Promise<Response> {
+  const { path } = await params;
+  const pathStr = path.map(encodeURIComponent).join('/');
   const configuredBase = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
   const backendBase = configuredBase || (!process.env.VERCEL ? 'http://127.0.0.1:5001/api' : undefined);
   const requestId = crypto.randomUUID();
@@ -93,26 +96,26 @@ async function handleProxy(req: NextRequest, { params }: { params: { path?: stri
   }
 }
 
-export async function GET(req: NextRequest, ctx: { params: { path?: string[] } }) {
+export async function GET(req: NextRequest, ctx: RouteContext) {
   return handleProxy(req, ctx);
 }
 
-export async function POST(req: NextRequest, ctx: { params: { path?: string[] } }) {
+export async function POST(req: NextRequest, ctx: RouteContext) {
   return handleProxy(req, ctx);
 }
 
-export async function PUT(req: NextRequest, ctx: { params: { path?: string[] } }) {
+export async function PUT(req: NextRequest, ctx: RouteContext) {
   return handleProxy(req, ctx);
 }
 
-export async function DELETE(req: NextRequest, ctx: { params: { path?: string[] } }) {
+export async function DELETE(req: NextRequest, ctx: RouteContext) {
   return handleProxy(req, ctx);
 }
 
-export async function PATCH(req: NextRequest, ctx: { params: { path?: string[] } }) {
+export async function PATCH(req: NextRequest, ctx: RouteContext) {
   return handleProxy(req, ctx);
 }
 
-export async function HEAD(req: NextRequest, ctx: { params: { path?: string[] } }) {
+export async function HEAD(req: NextRequest, ctx: RouteContext) {
   return handleProxy(req, ctx);
 }

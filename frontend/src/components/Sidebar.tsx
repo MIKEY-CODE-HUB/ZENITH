@@ -24,8 +24,8 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   const navItems = [
-    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Rooms', href: '/rooms', icon: Radio, badge: 'Live' },
+    { label: 'Home', href: '/dashboard', icon: LayoutDashboard },
+    { label: 'Join Rooms', href: '/rooms', icon: Radio, badge: 'Live' },
     { label: 'Distraction Shield', href: '/blocker', icon: Shield },
     { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
     { label: 'Achievements', href: '/achievements', icon: Award },
@@ -37,7 +37,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`hidden lg:flex flex-col border-r border-[rgb(var(--tint))]/[0.07] bg-[rgb(var(--sidebar))] p-3 shrink-0 min-h-[calc(100vh-4rem)] justify-between transition-all duration-200 select-none ${
+      className={`hidden lg:flex flex-col border-r border-[rgb(var(--tint))]/[0.07] cozy-glass bg-[rgb(var(--sidebar))] p-3 shrink-0 min-h-[calc(100vh-4rem)] justify-between transition-all duration-200 select-none ${
         collapsed ? 'w-[68px]' : 'w-60'
       }`}
     >
@@ -73,9 +73,6 @@ export function Sidebar() {
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-[rgb(var(--ink-secondary))] truncate leading-tight">{user.name}</p>
-                <span className="text-[11px] text-emerald-400/90 flex items-center gap-1 font-normal">
-                  Shield active
-                </span>
               </div>
             )}
           </div>

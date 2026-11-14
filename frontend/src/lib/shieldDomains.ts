@@ -12,6 +12,7 @@ export interface ShieldDomain {
  */
 export const ALWAYS_BLOCKED_DOMAINS: ShieldDomain[] = [
   { name: 'Instagram', domain: 'instagram.com', category: 'Social Media', description: 'Reels, stories, and feed' },
+  { name: 'WhatsApp Web', domain: 'web.whatsapp.com', category: 'Social', description: 'Messaging and group chats' },
   { name: 'Reddit', domain: 'reddit.com', category: 'Social Community', description: 'Infinite feeds & discussion threads' },
   { name: 'YouTube', domain: 'youtube.com', category: 'Video Streaming', description: 'Shorts, videos, and recommendations' },
   { name: 'Netflix', domain: 'netflix.com', category: 'Entertainment', description: 'Shows, movies, and binge streaming' },
@@ -25,6 +26,12 @@ export const ALWAYS_BLOCKED_DOMAINS: ShieldDomain[] = [
   { name: 'AnimeKai', domain: 'animekai.to', category: 'Anime Streaming', description: 'Anime streaming portal' },
   { name: '9anime', domain: '9animetv.to', category: 'Anime Streaming', description: 'Anime streaming portal' },
   { name: 'Aniwatch', domain: 'aniwatchtv.to', category: 'Anime Streaming', description: 'Anime streaming site' },
+  { name: 'Facebook', domain: 'facebook.com', category: 'Social Media' },
+  { name: 'Snapchat', domain: 'snapchat.com', category: 'Social Media' },
+  { name: 'Telegram Web', domain: 'web.telegram.org', category: 'Messaging' },
+  { name: 'Steam', domain: 'steampowered.com', category: 'Games' },
+  { name: 'Epic Games', domain: 'epicgames.com', category: 'Games' },
+  { name: 'Roblox', domain: 'roblox.com', category: 'Games' },
   { name: 'Hulu', domain: 'hulu.com', category: 'Entertainment', description: 'On-demand TV & streaming' },
   { name: 'Disney+', domain: 'disneyplus.com', category: 'Entertainment', description: 'Movies & series streaming' },
 ];
@@ -65,6 +72,9 @@ export interface ShieldApp {
  * High-distraction desktop applications intercepted during active focus sessions.
  */
 export const ALWAYS_BLOCKED_APPS: ShieldApp[] = [
+  { name: 'YouTube', category: 'Streaming' },
+  { name: 'Instagram', category: 'Social Media' },
+  { name: 'Roblox', category: 'Games' },
   { name: 'Discord', category: 'Chat & Gaming', description: 'Discord chat & voice' },
   { name: 'Spotify', category: 'Media Streaming', description: 'Music & podcasts' },
   { name: 'Steam', category: 'Gaming', description: 'Steam game client' },

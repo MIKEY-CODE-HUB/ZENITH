@@ -74,3 +74,264 @@ body {
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+.zenith-account-input {
+  display: block;
+  width: 100%;
+  margin-top: .25rem;
+  padding: .55rem .7rem;
+  border-radius: .55rem;
+  border: 1px solid rgb(236 208 175 / .24);
+  background: rgb(20 14 10 / .48);
+}
+.zenith-account-input:focus-visible {
+  outline: 2px solid #e9c8a5;
+  outline-offset: 2px;
+}
+
+[data-cozy-surface] {
+  --cozy-glass: 20 15 12;
+  --cozy-glass-alpha: .64;
+}
+[data-cozy-surface] .cozy-glass {
+  background-color: rgb(var(--cozy-glass) / var(--cozy-glass-alpha));
+  background-color: color-mix(in srgb, rgb(var(--cozy-glass) / var(--cozy-glass-alpha)) 94%,
+    var(--zenith-scene-accent, transparent));
+}
+[data-cozy-surface] .zenith-navbar,
+[data-cozy-surface] aside.cozy-glass {
+  --cozy-glass-alpha: .72;
+}
+[data-cozy-surface] .zenith-navbar {
+  backdrop-filter: none;
+}
+.zenith-scenery-shade {
+  background: linear-gradient(180deg, rgb(17 12 10 / .36), rgb(17 12 10 / .57));
+}
+:root[data-appearance='light'] [data-cozy-surface] .cozy-glass {
+  --ink: 250 250 250;
+  --ink-muted: 212 212 216;
+  --ink-secondary: 228 228 231;
+}
+@media (prefers-reduced-transparency: reduce) {
+  [data-cozy-surface] .cozy-glass {
+    --cozy-glass-alpha: .9;
+  }
+}
+
+.zenith-room-content {
+  width: min(100%, 76rem);
+  color: #fff5e9;
+  --cozy-glass: 29 22 17;
+  --cozy-glass-alpha: .76;
+  --zenith-button-accent: color-mix(in srgb, #efd3ac 86%, var(--zenith-scene-accent, #efd3ac));
+}
+.zenith-room-intro,
+.zenith-room-toolbar,
+.zenith-room-card,
+.zenith-achievement {
+  background-color: rgb(29 22 17 / .76);
+  border: 1px solid rgb(239 211 172 / .18);
+  border-radius: 1rem;
+}
+.zenith-room-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+  padding: clamp(1rem, 3vw, 1.7rem);
+}
+.zenith-room-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .65rem;
+  padding: .7rem;
+  margin-bottom: 1rem;
+}
+.zenith-room-toolbar form {
+  min-width: min(100%, 11rem);
+}
+.zenith-room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18.5rem), 1fr));
+  gap: .9rem;
+}
+.zenith-room-card,
+.zenith-achievement {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 1rem;
+}
+.zenith-room-card > :last-child {
+  margin-top: auto;
+}
+.zenith-room-card > :nth-last-child(2) {
+  margin-bottom: .9rem;
+}
+.zenith-room-card:hover,
+.zenith-achievement[data-earned='true'] {
+  border-color: rgb(239 211 172 / .36);
+}
+.zenith-room-primary,
+.zenith-room-quiet,
+.zenith-room-tab {
+  display: inline-flex;
+  min-height: 2.4rem;
+  align-items: center;
+  gap: .45rem;
+  border-radius: .65rem;
+  padding: .45rem .8rem;
+  font-size: .8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  transition: background-color .15s ease;
+}
+.zenith-room-primary,
+.zenith-room-tab[aria-pressed='true'] {
+  color: #261b14;
+  background: var(--zenith-button-accent, #efd3ac);
+}
+.zenith-room-primary:hover:not(:disabled),
+.zenith-room-tab[aria-pressed='true']:hover:not(:disabled) {
+  background: #ffe3bd;
+}
+.zenith-room-quiet,
+.zenith-room-tab:not([aria-pressed='true']) {
+  color: #f8e8d8;
+  border: 1px solid rgb(239 211 172 / .2);
+}
+.zenith-room-quiet:hover:not(:disabled),
+.zenith-room-tab:not([aria-pressed='true']):hover:not(:disabled) {
+  background: rgb(239 211 172 / .14);
+}
+.zenith-room-primary:disabled,
+.zenith-room-quiet:disabled {
+  cursor: default;
+  opacity: .55;
+}
+.zenith-room-tab {
+  justify-content: center;
+}
+.zenith-room-field {
+  display: block;
+  width: 100%;
+  margin-top: .35rem;
+  min-height: 2.65rem;
+  border: 1px solid rgb(239 211 172 / .22);
+  border-radius: .6rem;
+  background: #261d18;
+  color: #fff5e9;
+  padding: .55rem .75rem;
+  font-size: .875rem;
+}
+.zenith-room-field::placeholder {
+  color: #cbb5a2;
+}
+.zenith-room-primary:focus-visible,
+.zenith-room-quiet:focus-visible,
+.zenith-room-tab:focus-visible,
+.zenith-room-field:focus-visible {
+  outline: 2px solid #efd3ac;
+  outline-offset: 3px;
+}
+.zenith-room-dialog {
+  color: #fff5e9;
+  background: #281f19;
+  border: 1px solid rgb(239 211 172 / .25);
+  box-shadow: 0 1rem 4rem rgb(0 0 0 / .5);
+  color-scheme: dark;
+}
+.zenith-room-dialog::backdrop {
+  background: rgb(12 8 5 / .66);
+}
+.zenith-achievement-progress {
+  display: block;
+  width: 100%;
+  height: .4rem;
+  accent-color: #efd3ac;
+}
+
+[data-cozy-surface='home'] .zenith-scenery-shade {
+  background: linear-gradient(0deg, rgb(16 10 6 / .9), rgb(16 10 6 / .52) 39%, rgb(16 10 6 / .15) 79%),
+    linear-gradient(90deg, rgb(14 10 7 / .48), transparent 70%);
+}
+[data-cozy-surface='dashboard'] .zenith-home-card {
+  --cozy-glass-alpha: .43;
+}
+@media (prefers-reduced-transparency: reduce) {
+  [data-cozy-surface='dashboard'] .zenith-home-card { --cozy-glass-alpha: .9; }
+}
+
+.zenith-scene-light,
+.zenith-scene-motion {
+  position: absolute;
+  inset: 0;
+}
+.zenith-scene-light {
+  background:
+    radial-gradient(ellipse at var(--scene-light-position, 50% 30%),
+      color-mix(in srgb, var(--scene-tint), transparent 53%), transparent 64%),
+    linear-gradient(155deg, transparent 32%, rgb(16 13 19 / .32) 100%);
+}
+.zenith-scene-motion {
+  opacity: .34;
+}
+[data-scene='rain'] .zenith-scene-motion {
+  inset: -160px -5% -20px;
+  background:
+    repeating-linear-gradient(101deg, transparent 0 47px, rgb(221 237 253 / .27) 48px, transparent 50px 89px);
+  mask-image: radial-gradient(ellipse at 66% 30%, #000 4%, transparent 66%);
+  animation: zenith-rain-fall 2.9s linear infinite;
+}
+[data-scene='snow'] .zenith-scene-motion {
+  inset: -144px -12px -12px;
+  background-image:
+    radial-gradient(circle at 13px 22px, rgb(239 249 255 / .75) 0 1px, transparent 2px),
+    radial-gradient(circle at 81px 67px, rgb(235 244 255 / .58) 0 1.3px, transparent 2.7px),
+    radial-gradient(circle at 121px 109px, rgb(235 244 255 / .65) 0 1px, transparent 2px);
+  background-size: 146px 144px;
+  mask-image: linear-gradient(#000 0%, #000 32%, transparent 80%);
+  animation: zenith-snow-fall 17s linear infinite;
+}
+[data-scene='mist'] .zenith-scene-motion,
+[data-scene='twilight'] .zenith-scene-motion {
+  inset: 18% -10% -10%;
+  background:
+    radial-gradient(ellipse at 28% 77%, color-mix(in srgb, var(--scene-tint), transparent 38%), transparent 51%),
+    radial-gradient(ellipse at 80% 53%, color-mix(in srgb, var(--scene-tint), transparent 57%), transparent 53%);
+  animation: zenith-mist-drift 24s ease-in-out infinite alternate;
+}
+[data-scene='lamplight'] .zenith-scene-motion,
+[data-scene='sunlight'] .zenith-scene-motion {
+  background: radial-gradient(ellipse at var(--scene-light-position),
+    color-mix(in srgb, var(--scene-tint) 72%, #ffe6b7), transparent 56%);
+  animation: zenith-light-breathe 16s ease-in-out infinite alternate;
+}
+[data-scene-paused] .zenith-scene-motion {
+  animation-play-state: paused;
+}
+@keyframes zenith-rain-fall {
+  from { transform: translate3d(0, -18px, 0); }
+  to { transform: translate3d(0, 142px, 0); }
+}
+@keyframes zenith-snow-fall {
+  from { transform: translate3d(-8px, 0, 0); }
+  to { transform: translate3d(10px, 144px, 0); }
+}
+@keyframes zenith-mist-drift {
+  from { transform: translate3d(-4%, 2%, 0); opacity: .32; }
+  to { transform: translate3d(5%, -1%, 0); opacity: .52; }
+}
+@keyframes zenith-light-breathe {
+  from { opacity: .18; }
+  to { opacity: .34; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-scene] .zenith-scene-motion {
+    animation: none;
+  }
+}

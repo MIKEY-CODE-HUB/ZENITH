@@ -1,8 +1,10 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import { prisma } from '../src/config/prisma.js';
-import { generateToken } from '../src/utils/jwt.js';
+import { generateToken, verifyToken } from '../src/utils/jwt.js';
 import { BlockerService } from '../src/services/blockerService.js';
+import { blockerStatusAuth, optionalAuthMiddleware, type AuthenticatedRequest } from '../src/middleware/authMiddleware.js';
+import type { Response } from 'express';
 
 describe('🔒 Focus Blocker Multi-User Isolation & Conflict Validation Suite', () => {
   let userA: { id: string; email: string; token: string };
@@ -118,6 +120,30 @@ describe('🔒 Focus Blocker Multi-User Isolation & Conflict Validation Suite', 
     assert.strictEqual(resource.identifier, 'news.ycombinator.com');
     assert.strictEqual(resource.isAllowlist, true);
     assert.strictEqual(resource.userId, userB.id);
+  });
+
+  it('lets the scoped token check status through a long session without authenticating other routes', async () => {
+    const session = await prisma.focusSession.update({ where: { id: sessionAId }, data: { plannedDuration: 180 } });
+    const { blockerToken } = await BlockerService.activateBlocker(userA.id, sessionAId, 'STRICT');
+    const decoded = verifyToken(blockerToken) as ReturnType<typeof verifyToken> & { exp: number };
+    assert.ok(Math.abs(decoded.exp * 1000 - BlockerService.protectionDeadline(session)) <= 1000);
+
+    const request = { headers: { authorization: `Bearer ${blockerToken}` } } as AuthenticatedRequest;
+    optionalAuthMiddleware(request, {} as Response, () => {});
+    assert.equal(request.user, undefined);
+    blockerStatusAuth(request, {} as Response, () => {});
+    assert.equal(request.user?.userId, userA.id);
+  });
+
+  it('prevents one user from modifying or removing another user’s rules', async () => {
+    const rule = await BlockerService.createResource(userB.id, {
+      type: 'WEBSITE', identifier: 'distraction.test', displayName: 'Private rule',
+    });
+    await assert.rejects(() => BlockerService.updateResource(userA.id, rule.id, { enabled: false }), { code: 'P2025' });
+    await assert.rejects(() => BlockerService.deleteResource(userA.id, rule.id), { code: 'P2025' });
+    const updated = await BlockerService.updateResource(userB.id, rule.id, { enabled: false });
+    assert.equal(updated.enabled, false);
+    await BlockerService.deleteResource(userB.id, rule.id);
   });
 
   it('should ensure User A cannot see or inherit User B custom rules', async () => {

@@ -5,11 +5,13 @@
  * 100% Client-Side, Zero External Dependencies, Works Offline
  */
 
+export type AmbientSound = 'rain' | 'fire' | 'cafe' | 'forest' | 'alpha' | 'white' | 'pink' | 'brown';
+
 class AmbientSoundEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private activeNodes: { stop: () => void }[] = [];
-  private currentType: 'rain' | 'fire' | 'cafe' | 'forest' | 'alpha' | null = null;
+  private currentType: AmbientSound | null = null;
   private isPlaying = false;
   private volume = 0.4;
 
@@ -278,7 +280,30 @@ class AmbientSoundEngine {
     });
   }
 
-  public play(type: 'rain' | 'fire' | 'cafe' | 'forest' | 'alpha') {
+  private startNoise(type: 'white' | 'pink' | 'brown') {
+    if (!this.ctx || !this.masterGain) return;
+    const buffer = this.createNoiseBuffer(8, type === 'pink');
+    if (!buffer) return;
+    const samples = buffer.getChannelData(0);
+    if (type === 'brown') {
+      let low = 0;
+      for (let i = 0; i < samples.length; i++) {
+        low = (low + 0.02 * samples[i]) / 1.02;
+        samples[i] = low * 3.5;
+      }
+    }
+    const noise = this.ctx.createBufferSource();
+    const gain = this.ctx.createGain();
+    gain.gain.value = type === 'white' ? 0.2 : 0.4;
+    noise.buffer = buffer;
+    noise.loop = true;
+    noise.connect(gain);
+    gain.connect(this.masterGain);
+    noise.start();
+    this.activeNodes.push({ stop: () => { noise.stop(); noise.disconnect(); gain.disconnect(); } });
+  }
+
+  public play(type: AmbientSound) {
     this.initContext();
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
@@ -289,6 +314,11 @@ class AmbientSoundEngine {
     this.isPlaying = true;
 
     switch (type) {
+      case 'white':
+      case 'pink':
+      case 'brown':
+        this.startNoise(type);
+        break;
       case 'rain':
         this.startRain();
         break;

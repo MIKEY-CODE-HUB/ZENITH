@@ -16,6 +16,7 @@ interface AdaptiveVideoGalleryProps {
   participants: ParticipantPresence[];
   remoteStreams: Map<string, MediaStream>;
   isInteractionRoom?: boolean;
+  voiceVolume: number;
   onReportPeer?: (peer: ParticipantPresence) => void;
 }
 
@@ -43,6 +44,7 @@ export function AdaptiveVideoGallery({
   participants,
   remoteStreams,
   isInteractionRoom = false,
+  voiceVolume,
   onReportPeer,
 }: AdaptiveVideoGalleryProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -110,7 +112,7 @@ export function AdaptiveVideoGallery({
 
   const renderRemoteTile = (peer: ParticipantPresence, index: number) => {
     const remoteStream = remoteStreams.get(peer.socketId);
-    const peerHasVideo = peer.cameraOn && Boolean(remoteStream);
+    const peerHasVideo = peer.cameraOn && Boolean(remoteStream?.getVideoTracks().length);
 
     return (
       <div
@@ -121,18 +123,21 @@ export function AdaptiveVideoGallery({
             : 'border-white/15 bg-black/45'
         }`}
       >
-        {peerHasVideo ? (
+        {remoteStream && (
           <video
             autoPlay
             playsInline
             ref={(el) => {
+              if (el) el.volume = voiceVolume / 100;
               if (el && remoteStream && el.srcObject !== remoteStream) {
                 el.srcObject = remoteStream;
               }
             }}
-            className="w-full h-full object-cover"
+            muted={!isInteractionRoom}
+            className={peerHasVideo ? "w-full h-full object-cover" : "hidden"}
           />
-        ) : (
+        )}
+        {!peerHasVideo && (
           <div className="w-full h-full flex flex-col items-center justify-center bg-black/60 text-zinc-400 p-2">
             <img
               src={peer.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${peer.username || `peer-${index}`}`}
@@ -141,7 +146,7 @@ export function AdaptiveVideoGallery({
             />
             <div className="flex items-center gap-1 text-[10px] text-zinc-400">
               <CameraOff className="h-3 w-3" />
-              <span className="hidden sm:inline">Camera Off</span>
+              <span>{peer.reconnecting ? 'Reconnecting…' : peer.cameraOn ? 'Connecting video…' : 'Camera off'}</span>
             </div>
           </div>
         )}

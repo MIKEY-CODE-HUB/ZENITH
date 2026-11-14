@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ActivityCategory, Room } from '@/lib/types';
+import { ActivityCategory, FocusGoal, FocusSession, Room } from '@/lib/types';
 import { ATMOSPHERES } from '@/lib/atmospheres';
 import { api } from '@/lib/api';
 import {
@@ -25,9 +25,11 @@ interface StartSessionModalProps {
   isOpen: boolean;
   onClose: () => void;
   availableRooms?: Room[];
+  goal?: FocusGoal | null;
+  repeat?: FocusSession | null;
 }
 
-export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: StartSessionModalProps) {
+export function StartSessionModal({ isOpen, onClose, availableRooms = [], goal, repeat }: StartSessionModalProps) {
   const router = useRouter();
 
   // Categories & their associated activities
@@ -80,17 +82,22 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
 
   // Wizard state
   const [step, setStep] = useState<number>(1);
-  const [selectedCategory, setSelectedCategory] = useState<ActivityCategory>('EDUCATION');
-  const [selectedActivity, setSelectedActivity] = useState<string>('Coding');
+  const [selectedCategory, setSelectedCategory] = useState<ActivityCategory>(repeat?.category ?? 'EDUCATION');
+  const [selectedActivity, setSelectedActivity] = useState<string>(repeat?.activityType ?? 'Coding');
+  const [task, setTask] = useState(goal?.title ?? repeat?.specificActivity ?? '');
+  const [entryMode, setEntryMode] = useState<'solo' | 'match' | 'room'>('solo');
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [presetStatus, setPresetStatus] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
-  const [selectedAtmosphere, setSelectedAtmosphere] = useState<string>('rainy-window');
-  const [durationMinutes, setDurationMinutes] = useState<number>(50);
-  const [protectionEnabled, setProtectionEnabled] = useState<boolean>(true);
+  const [selectedAtmosphere, setSelectedAtmosphere] = useState<string>(repeat?.atmosphere ?? 'rainy-window');
+  const [durationMinutes, setDurationMinutes] = useState<number>(repeat?.plannedDuration ?? 50);
+  const [protectionEnabled, setProtectionEnabled] = useState<boolean>(repeat?.protectionEnabled ?? true);
   const [loading, setLoading] = useState<boolean>(false);
   const [interactionQuote, setInteractionQuote] = useState<{ weeklyBalance: number; cost: number; remaining: number } | null>(null);
 
   // Load Smart Defaults from LocalStorage
   useEffect(() => {
+    if (repeat) return;
     try {
       const stored = localStorage.getItem('zenith_last_session_prefs');
       if (stored) {
@@ -102,18 +109,23 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
         if (prefs.protection !== undefined) setProtectionEnabled(prefs.protection);
       }
     } catch (e) {}
-  }, []);
+  }, [repeat]);
 
   // Fetch Interaction Quote when category is INTERACTION
   useEffect(() => {
     if (selectedCategory === 'INTERACTION' && isOpen) {
+      if (entryMode === 'solo') setEntryMode('match');
+      let cancelled = false;
       api.getInteractionQuote()
         .then((res) => {
-          if (res.success) setInteractionQuote(res.quote);
+          if (!cancelled && res.success) setInteractionQuote(res.quote);
         })
-        .catch(() => {});
+        .catch(() => {
+          if (!cancelled) setLaunchError('Could not load the Interaction entry cost. Reopen Start Focus to retry.');
+        });
+      return () => { cancelled = true; };
     }
-  }, [selectedCategory, isOpen]);
+  }, [selectedCategory, isOpen, entryMode]);
 
   // Set default room selection when availableRooms changes
   useEffect(() => {
@@ -127,9 +139,43 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
 
   const currentCategoryObj = CATEGORIES.find((c) => c.id === selectedCategory)!;
 
+  function savePreset() {
+    try {
+      localStorage.setItem('zenith_focus_preset', JSON.stringify({
+        task: task.trim(), category: selectedCategory, activity: selectedActivity,
+        atmosphere: selectedAtmosphere, duration: durationMinutes, protection: protectionEnabled,
+      }));
+      setPresetStatus('Preset saved in this browser.');
+    } catch {
+      setPresetStatus('Could not save the preset in this browser.');
+    }
+  }
+
+  function loadPreset() {
+    try {
+      const stored = localStorage.getItem('zenith_focus_preset');
+      if (!stored) {
+        setPresetStatus('Save a preset at the final step.');
+        return;
+      }
+      const preset = JSON.parse(stored);
+      if (!CATEGORIES.some(category => category.id === preset.category)) return;
+      setSelectedCategory(preset.category);
+      setSelectedActivity(preset.activity);
+      setSelectedAtmosphere(preset.atmosphere);
+      setDurationMinutes(preset.duration);
+      setProtectionEnabled(preset.protection);
+      if (!goal) setTask(preset.task);
+      setPresetStatus('Preset loaded.');
+    } catch {
+      setPresetStatus('Could not load the preset.');
+    }
+  }
+
   const handleLaunch = async () => {
     try {
       setLoading(true);
+      setLaunchError(null);
 
       // Save smart defaults
       localStorage.setItem(
@@ -143,44 +189,52 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
         })
       );
 
-      sessionStorage.setItem('active_session_protection', String(protectionEnabled));
-
       // Store in sessionStorage for room init
       sessionStorage.setItem('active_session_duration', String(durationMinutes));
       sessionStorage.setItem('active_session_atmosphere', selectedAtmosphere);
       sessionStorage.setItem('active_session_category', selectedCategory);
       sessionStorage.setItem('active_session_activity', selectedActivity);
 
-      // If Interaction room, verify and authorize deduction first!
-      const targetRoomId = selectedRoomId;
-
-
-      if (selectedCategory === 'INTERACTION') {
-        if (!targetRoomId) {
-          throw new Error('Please select an Interaction Room.');
-        }
-        await api.authorizeInteraction(targetRoomId);
+      let targetRoomId = selectedRoomId;
+      if (selectedCategory === 'INTERACTION' && (entryMode === 'solo' || !interactionQuote || interactionQuote.cost <= 0)) {
+        throw new Error('You need weekly points and a valid entry quote to join Interaction.');
       }
-
-      if (targetRoomId) await api.joinRoom(targetRoomId);
+      if (entryMode === 'match') {
+        const allocation = await api.allocateRoom({
+          category: selectedCategory,
+          activityType: selectedActivity,
+          atmosphere: selectedAtmosphere,
+          confirmInteraction: selectedCategory === 'INTERACTION',
+        });
+        targetRoomId = allocation.room.id;
+      } else if (entryMode === 'room') {
+        if (!targetRoomId) throw new Error('Choose a room first.');
+        if (selectedCategory === 'INTERACTION') await api.authorizeInteraction(targetRoomId);
+        await api.joinRoom(targetRoomId);
+      } else {
+        targetRoomId = '';
+      }
 
       // Start Session on backend
       const res = await api.startSession({
         roomId: targetRoomId || null,
         category: selectedCategory,
         activityType: selectedActivity,
-        specificActivity: selectedActivity,
+        specificActivity: task.trim() || selectedActivity,
         atmosphere: selectedAtmosphere,
         plannedDuration: durationMinutes,
+        protectionEnabled,
+        goalId: goal?.id,
       });
 
       if (res.success && res.session) {
         sessionStorage.setItem('active_session_id', res.session.id);
+        sessionStorage.setItem('active_session_protection', String(res.session.protectionEnabled ?? protectionEnabled));
         onClose();
         router.push(`/focus/${targetRoomId || res.session.id}`);
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to start session');
+      setLaunchError(err instanceof Error ? err.message : 'Could not start your session.');
     } finally {
       setLoading(false);
     }
@@ -215,6 +269,8 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
         {/* STEP 1: Category & Activity */}
         {step === 1 && (
           <div className="space-y-4">
+            <button type="button" onClick={loadPreset} className="text-xs text-emerald-300 underline">Load saved preset</button>
+            {presetStatus && <p role="status" className="text-xs text-zinc-300">{presetStatus}</p>}
             <div className="grid grid-cols-2 gap-2.5">
               {CATEGORIES.map((cat) => {
                 const Icon = cat.icon;
@@ -225,6 +281,8 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
                     onClick={() => {
                       setSelectedCategory(cat.id);
                       setSelectedActivity(cat.activities[0]);
+                      setInteractionQuote(null);
+                      if (cat.id === 'INTERACTION' && entryMode === 'solo') setEntryMode('match');
                     }}
                     className={`p-3.5 rounded-xl border text-left transition-all ${
                       isSelected
@@ -253,6 +311,12 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
               </div>
             )}
 
+            <label className="block space-y-1 text-sm text-zinc-200">
+              <span>What are you working on?</span>
+              <input value={task} onChange={event => setTask(event.target.value)} maxLength={120}
+                placeholder="e.g. Finish two graph problems"
+                className="block w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" />
+            </label>
             <div className="space-y-2 pt-2">
               <span className="text-xs font-medium text-zinc-300">Select Specific Activity</span>
               <div className="flex flex-wrap gap-2">
@@ -277,10 +341,16 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
         {/* STEP 2: Choose Room */}
         {step === 2 && (
           <div className="space-y-4">
-            <p className="text-xs text-zinc-400">
-              Select one of the canonical rooms. All rooms are shared spaces where participants work together.
-            </p>
-            <div className="grid grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
+            <div role="group" aria-label="How to focus" className="flex flex-wrap gap-2">
+              {([{ id: 'solo', label: 'Focus solo' }, { id: 'match', label: 'Find a room' }, { id: 'room', label: 'Choose a room' }] as const)
+                .filter(option => option.id !== 'solo' || selectedCategory !== 'INTERACTION')
+                .map(option => (
+                  <button key={option.id} type="button" aria-pressed={entryMode === option.id}
+                    className="rounded-lg border border-white/10 px-3 py-2 text-sm aria-pressed:bg-sky-500/20 aria-pressed:border-sky-400"
+                    onClick={() => setEntryMode(option.id)}>{option.label}</button>
+                ))}
+            </div>
+            {entryMode === 'room' && <div className="grid grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
               {availableRooms.filter((room) => room.category === selectedCategory).map((room) => {
                 const isSelected = selectedRoomId === room.id;
                 return (
@@ -306,7 +376,7 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
                   </button>
                 );
               })}
-            </div>
+            </div>}
           </div>
         )}
 
@@ -350,6 +420,8 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
         {/* STEP 4: Duration & Protection */}
         {step === 4 && (
           <div className="space-y-5">
+            <button type="button" onClick={savePreset} className="text-xs text-emerald-300 underline">Save as preset</button>
+            {presetStatus && <p role="status" className="text-xs text-zinc-300">{presetStatus}</p>}
             {/* Duration */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-zinc-300 flex items-center gap-2">
@@ -379,11 +451,13 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
                 <div className="flex items-center gap-2.5">
                   <Shield className="h-4 w-4 text-emerald-400" />
                   <div>
-                    <h4 className="text-xs font-semibold text-white">Focus Protection & Blocker</h4>
-                    <p className="text-[11px] text-zinc-400">Strict mode blocks social media & tab switches</p>
+                    <h4 className="text-xs font-semibold text-white">Distraction Shield</h4>
+                    <p className="text-[11px] text-zinc-400">Blocks listed sites and apps until the session ends when Shield is installed.</p>
                   </div>
                 </div>
                 <button
+                  aria-label="Distraction Shield"
+                  aria-pressed={protectionEnabled}
                   onClick={() => setProtectionEnabled(!protectionEnabled)}
                   className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${
                     protectionEnabled ? 'bg-emerald-500' : 'bg-zinc-700'
@@ -412,6 +486,7 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
           </div>
         )}
 
+        {launchError && <p role="alert" className="text-sm text-rose-300">{launchError}</p>}
         {/* Footer Navigation */}
         <div className="flex items-center justify-between border-t border-white/10 pt-4">
           {step > 1 ? (
@@ -437,11 +512,11 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [] }: Star
           ) : (
             <button
               onClick={handleLaunch}
-              disabled={loading}
+              disabled={loading || (selectedCategory === 'INTERACTION' && (!interactionQuote || interactionQuote.cost <= 0))}
               className="flex items-center gap-2 px-5 py-2 rounded-lg bg-sky-500 text-white text-xs font-semibold hover:bg-sky-400 transition-colors shadow-lg disabled:opacity-50"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              <span>{loading ? 'Entering Zenith...' : 'Enter Zenith Room'}</span>
+              <span>{loading ? 'Starting…' : selectedCategory === 'INTERACTION' && interactionQuote ? `Join for ${interactionQuote.cost} points` : 'Start Focus'}</span>
             </button>
           )}
         </div>

@@ -40,7 +40,10 @@ interface FloatingControlDockProps {
   distractedSeconds: number;
   focusScore: number;
   estimatedPoints: number;
+  voiceVolume: number;
+  onVoiceVolume: (value: number) => void;
   onEndSession: () => void;
+  onOpenMusic: () => void;
 }
 
 export function FloatingControlDock({
@@ -57,7 +60,10 @@ export function FloatingControlDock({
   distractedSeconds,
   focusScore,
   estimatedPoints,
+  voiceVolume,
+  onVoiceVolume,
   onEndSession,
+  onOpenMusic,
 }: FloatingControlDockProps) {
   // Active panel: 'theme' | 'music' | 'time' | 'xp' | 'camera' | null
   const [activePanel, setActivePanel] = useState<'theme' | 'music' | 'time' | 'xp' | 'camera' | null>(null);
@@ -120,7 +126,7 @@ export function FloatingControlDock({
             <div className="space-y-3">
               <p className="text-[11px] text-zinc-400">Select an immersive atmosphere for your study canvas.</p>
               <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto no-scrollbar pr-1">
-                {ATMOSPHERES.slice(0, 8).map((atm) => {
+                {ATMOSPHERES.map((atm) => {
                   const isSelected = atm.id === currentAtmosphere.id;
                   return (
                     <button
@@ -219,6 +225,14 @@ export function FloatingControlDock({
                   />
                 </div>
               </div>
+              {isInteractionRoom && (
+                <label className="flex items-center justify-between gap-3">
+                  Room voice
+                  <input type="range" min="0" max="100" value={voiceVolume}
+                    onChange={event => onVoiceVolume(Number(event.target.value))} />
+                </label>
+              )}
+              <button type="button" className="text-emerald-300 underline" onClick={() => { setActivePanel(null); onOpenMusic(); }}>Open music player</button>
             </div>
           )}
 

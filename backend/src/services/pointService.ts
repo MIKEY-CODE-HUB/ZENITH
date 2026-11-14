@@ -163,7 +163,7 @@ export class PointService {
       });
       await tx.roomParticipant.upsert({
         where: { roomId_userId: { roomId, userId } },
-        update: { status: 'ACTIVE', leftAt: null, joinedAt: new Date() },
+        update: { status: 'ACTIVE', leftAt: null, joinedAt: new Date(), presenceExpiresAt: null },
         create: { roomId, userId, role: room.creatorId === userId ? 'HOST' : 'MEMBER' },
       });
       return authorization;
