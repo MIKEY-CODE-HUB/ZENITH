@@ -91,15 +91,17 @@ body {
 
 [data-cozy-surface] {
   --cozy-glass: 20 15 12;
-  --cozy-glass-alpha: .58;
+  --cozy-glass-alpha: .64;
 }
 [data-cozy-surface] .cozy-glass {
   background-color: rgb(var(--cozy-glass) / var(--cozy-glass-alpha));
-  backdrop-filter: blur(7px);
 }
-[data-cozy-surface] header.cozy-glass,
+[data-cozy-surface] .zenith-navbar,
 [data-cozy-surface] aside.cozy-glass {
-  --cozy-glass-alpha: .66;
+  --cozy-glass-alpha: .72;
+}
+[data-cozy-surface] .zenith-navbar {
+  backdrop-filter: none;
 }
 .zenith-scenery-shade {
   background: linear-gradient(180deg, rgb(17 12 10 / .36), rgb(17 12 10 / .57));
@@ -243,7 +245,6 @@ body {
 }
 .zenith-room-dialog::backdrop {
   background: rgb(12 8 5 / .66);
-  backdrop-filter: blur(6px);
 }
 .zenith-achievement-progress {
   display: block;

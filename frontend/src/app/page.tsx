@@ -23,7 +23,7 @@ export default function WelcomePage() {
             {!loading && !user && <Link href="/login" className="text-sm font-medium text-[#ffe7cf] underline underline-offset-4">Already have an account? Log in</Link>}
           </div>
         </section>
-        <div className="max-w-md divide-y divide-[#f3ddc6]/15 rounded-2xl border border-[#f3ddc6]/15 bg-[#211b17]/70 px-5 shadow-lg backdrop-blur-sm">
+        <div className="max-w-md divide-y divide-[#f3ddc6]/15 rounded-2xl border border-[#f3ddc6]/15 bg-[#211b17]/70 px-5 shadow-lg">
           <div className="flex gap-4 py-5">
             <Timer size={19} className="mt-0.5 shrink-0 text-[#dcac80]" aria-hidden />
             <div><h2 className="font-medium">Focus at your own pace</h2><p className="mt-1 text-sm text-[#d6bcaa]">Choose a task, a timer, and a background that feels right.</p></div>

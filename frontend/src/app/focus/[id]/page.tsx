@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSocket } from '@/contexts/SocketContext';
+import { SocketProvider, useSocket } from '@/contexts/SocketContext';
 import { useFocusTracker } from '@/hooks/useFocusTracker';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { api, ApiConnectionError, ApiError } from '@/lib/api';
@@ -49,6 +49,10 @@ import {
 } from 'lucide-react';
 
 export default function LiveRoomPage() {
+  return <SocketProvider><LiveRoom /></SocketProvider>;
+}
+
+function LiveRoom() {
   const params = useParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();

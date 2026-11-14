@@ -58,11 +58,13 @@ export default function DashboardPage() {
     void api.getHistory({ limit: 5 }).then(result => {
       if (!cancelled) setRecentSessions(result.sessions);
     }).catch(() => {});
-    Promise.all([api.getDashboardStats(), api.getRooms(), api.getActiveSession()])
-      .then(([statsRes, roomsRes, activeRes]) => {
+    void api.getRooms()
+      .then(result => { if (!cancelled) setRooms(result.rooms); })
+      .catch(() => {});
+    Promise.all([api.getDashboardStats(), api.getActiveSession()])
+      .then(([statsRes, activeRes]) => {
         if (cancelled) return;
         setStats(statsRes.stats);
-        setRooms(roomsRes.rooms);
         setActiveSession(activeRes.session);
       })
       .catch((err) => {
@@ -381,7 +383,7 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
                       <h3 className="text-base font-bold text-white tracking-tight">{room.name}</h3>
                     </div>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/[0.04] text-zinc-400 border border-white/5">
@@ -401,6 +403,7 @@ export default function DashboardPage() {
                   </div>
 
                   <Link
+                    prefetch={false}
                     href={room.category === 'INTERACTION' ? '/rooms' : `/focus/${room.id}`}
                     className="w-full py-2.5 rounded-xl bg-white text-zinc-950 font-bold text-xs hover:bg-zinc-200 transition-colors flex items-center justify-center gap-1.5 shadow-md group-hover:shadow-white/10"
                   >

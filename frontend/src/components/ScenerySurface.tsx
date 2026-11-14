@@ -7,7 +7,7 @@ import { SceneryVideo } from '@/components/SceneryVideo';
 
 export function ScenerySurface({ children }: { children: React.ReactNode }) {
   const page = getSceneryPage(usePathname());
-  const { pageSceneries } = useAmbient();
+  const { pageSceneries, isSceneryModalOpen } = useAmbient();
   const scenery = page && (pageSceneries[page] ?? getDefaultScenery(page));
   const fallback = page && getDefaultScenery(page);
   const fallbackImage = fallback && fallback.bgImageUrl;
@@ -19,7 +19,7 @@ export function ScenerySurface({ children }: { children: React.ReactNode }) {
       {scenery && <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[#30251d]" style={{
         backgroundImage: scenery.gradientOverlay,
       }}>
-        {image && <img key={image} src={image} alt="" referrerPolicy="no-referrer"
+        {image && <img key={image} src={image} alt="" fetchPriority="high" decoding="async" referrerPolicy="no-referrer"
           onError={event => {
             const element = event.currentTarget;
             if (fallbackImage && image !== fallbackImage && !element.dataset.fallback) {
@@ -28,7 +28,7 @@ export function ScenerySurface({ children }: { children: React.ReactNode }) {
             } else element.hidden = true;
           }}
           className="absolute inset-0 h-full w-full object-cover object-center" />}
-        {scenery.videoUrl && <SceneryVideo src={scenery.videoUrl} className="absolute inset-0 h-full w-full object-cover object-center" />}
+        {scenery.videoUrl && <SceneryVideo src={scenery.videoUrl} paused={isSceneryModalOpen} className="absolute inset-0 h-full w-full object-cover object-center" />}
         <div className="zenith-scenery-shade absolute inset-0" />
       </div>}
       {children}

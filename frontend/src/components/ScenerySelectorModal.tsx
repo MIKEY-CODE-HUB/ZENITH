@@ -133,7 +133,10 @@ export function ScenerySelectorModal() {
             className="flex flex-col overflow-hidden rounded-xl border border-[#efd3ac]/20 text-left text-sm hover:bg-white/5 aria-pressed:border-[#efd3ac]"
             title={scenery.name}
           >
-            <span className="block h-14 w-full shrink-0 bg-cover bg-center" style={{ backgroundImage: scenery.bgImageUrl ? `url("${scenery.bgImageUrl}")` : scenery.gradientOverlay }} aria-hidden />
+            <span className="block h-14 w-full shrink-0 overflow-hidden" style={{ backgroundImage: scenery.gradientOverlay }} aria-hidden>
+              {scenery.bgImageUrl && <img src={scenery.bgImageUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer"
+                className="h-full w-full object-cover" />}
+            </span>
             <span className="block px-2 py-2">{scenery.name}</span>
           </button>
         ))}

@@ -228,7 +228,7 @@ export default function RoomsPage() {
 
         {/* INTERACTION ROOM TRANSPARENT COST MODAL */}
         {interactionRoomToJoin && interactionQuote && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75">
             <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-[#0d0f14]/95 p-6 shadow-2xl text-zinc-100 space-y-6">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">

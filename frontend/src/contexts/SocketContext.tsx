@@ -18,11 +18,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const { user } = useAuth();
+  const userId = user?.id;
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('trapbreaker_token') : null;
     
-    if (!user || !token) {
+    if (!userId || !token) {
       setConnected(false);
       setSocket(null);
       return;
@@ -67,7 +68,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       socketInstance.disconnect();
       setConnected(false);
     };
-  }, [user]);
+  }, [userId]);
 
   return (
     <SocketContext.Provider value={{ socket, connected }}>

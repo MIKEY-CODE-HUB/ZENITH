@@ -101,7 +101,7 @@ export default function LoginPage() {
 
   return (
     <main className="grid min-h-[calc(100dvh-3.5rem)] place-items-center px-4 py-12 text-[#f7ebdd]">
-      <section className="w-full max-w-md space-y-6 rounded-3xl border border-[#eed9c3]/15 bg-[#211b17]/75 backdrop-blur-sm p-6 shadow-xl sm:p-8">
+      <section className="w-full max-w-md space-y-6 rounded-3xl border border-[#eed9c3]/15 bg-[#211b17]/80 p-6 shadow-xl sm:p-8">
         <Link href="/" className="inline-flex items-center gap-2 text-sm text-[#dfc2a5] hover:underline"><ArrowLeft size={16} /> Back to welcome</Link>
         <div className="space-y-2">
           <BookOpen size={24} className="text-[#ddae84]" aria-hidden />
