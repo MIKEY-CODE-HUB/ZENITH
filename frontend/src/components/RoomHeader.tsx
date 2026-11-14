@@ -9,7 +9,8 @@ interface RoomHeaderProps {
   category: string;
   participantCount: number | null;
   shieldStatus: 'checking' | 'active' | 'unavailable' | 'stopped' | 'off';
-  macShieldActive: boolean;
+  desktopShield: 'mac' | 'win' | null;
+  android: boolean;
   maxParticipants: number;
   videoLayout: VideoLayoutMode;
   onChangeVideoLayout: (layout: VideoLayoutMode) => void;
@@ -21,13 +22,14 @@ export function RoomHeader({
   category,
   participantCount,
   shieldStatus,
-  macShieldActive,
+  desktopShield,
+  android,
   maxParticipants,
   videoLayout,
   onChangeVideoLayout,
   onExit,
 }: RoomHeaderProps) {
-  const shieldLabels = { checking: 'Connecting Shield', active: macShieldActive ? 'Web + Mac Shield active' : 'Web Shield active', unavailable: 'Shield unavailable', stopped: 'Shield stopped', off: 'Shield off' };
+  const shieldLabels = { checking: android ? 'Android app protection' : 'Connecting Shield', active: desktopShield ? `Web + ${desktopShield === 'win' ? 'Windows' : 'Mac'} Shield active` : 'Web Shield active', unavailable: 'Shield unavailable', stopped: 'Shield stopped', off: 'Shield off' };
   return (
     <header className="absolute top-3 inset-x-4 z-30 flex items-center justify-between pointer-events-none">
       {/* Left: Zenith Brand & Room Indicator */}

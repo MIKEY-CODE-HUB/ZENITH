@@ -42,7 +42,7 @@ export default function BlockerDashboardPage() {
     setFeedback('');
     const clean = type === 'WEBSITE'
       ? ZenithPolicyEngine.normalizeRuleDomain(identifier)
-      : identifier.trim().replace(/\.app$/i, '');
+      : identifier.trim().replace(/\.(?:app|exe)$/i, '');
     const validation = ZenithPolicyEngine.validateCustomRule(identifier, type, allow);
     if (!validation.valid || !clean || clean.length > (type === 'WEBSITE' ? 253 : 100)) {
       setError(validation.error || 'The website or app name is too long.');
@@ -103,7 +103,7 @@ export default function BlockerDashboardPage() {
             <p className="mt-2 text-sm leading-relaxed text-zinc-300">Social media, streaming and games in Zenith’s built-in list are blocked during protected sessions.</p>
             <h3 className="mt-4 text-sm font-medium">Websites</h3>
             <p className="mt-1 text-sm leading-relaxed text-zinc-300">{ALWAYS_BLOCKED_DOMAINS.map(item => item.name).join(', ')}</p>
-            <h3 className="mt-4 text-sm font-medium">Mac apps</h3>
+            <h3 className="mt-4 text-sm font-medium">Apps</h3>
             <p className="mt-1 text-sm leading-relaxed text-zinc-300">{ALWAYS_BLOCKED_APPS.map(item => item.name).join(', ')}</p>
           </section>
           <section aria-labelledby="tier-2-heading" className="rounded-2xl border border-emerald-400/25 bg-emerald-950/20 p-5 sm:p-6">
@@ -112,7 +112,7 @@ export default function BlockerDashboardPage() {
             <p className="mt-2 text-sm leading-relaxed text-zinc-300">Built-in study and work tools stay available during protected sessions.</p>
             <h3 className="mt-4 text-sm font-medium">Websites</h3>
             <p className="mt-1 text-sm leading-relaxed text-zinc-300">{ALWAYS_ALLOWED_DOMAINS.map(item => item.name).join(', ')}</p>
-            <h3 className="mt-4 text-sm font-medium">Mac apps</h3>
+            <h3 className="mt-4 text-sm font-medium">Apps</h3>
             <p className="mt-1 text-sm leading-relaxed text-zinc-300">{ALWAYS_ALLOWED_APPS.map(item => item.name).join(', ')}</p>
           </section>
         </div>
@@ -121,7 +121,7 @@ export default function BlockerDashboardPage() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">Tier 3</p>
             <h2 id="tier-3-heading" className="mt-1 text-xl font-semibold">My rules</h2>
-            <p className="mt-2 text-sm text-zinc-300">Choose Block or Allow and paste a website link. Rules apply to the domain and its subdomains. You can also add a Mac app by its name. Built-in rules take priority.</p>
+            <p className="mt-2 text-sm text-zinc-300">Choose Block or Allow and paste a website link. Rules apply to the domain and its subdomains. Add an app by name, a Windows executable name, or an Android package ID. Built-in rules take priority.</p>
           </div>
           <form onSubmit={saveRule} className="grid gap-3 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-end">
             <label className="grid gap-1 text-sm">Action
@@ -131,7 +131,7 @@ export default function BlockerDashboardPage() {
             </label>
             <label className="grid gap-1 text-sm">Type
               <select className={field} value={type} onChange={event => setType(event.target.value === 'WEBSITE' ? 'WEBSITE' : 'APPLICATION')}>
-                <option value="WEBSITE">Website</option><option value="APPLICATION">Mac app</option>
+                <option value="WEBSITE">Website</option><option value="APPLICATION">App</option>
               </select>
             </label>
             <label className="grid min-w-0 gap-1 text-sm">{type === 'WEBSITE' ? 'Website link' : 'App name'}
@@ -149,7 +149,7 @@ export default function BlockerDashboardPage() {
                 <li key={rule.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
                   <div className="min-w-0">
                     <p className="break-words font-medium">{rule.displayName}</p>
-                    <p className="text-xs text-zinc-300">{rule.isAllowlist ? 'Allow' : 'Block'} · {rule.type === 'WEBSITE' ? 'Website' : 'Mac app'}</p>
+                    <p className="text-xs text-zinc-300">{rule.isAllowlist ? 'Allow' : 'Block'} · {rule.type === 'WEBSITE' ? 'Website' : 'App'}</p>
                   </div>
                   {rule.userId ? (
                     <div className="flex items-center gap-3">

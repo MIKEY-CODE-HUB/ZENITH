@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Zenith Shield</string>
+    <string name="service_description">During an explicitly enabled Zenith focus session, use the foreground app ID to return to Home when a blocked Android app opens. Zenith does not read screen content or send app activity.</string>
+</resources>

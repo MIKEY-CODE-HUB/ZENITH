@@ -13,7 +13,7 @@ const activation = {
   type: 'ZENITH_BLOCKER_ACTIVATE', roomUrl, focusSessionId: 'session-id', blockerToken: 'scoped-token',
 };
 
-function createExtension({ mac = false, canReadForeground = true } = {}) {
+function createExtension({ mac = false, platform = mac ? 'mac' : 'linux', canReadForeground = true } = {}) {
   const listeners = new Map();
   const event = (name) => ({ addListener: (listener) => listeners.set(name, listener) });
   const messages = [];
@@ -65,8 +65,8 @@ function createExtension({ mac = false, canReadForeground = true } = {}) {
       clear: async (name) => alarms.delete(name),
       onAlarm: event('alarm'),
     },
-    runtime: { onMessage: event('message'), getURL: name => new URL(name, popupUrl).href, getManifest: () => ({ version: '10.5.0' }),
-      connectNative: () => port, getPlatformInfo: async () => ({ os: mac ? 'mac' : 'linux' }) },
+    runtime: { onMessage: event('message'), getURL: name => new URL(name, popupUrl).href, getManifest: () => ({ version: '10.6.0' }),
+      connectNative: () => port, getPlatformInfo: async () => ({ os: platform }) },
     scripting: { executeScript: async (script) => { injected.push(script); } },
     tabs: {
       onActivated: event('activation'), onRemoved: event('removed'),
@@ -318,10 +318,10 @@ test('a missing Mac helper reports setup while Chrome continues to block listed 
 test('setup check reports the extension and the Mac helper independently while on standby', async () => {
   const request = { type: 'ZENITH_CHECK_SETUP' };
   const browser = createExtension();
-  assert.equal((await browser.send(request)).desktop, 'not_mac');
+  assert.equal((await browser.send(request)).desktop, 'unsupported');
   const mac = createExtension({ mac: true, canReadForeground: false });
   const result = await mac.send(request);
-  assert.equal(result.version, '10.5.0');
+  assert.equal(result.version, '10.6.0');
   assert.equal(result.webActive, false);
   assert.equal(result.desktop, 'permission_required');
   assert.equal(mac.disconnected, true);
@@ -341,4 +341,17 @@ test('opening a preloaded distraction replaces its page until the user goes back
   ext.openTabs.get(2).url = 'https://www.youtube.com/shorts/example';
   await ext.emit('activation', { tabId: 2 });
   assert.equal(ext.openTabs.get(2).url, 'https://www.youtube.com/shorts/example');
+});
+
+test('Windows starts and verifies the native helper on the same Chrome protocol', async () => {
+  const ext = createExtension({ platform: 'win' });
+  const setup = await ext.send({ type: 'ZENITH_CHECK_SETUP' });
+  assert.equal(setup.platform, 'win');
+  assert.equal(setup.desktop, 'ready');
+  assert.equal((await ext.send()).active, true);
+  await new Promise(setImmediate);
+  const policy = ext.nativeMessages.find(message => message.type === 'protect');
+  assert.ok(policy.coreBlockedApps.includes('Roblox'));
+  ext.nativeMessage({ type: 'active', sessionId: activation.focusSessionId });
+  assert.equal(ext.messages.at(-1).platform, 'win');
 });

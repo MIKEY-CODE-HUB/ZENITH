@@ -167,7 +167,7 @@ export class ZenithPolicyEngine {
       return { valid: false, error: 'Identifier cannot be empty.' };
     }
 
-    const clean = type === 'WEBSITE' ? this.normalizeRuleDomain(identifier) : identifier.trim().replace(/\.app$/i, '');
+    const clean = type === 'WEBSITE' ? this.normalizeRuleDomain(identifier) : identifier.trim().replace(/\.(?:app|exe)$/i, '');
 
     if (type === 'WEBSITE') {
       // Basic domain format check
@@ -204,7 +204,7 @@ export class ZenithPolicyEngine {
         }
       }
     } else {
-      if (!clean || clean.length > 100) return { valid: false, error: 'Enter a Mac app name up to 100 characters.' };
+      if (!clean || clean.length > 100) return { valid: false, error: 'Enter an app name up to 100 characters.' };
       // Application conflict validation
       // Conflict Check 1: User tries to ALLOW an Always-Blocked Tier 1 app
       if (isAllowlist) {

@@ -49,11 +49,11 @@ export class BlockerService {
   }) {
     const targetUserId = userId || (await this.getDefaultUserId());
     if ((data.type !== 'WEBSITE' && data.type !== 'APPLICATION') || typeof data.identifier !== 'string') {
-      throw new Error('Enter a website link or a Mac app name.');
+      throw new Error('Enter a website link or an app name.');
     }
     const cleanIdentifier = data.type === 'WEBSITE'
       ? ZenithPolicyEngine.normalizeRuleDomain(data.identifier)
-      : data.identifier.trim().replace(/\.app$/i, '');
+      : data.identifier.trim().replace(/\.(?:app|exe)$/i, '');
 
     const validation = ZenithPolicyEngine.validateCustomRule(data.identifier, data.type, !!data.isAllowlist);
     if (!validation.valid) {

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Zenith Shield",
-  "version": "10.5.0",
+  "version": "10.6.0",
   "minimum_chrome_version": "120",
   "description": "Blocks requests to distracting websites during protected Zenith focus sessions.",
   "permissions": [

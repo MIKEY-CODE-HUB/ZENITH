@@ -481,7 +481,8 @@ function LiveRoom() {
         category={category}
         participantCount={room && connected && participants.length > 0 ? participants.length : room ? null : 1}
         shieldStatus={shield.status}
-        macShieldActive={shield.desktopStatus === 'active'}
+        desktopShield={shield.desktopStatus === 'active' ? shield.desktopPlatform : null}
+        android={shield.android}
         maxParticipants={room?.maxParticipants || 1}
         videoLayout={videoLayout}
         onChangeVideoLayout={handleVideoLayoutChange}
@@ -490,14 +491,21 @@ function LiveRoom() {
 
       {shieldActive && shield.desktopStatus === 'permission_required' && (
         <p role="status" className="absolute inset-x-4 top-14 z-30 mx-auto w-fit rounded-xl border border-amber-300/30 bg-zinc-950/95 px-4 py-3 text-xs text-amber-100 shadow-lg">
-          Mac app blocking needs permission. Check Automation and Accessibility in macOS Privacy &amp; Security.
+          {shield.desktopPlatform === 'win'
+            ? 'Windows app blocking could not access the foreground window. Check the helper setup and retry.'
+            : 'Mac app blocking needs permission. Check Automation and Accessibility in macOS Privacy & Security.'}
         </p>
       )}
       {shieldActive && (shield.desktopStatus === 'setup_needed' || shield.desktopStatus === 'disconnected') && (
         <div className="absolute right-4 top-14 z-30 flex gap-3 rounded-lg bg-zinc-950/90 px-3 py-2 text-xs text-zinc-200">
-          <a href="/blocker#install-shield" target="_blank" rel="noreferrer" className="underline">Set up Mac app blocking</a>
+          <a href="/blocker#install-shield" target="_blank" rel="noreferrer" className="underline">{shield.desktopPlatform === 'win' ? 'Set up Windows app blocking' : 'Set up Mac app blocking'}</a>
           <button type="button" onClick={shield.retry} className="underline">Reconnect</button>
         </div>
+      )}
+      {shield.androidHref && (
+        <a href={shield.androidHref} className="absolute right-4 top-14 z-30 rounded-lg bg-emerald-200 px-3 py-2 text-xs font-semibold text-zinc-950">
+          Protect Android apps
+        </a>
       )}
       {shield.status === 'unavailable' && (
         <div className="absolute inset-x-4 top-14 z-30 mx-auto w-fit max-w-[calc(100%-2rem)] rounded-xl border border-amber-300/30 bg-zinc-950/95 px-4 py-3 text-xs text-amber-100 shadow-lg sm:text-sm">

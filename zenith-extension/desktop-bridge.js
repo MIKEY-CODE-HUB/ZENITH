@@ -6,6 +6,7 @@ const alwaysBlockedApps = [
 const alwaysBlockedAppKeys = new Set(alwaysBlockedApps.map(name => name.toLowerCase()));
 let desktopPort;
 let desktopBinding;
+let desktopPlatform;
 
 function stopDesktopProtection() {
   const port = desktopPort;
@@ -14,10 +15,11 @@ function stopDesktopProtection() {
   if (port) port.disconnect();
 }
 
-function getDesktopPort() {
+function getDesktopPort(platform) {
   if (desktopPort) return desktopPort;
   const port = chrome.runtime.connectNative(desktopHost);
   desktopPort = port;
+  desktopPlatform = platform;
   port.onDisconnect.addListener(() => {
     // Chrome reports a missing host asynchronously. Keep web protection running.
     const failure = chrome.runtime.lastError;
@@ -26,7 +28,7 @@ function getDesktopPort() {
     desktopPort = undefined;
     desktopBinding = undefined;
     if (session) {
-      void notifyRoom(session, { type: 'ZENITH_DESKTOP_STATUS', state: failure ? 'setup_needed' : 'disconnected' });
+      void notifyRoom(session, { type: 'ZENITH_DESKTOP_STATUS', state: failure ? 'setup_needed' : 'disconnected', platform: desktopPlatform });
     }
   });
   port.onMessage.addListener((message) => {
@@ -36,29 +38,30 @@ function getDesktopPort() {
       void focusRoom(session).catch(reportError);
       void notifyRoom(session, { type: 'ZENITH_DESKTOP_DISTRACTION', app: message.app });
     } else if (message.type === 'permission_required' || message.type === 'active') {
-      void notifyRoom(session, { type: 'ZENITH_DESKTOP_STATUS', state: message.type });
+      void notifyRoom(session, { type: 'ZENITH_DESKTOP_STATUS', state: message.type, platform: desktopPlatform });
     }
   });
   return port;
 }
 
 async function syncDesktopProtection(session, status) {
-  if ((await chrome.runtime.getPlatformInfo()).os !== 'mac' ||
+  const { os: platform } = await chrome.runtime.getPlatformInfo();
+  if ((platform !== 'mac' && platform !== 'win') ||
       (await getSession())?.id !== session.id || Date.now() >= session.expiresAt) return;
   const validNames = names => Array.isArray(names) ? names.filter(name => typeof name === 'string').slice(0, 300) : [];
   const allowedApps = validNames(status.allowedApps)
     .filter(name => !alwaysBlockedAppKeys.has(name.trim().toLowerCase().replace(/\.app$/, '')));
   const blockedApps = [...new Set([...alwaysBlockedApps, ...validNames(status.blockedApps)])];
   try {
-    const port = getDesktopPort();
+    const port = getDesktopPort(platform);
     desktopBinding = session;
     port.postMessage({
       type: 'protect', sessionId: session.id, mode: 'BLOCK', expiresAt: session.expiresAt,
-      allowedApps, blockedApps,
+      allowedApps, blockedApps, coreBlockedApps: alwaysBlockedApps,
     });
   } catch {
     stopDesktopProtection();
-    await notifyRoom(session, { type: 'ZENITH_DESKTOP_STATUS', state: 'setup_needed' });
+    await notifyRoom(session, { type: 'ZENITH_DESKTOP_STATUS', state: 'setup_needed', platform });
   }
 }
 
@@ -76,15 +79,15 @@ async function checkShieldSetup() {
   const [platform, session, rules] = await Promise.all([
     chrome.runtime.getPlatformInfo(), getSession(), chrome.declarativeNetRequest.getSessionRules(),
   ]);
-  const desktop = platform.os === 'mac' ? await probeMacHelper() : 'not_mac';
+  const desktop = platform.os === 'mac' || platform.os === 'win' ? await probeDesktopHelper() : 'unsupported';
   return {
     version: chrome.runtime.getManifest().version,
     webActive: !!session && Date.now() < session.expiresAt && rules.some(rule => rule.action.type === 'block'),
-    desktop,
+    desktop, platform: platform.os,
   };
 }
 
-function probeMacHelper() {
+function probeDesktopHelper() {
   return new Promise(resolve => {
     let port;
     let finished = false;
