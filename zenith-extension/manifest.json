@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "ZENITH Focus & Distraction Freeze Guardian",
-  "version": "10.3.0",
+  "name": "Zenith Shield",
+  "version": "10.4.0",
   "minimum_chrome_version": "120",
   "description": "Blocks requests to distracting websites during protected Zenith focus sessions.",
   "permissions": [
@@ -10,7 +10,8 @@
     "webNavigation",
     "declarativeNetRequest",
     "alarms",
-    "scripting"
+    "scripting",
+    "nativeMessaging"
   ],
   "host_permissions": [
     "https://zenith-dusky-theta.vercel.app/*",
@@ -43,10 +44,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "ZENITH Focus Guardian"
+    "default_title": "Zenith Shield"
   },
-  "optional_permissions": [
-    "nativeMessaging"
-  ],
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1KmIhrlTf4FNxenDBc4FkNqXf2QpErc0pBQEJONr9zrDGCZkAZGdMNuzU+skjMW2qMwxuRH+XrGwfWJsvKPo0g9NQkPyhkt8/mcQfk0lYBR2w2prr2qeQ824JNViOlmbaKGM6giWWYzY4cv025x0/Oj5HdLB4UP15QIAIctfOeF1U3904xtpN13qvia06DsXXlobNfaaSyWkrU9ncqNxYD8LhzrEdPWWuevpPWSNU84oabj7Z2Jbk38ujlqFtX9LnaSgrKoVfDaaED5cEHg3NyWGng7YUp3/Wmv1k7ZxIVqIDv08XVidPq+N1K2Ss5vXNWu+M6iX0IzeOEJ66dEZswIDAQAB"
 }

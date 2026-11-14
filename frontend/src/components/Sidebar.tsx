@@ -73,9 +73,6 @@ export function Sidebar() {
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-[rgb(var(--ink-secondary))] truncate leading-tight">{user.name}</p>
-                <span className="text-[11px] text-emerald-400/90 flex items-center gap-1 font-normal">
-                  Shield active
-                </span>
               </div>
             )}
           </div>

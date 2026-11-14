@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAmbient } from '@/contexts/AmbientContext';
-import { api } from '@/lib/api';
 import { formatSeconds } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import {
@@ -16,7 +15,6 @@ import {
   Minimize2,
   Image as ImageIcon,
   Shield,
-  ShieldAlert,
   CheckCircle2,
   Plus,
   Trash2,
@@ -54,10 +52,6 @@ export function StudiousAmbientDashboard({ onSwitchToStandardView }: { onSwitchT
   const [tasks, setTasks] = useState<{ id: string; text: string; done: boolean }[]>([]);
   const [newTaskText, setNewTaskText] = useState('');
 
-  // Shield Blocker Status
-  const [isShieldActive, setIsShieldActive] = useState<boolean>(false);
-  const [shieldLoading, setShieldLoading] = useState<boolean>(false);
-
   // Clock Ticker
   useEffect(() => {
     setTime(new Date());
@@ -90,38 +84,6 @@ export function StudiousAmbientDashboard({ onSwitchToStandardView }: { onSwitchT
       if (savedTasks) setTasks(JSON.parse(savedTasks));
     } catch (e) {}
   }, []);
-
-  // Poll Blocker Status
-  useEffect(() => {
-    async function checkBlocker() {
-      try {
-        const res = await api.getBlockerStatus();
-        if (res.success) {
-          setIsShieldActive(res.status === 'ACTIVE');
-        }
-      } catch (e) {}
-    }
-    checkBlocker();
-    const interval = setInterval(checkBlocker, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleToggleShield = async () => {
-    try {
-      setShieldLoading(true);
-      if (isShieldActive) {
-        await api.deactivateBlocker('');
-        setIsShieldActive(false);
-      } else {
-        await api.activateBlocker('', 'STRICT');
-        setIsShieldActive(true);
-      }
-    } catch (e) {
-      console.error('Failed to toggle shield:', e);
-    } finally {
-      setShieldLoading(false);
-    }
-  };
 
   const handleIntentionChange = (val: string) => {
     setIntention(val);
@@ -224,18 +186,13 @@ export function StudiousAmbientDashboard({ onSwitchToStandardView }: { onSwitchT
 
         {/* Right: Shield Blocker + Mode Controls */}
         <div className="flex items-center gap-2.5">
-          {/* Master Shield Toggle */}
           <button
-            onClick={handleToggleShield}
-            disabled={shieldLoading}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full backdrop-blur-xl border text-xs font-medium transition-all shadow-sm ${
-              isShieldActive
-                ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 shadow-rose-950/40'
-                : 'bg-black/40 hover:bg-black/60 border-white/10 text-zinc-300 hover:border-white/20'
-            }`}
+            type="button"
+            onClick={() => router.push('/blocker')}
+            className="flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3.5 py-1.5 text-xs font-medium text-zinc-300 hover:bg-black/60"
           >
-            <Shield className={`h-3.5 w-3.5 ${isShieldActive ? 'text-rose-400' : 'text-zinc-400'}`} />
-            <span>{isShieldActive ? 'Distraction Shield Active' : 'Shield Idle'}</span>
+            <Shield className="h-3.5 w-3.5" />
+            <span>Distraction Shield</span>
           </button>
 
           {/* Switch View to Standard Linear Dashboard */}

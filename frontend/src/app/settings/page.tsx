@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { useAmbient } from '@/contexts/AmbientContext';
 import { loadSceneryMedia, parseSceneryUrl, sceneryLinkError } from '@/lib/sceneryMedia';
 import { Sidebar } from '@/components/Sidebar';
-import { Settings, Shield, Bell, Camera, Clock, Check, Snowflake, Download, ExternalLink, Sparkles } from 'lucide-react';
+import { Settings, Shield, Bell, Camera, Clock, Check,  Sparkles } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -117,46 +117,10 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* 1. COMPANION EXTENSION CARD */}
-        <div className="rounded-xl bg-[rgb(var(--panel))] border border-[rgb(var(--tint))]/[0.08] p-5 space-y-3.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-[rgb(var(--tint))]/[0.04] border border-[rgb(var(--tint))]/[0.08] text-[rgb(var(--ink-secondary))]">
-                <Snowflake className="h-4 w-4" />
-              </div>
-              <div>
-                <h3 className="text-xs font-semibold text-[rgb(var(--ink))] flex items-center gap-2">
-                  <span>Companion Browser Extension</span>
-                </h3>
-                <p className="text-xs text-[rgb(var(--ink-muted))] mt-0.5">
-                  Blocks requests to restricted sites during a protected focus session.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-lg bg-[rgb(var(--tint))]/[0.02] border border-[rgb(var(--tint))]/[0.05] space-y-3 text-xs text-[rgb(var(--ink-secondary))]">
-            <div className="flex items-center justify-between">
-              <p className="font-medium text-[rgb(var(--ink-secondary))]">
-                Installation (Chrome / Edge / Brave):
-              </p>
-              <a
-                href="/zenith-extension.zip"
-                download
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[rgb(var(--tint))]/[0.08] hover:bg-[rgb(var(--tint))]/[0.12] text-[11px] font-semibold text-[rgb(var(--ink))] transition-colors"
-              >
-                <Download className="h-3 w-3" />
-                <span>Download Extension (.zip)</span>
-              </a>
-            </div>
-            <ol className="list-decimal list-inside space-y-1 text-[rgb(var(--ink-muted))] text-[11px] leading-relaxed">
-              <li>Open <code className="text-[rgb(var(--ink-secondary))] font-mono">chrome://extensions</code> in your browser.</li>
-              <li>Enable <strong>Developer mode</strong> in the top-right corner.</li>
-              <li>Click <strong>Load unpacked</strong>.</li>
-              <li>Select the extracted folder containing <code className="text-[rgb(var(--ink-secondary))] font-mono">manifest.json</code>, then reload the focus tab.</li>
-            </ol>
-          </div>
-        </div>
+        <a href="/blocker#install-shield" className="flex items-center gap-3 rounded-xl border border-[rgb(var(--tint))]/10 bg-[rgb(var(--panel))] p-5 text-sm text-[rgb(var(--ink))]">
+          <Shield className="h-4 w-4" />
+          Set up Distraction Shield and manage blocked sites and apps
+        </a>
 
         <form onSubmit={handleSave} className="space-y-6">
           {saveError && <p role="alert" className="text-sm text-rose-500">{saveError}</p>}

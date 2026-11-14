@@ -4,11 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "sync:extension": "node -e \"try { const { execSync } = require('child_process'); const path = require('path'); const extDir = path.resolve('../zenith-extension'); const targetZip = path.resolve('public/zenith-extension.zip'); execSync('cd \\\"' + extDir + '\\\" && zip -r \\\"' + targetZip + '\\\" manifest.json background.js desktop-bridge.js content.js content.css blocked.html popup.html popup.js README.md'); console.log('Synchronized extension bundle.'); } catch (e) { console.warn('Extension zip sync skipped or using existing bundle.'); }\"",
-    "build": "npm run sync:extension && npm run sync:desktop && next build --webpack",
+    "sync:extension": "node scripts/package-shield.mjs",
+    "build": "npm run sync:extension && next build --webpack",
     "start": "next start -p 3000",
-    "lint": "tsc --noEmit",
-    "sync:desktop": "node -e \"const { existsSync } = require('node:fs'); const { execFileSync } = require('node:child_process'); const path = require('node:path'); const source = '../zenith-desktop-blocker/native'; const target = path.resolve('public/zenith-mac-shield.zip'); if (existsSync(source)) execFileSync('zip', ['-X', target, 'Install Zenith Mac Shield.command', 'mac-shield.cjs', 'README.md'], { cwd: source }); else if (!existsSync(target)) throw new Error('Missing Zenith Mac setup download');\""
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.3",

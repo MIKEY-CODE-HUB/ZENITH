@@ -390,8 +390,8 @@ function LiveRoom() {
         focusedDuration: focusedSeconds, distractedDuration: distractedSeconds, idleDuration: idleSeconds,
         tabSwitchCount, warningCount, blockAttemptCount, longestFocusStreak, events: getEvents(),
       });
-      if (room) await api.leaveRoom(room.id).catch(() => {});
       window.postMessage({ type: 'ZENITH_ROOM_ENDED', focusSessionId: sessionId }, window.location.origin);
+      if (room) await api.leaveRoom(room.id).catch(() => {});
       sessionStorage.removeItem('active_session_id');
       sessionStorage.removeItem('active_session_protection');
       sessionStorage.removeItem(`zenith_room_theme_${sessionId}`);
@@ -481,23 +481,29 @@ function LiveRoom() {
         category={category}
         participantCount={room && connected && participants.length > 0 ? participants.length : room ? null : 1}
         shieldStatus={shield.status}
+        macShieldActive={shield.desktopStatus === 'active'}
         maxParticipants={room?.maxParticipants || 1}
         videoLayout={videoLayout}
         onChangeVideoLayout={handleVideoLayoutChange}
         onExit={() => setShowExitConfirm(true)}
       />
 
-      {shieldActive && shield.desktopNeedsPermission && (
+      {shieldActive && shield.desktopStatus === 'permission_required' && (
         <p role="status" className="absolute inset-x-4 top-14 z-30 mx-auto w-fit rounded-xl border border-amber-300/30 bg-zinc-950/95 px-4 py-3 text-xs text-amber-100 shadow-lg">
           Mac app blocking needs permission. Check Automation and Accessibility in macOS Privacy &amp; Security.
         </p>
+      )}
+      {shieldActive && (shield.desktopStatus === 'setup_needed' || shield.desktopStatus === 'disconnected') && (
+        <a href="/blocker#install-shield" target="_blank" rel="noreferrer" className="absolute right-4 top-14 z-30 rounded-lg bg-zinc-950/90 px-3 py-2 text-xs text-zinc-200 underline">
+          Set up Mac app blocking
+        </a>
       )}
       {shield.status === 'unavailable' && (
         <div className="absolute inset-x-4 top-14 z-30 mx-auto w-fit max-w-[calc(100%-2rem)] rounded-xl border border-amber-300/30 bg-zinc-950/95 px-4 py-3 text-xs text-amber-100 shadow-lg sm:text-sm">
           <p role="status" className="max-w-md">{shield.message} Distraction warnings can still appear in this room.</p>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
             <button type="button" onClick={shield.retry} className="font-semibold underline">Retry Shield</button>
-            <a href="/zenith-extension.zip" download className="underline">Download Chrome extension</a>
+            <a href="/blocker#install-shield" target="_blank" rel="noreferrer" className="underline">Install Shield</a>
           </div>
         </div>
       )}

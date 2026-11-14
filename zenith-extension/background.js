@@ -262,10 +262,6 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     void reconnectRoom(message.tabId).then(respond, () => respond({ ok: false }));
     return true;
   }
-  if (sender.url === chrome.runtime.getURL('popup.html') && message?.type === 'ZENITH_CONNECT_MAC') {
-    void connectDesktopFromPopup().then(respond, () => respond({ ok: false, reason: 'host_unavailable' }));
-    return true;
-  }
   if (!message || typeof message.type !== 'string') return false;
   const senderUrl = parseUrl(sender.url);
   if (!senderUrl || !trustedOrigins.has(senderUrl.origin) || !Number.isInteger(sender.tab?.id) || sender.frameId !== 0) return false;

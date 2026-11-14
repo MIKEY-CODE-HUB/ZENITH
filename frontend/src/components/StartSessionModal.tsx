@@ -451,8 +451,8 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [], goal, 
                 <div className="flex items-center gap-2.5">
                   <Shield className="h-4 w-4 text-emerald-400" />
                   <div>
-                    <h4 className="text-xs font-semibold text-white">Focus Protection & Blocker</h4>
-                    <p className="text-[11px] text-zinc-400">Strict mode blocks social media & tab switches</p>
+                    <h4 className="text-xs font-semibold text-white">Distraction Shield</h4>
+                    <p className="text-[11px] text-zinc-400">Blocks listed sites and apps until the session ends when Shield is installed.</p>
                   </div>
                 </div>
                 <button

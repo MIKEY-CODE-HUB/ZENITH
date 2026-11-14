@@ -24,10 +24,7 @@ function createExtension({ mac = false } = {}) {
   let nativeDisconnect;
   let disconnected = false;
   const port = {
-    postMessage(message) {
-      nativeMessages.push(message);
-      if (message.type === 'ping') nativeMessage({ type: 'ready' });
-    },
+    postMessage(message) { nativeMessages.push(message); },
     disconnect() { disconnected = true; nativeDisconnect(); },
     onMessage: { addListener: fn => { nativeMessage = fn; } },
     onDisconnect: { addListener: fn => { nativeDisconnect = fn; } },
@@ -67,7 +64,6 @@ function createExtension({ mac = false } = {}) {
     },
     runtime: { onMessage: event('message'), getURL: () => popupUrl,
       connectNative: () => port, getPlatformInfo: async () => ({ os: mac ? 'mac' : 'linux' }) },
-    permissions: { contains: async () => mac },
     scripting: { executeScript: async (script) => { injected.push(script); } },
     tabs: {
       onActivated: event('activation'), onRemoved: event('removed'),
@@ -98,6 +94,11 @@ function createExtension({ mac = false } = {}) {
     status, alarms, messages, openTabs, nativeMessages, injected,
     get disconnected() { return disconnected; },
     nativeMessage: message => nativeMessage(message),
+    failNativeConnection() {
+      chrome.runtime.lastError = { message: 'Host missing' };
+      nativeDisconnect();
+      delete chrome.runtime.lastError;
+    },
     get rules() { return rules; }, get updateCount() { return updateCount; },
     failRuleUpdates: () => { updateFails = true; },
     goOffline: () => { unavailable = true; },
@@ -283,6 +284,7 @@ test('Mac gets verified rules through Chrome without any account credential', as
   await new Promise(setImmediate);
   const message = ext.nativeMessages[0];
   assert.equal(message.type, 'protect');
+  assert.equal(message.mode, 'BLOCK');
   assert.equal(message.sessionId, activation.focusSessionId);
   assert.equal(message.blockedApps[0], 'Discord');
   assert.equal(Object.hasOwn(message, 'token'), false);
@@ -291,4 +293,15 @@ test('Mac gets verified rules through Chrome without any account credential', as
   assert.equal(ext.messages.at(-1).type, 'ZENITH_DESKTOP_DISTRACTION');
   await ext.send({ type: 'ZENITH_ROOM_ENDED', focusSessionId: activation.focusSessionId });
   assert.equal(ext.disconnected, true);
+});
+
+test('a missing Mac helper reports setup while Chrome continues to block listed sites', async () => {
+  const ext = createExtension({ mac: true });
+  ext.status.mode = 'BLOCK';
+  assert.equal((await ext.send()).active, true);
+  await new Promise(setImmediate);
+  ext.failNativeConnection();
+  assert.equal(ext.messages.at(-1).state, 'setup_needed');
+  assert.equal(action(ext.rules, 'main_frame', 'https://blocked.test'), 'block');
+  assert.equal(action(ext.rules, 'main_frame', github), 'allow');
 });

@@ -51,25 +51,3 @@ openButton.addEventListener('click', async () => {
   }
   await chrome.tabs.create({ url: 'https://zenith-dusky-theta.vercel.app/rooms' });
 });
-
-const connectMac = document.getElementById('connect-mac');
-const desktopStatus = document.getElementById('desktop-status');
-void chrome.runtime.getPlatformInfo().then(({ os }) => { connectMac.hidden = os !== 'mac'; }).catch(() => {});
-connectMac.addEventListener('click', async () => {
-  connectMac.disabled = true;
-  desktopStatus.hidden = false;
-  try {
-    if (!(await chrome.permissions.request({ permissions: ['nativeMessaging'] }))) {
-      desktopStatus.textContent = 'Allow the Mac companion connection to enable app blocking.';
-      return;
-    }
-    const response = await chrome.runtime.sendMessage({ type: 'ZENITH_CONNECT_MAC' });
-    desktopStatus.textContent = response?.ok
-      ? 'Mac companion connected. Start a protected focus session to block apps.'
-      : 'Mac companion unavailable. Run the Mac setup from Zenith first, then try again.';
-  } catch {
-    desktopStatus.textContent = 'Could not connect the Mac companion. Try again.';
-  } finally {
-    connectMac.disabled = false;
-  }
-});

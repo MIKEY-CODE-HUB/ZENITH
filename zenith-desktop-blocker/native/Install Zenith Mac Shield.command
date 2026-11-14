@@ -34,5 +34,5 @@ fs.chmodSync(launcher, 0o700);
 fs.writeFileSync(path.join(chromeDir, 'app.zenith.focus.json'), JSON.stringify({
   name: 'app.zenith.focus', description: 'Zenith Mac app blocker', type: 'stdio', path: launcher, allowed_origins: [origin],
 }, null, 2), { mode: 0o600 });
-console.log('Zenith Mac Shield installed. Open the Zenith extension popup in Google Chrome and click Connect Mac app blocking.');
+console.log('Zenith Mac Shield installed. Start a focus session with Distraction Shield enabled in Google Chrome.');
 JS

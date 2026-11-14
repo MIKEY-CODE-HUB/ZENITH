@@ -17,7 +17,7 @@ end run`;
 
 function names(list) {
   return new Set(Array.isArray(list) ? list.filter((name) => typeof name === 'string' && name.length <= 100)
-    .map((name) => name.trim().toLowerCase()) : []);
+    .map((name) => name.trim().toLowerCase().replace(/\.app$/, '')) : []);
 }
 
 function attachNativeHost(input, output, runScript = appleScript) {
@@ -55,7 +55,7 @@ function attachNativeHost(input, output, runScript = appleScript) {
       if (!app || app.length > 100) return;
       const key = app.toLowerCase();
       const allowed = ['google chrome', 'finder', 'terminal', 'system settings', 'system events'].includes(key) || current.allowed.has(key);
-      if (allowed || (current.mode !== 'STRICT' && !current.blocked.has(key))) {
+      if (allowed || !current.blocked.has(key)) {
         report('active', current.id);
         return;
       }
@@ -75,7 +75,7 @@ function attachNativeHost(input, output, runScript = appleScript) {
         !['BLOCK', 'STRICT'].includes(message.mode) || !Number.isFinite(message.expiresAt) ||
         message.expiresAt <= Date.now() || message.expiresAt > Date.now() + 241 * 60_000) return;
     if (session?.id !== message.sessionId) reportedStatus = undefined;
-    session = { id: message.sessionId, mode: message.mode, expiresAt: message.expiresAt,
+    session = { id: message.sessionId, expiresAt: message.expiresAt,
       allowed: names(message.allowedApps), blocked: names(message.blockedApps) };
     if (!timer) {
       timer = setInterval(() => void inspect(), 400);
