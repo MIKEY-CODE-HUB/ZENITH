@@ -37,7 +37,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`hidden lg:flex flex-col border-r border-[rgb(var(--tint))]/[0.07] bg-[rgb(var(--sidebar))] p-3 shrink-0 min-h-[calc(100vh-4rem)] justify-between transition-all duration-200 select-none ${
+      className={`hidden lg:flex flex-col border-r border-[rgb(var(--tint))]/[0.07] cozy-glass bg-[rgb(var(--sidebar))] p-3 shrink-0 min-h-[calc(100vh-4rem)] justify-between transition-all duration-200 select-none ${
         collapsed ? 'w-[68px]' : 'w-60'
       }`}
     >

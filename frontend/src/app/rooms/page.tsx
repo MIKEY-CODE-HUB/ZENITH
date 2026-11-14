@@ -176,7 +176,7 @@ export default function RoomsPage() {
         </div>
 
         {/* Dynamic Matchmaking Feature Card */}
-        <div className="rounded-2xl p-5 bg-gradient-to-br from-sky-950/40 via-zinc-900/60 to-black border border-sky-500/20 backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
+        <div className="rounded-2xl p-5 cozy-glass bg-gradient-to-br from-sky-950/35 to-transparent border border-sky-500/20 backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
           <div className="space-y-1">
             <h3 className="text-base font-semibold text-white tracking-tight">
               Find an open seat
@@ -247,7 +247,7 @@ export default function RoomsPage() {
             return (
               <div
                 key={room.id}
-                className="group relative rounded-2xl bg-white/[0.02] border border-white/[0.07] hover:border-white/15 p-5 transition-all duration-300 flex flex-col justify-between space-y-4 hover:shadow-xl hover:shadow-black/40"
+                className="group relative rounded-2xl cozy-glass border border-white/[0.07] hover:border-white/15 p-5 transition-all duration-300 flex flex-col justify-between space-y-4 hover:shadow-xl hover:shadow-black/40"
               >
                 <div>
                   <div className="flex items-center justify-between">

@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/authController.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
+import passwordAuthRoutes from './passwordAuthRoutes.js';
 import { googleOnlyAuthGuard } from '../middleware/googleOnlyAuthGuard.js';
 
 const router = Router();
 
 // Google OAuth (Authoritative Identity Provider)
 router.post('/google', AuthController.googleAuth);
+router.use('/password', passwordAuthRoutes);
 
 // Credential-based Auth (Guarded in production)
 router.post('/register', googleOnlyAuthGuard, AuthController.register);

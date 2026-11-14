@@ -7,7 +7,8 @@ import { useSocket } from '@/contexts/SocketContext';
 import { useFocusTracker } from '@/hooks/useFocusTracker';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { api, ApiConnectionError, ApiError } from '@/lib/api';
-import { ATMOSPHERES, getAtmosphereById, AtmosphereTheme } from '@/lib/atmospheres';
+import { ATMOSPHERES, getAtmosphereById, AtmosphereTheme, customRoomAtmosphere } from '@/lib/atmospheres';
+import { SceneryVideo } from '@/components/SceneryVideo';
 import { AtmosphereCanvas } from '@/components/AtmosphereCanvas';
 import { RoomHeader } from '@/components/RoomHeader';
 import { RoomInviteControls } from '@/components/RoomInviteControls';
@@ -101,6 +102,13 @@ export default function LiveRoomPage() {
     }
     return ATMOSPHERES[0];
   });
+
+  const [roomThemeOverride, setRoomThemeOverride] = useState<string | null>(null);
+  const wallpaperUrl = user?.settings?.customThemeUrl;
+  const wallpaper = wallpaperUrl && user?.settings?.customThemeTarget !== 'DASHBOARD'
+    ? customRoomAtmosphere(wallpaperUrl) : null;
+  const visibleAtmosphere = roomThemeOverride && roomThemeOverride !== 'custom'
+    ? getAtmosphereById(roomThemeOverride) : wallpaper || currentAtmosphere;
 
   // UI Modals & Panels
   const [isAtmosphereModalOpen, setIsAtmosphereModalOpen] = useState(false);
@@ -220,7 +228,8 @@ export default function LiveRoomPage() {
         setDeadline(end);
         setRemainingSeconds(Math.max(0, Math.ceil((end - Date.now()) / 1000)));
         const savedRoomTheme = sessionStorage.getItem(`zenith_room_theme_${session.id}`);
-        if (savedRoomTheme || session.atmosphere) setCurrentAtmosphere(getAtmosphereById(savedRoomTheme || session.atmosphere));
+        setRoomThemeOverride(savedRoomTheme);
+        if (session.atmosphere) setCurrentAtmosphere(getAtmosphereById(session.atmosphere));
 
         if (session.protectionEnabled === false || (reusable && sessionStorage.getItem('active_session_protection') === 'false')) return;
         const blocker = await api.activateBlocker(session.id, 'STRICT').catch(() => null);
@@ -470,22 +479,13 @@ export default function LiveRoomPage() {
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-black text-zinc-100">
       {/* ── 80-90% ATMOSPHERE & VISUAL ENVIRONMENT (THE HERO) ── */}
-      <div
-        className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out"
-        style={{
-          backgroundImage: currentAtmosphere.bgImageUrl ? `url(${currentAtmosphere.bgImageUrl})` : undefined,
-        }}
-      />
-      <div
-        className="absolute inset-0 transition-all duration-1000 ease-in-out"
-        style={{ background: currentAtmosphere.gradientOverlay }}
-      />
+      {visibleAtmosphere.bgImageUrl && <img src={visibleAtmosphere.bgImageUrl} alt="" aria-hidden
+        referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" />}
+      {visibleAtmosphere.videoUrl && <SceneryVideo src={visibleAtmosphere.videoUrl}
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover" />}
+      <div className="absolute inset-0" style={{ background: visibleAtmosphere.gradientOverlay }} />
 
-      {/* Procedural Canvas Dynamics (Raindrops, Stars, Cyber Grid, Particles) */}
-      <AtmosphereCanvas
-        effectType={currentAtmosphere.effectType}
-        accentColor={currentAtmosphere.accentColor}
-      />
+      <AtmosphereCanvas effectType={visibleAtmosphere.effectType} accentColor={visibleAtmosphere.accentColor} />
 
       {/* ── LAYER A: UNOBTRUSIVE ROOM HEADER ── */}
       <RoomHeader
@@ -538,9 +538,9 @@ export default function LiveRoomPage() {
 
       {/* ── LAYER E: 5-BUTTON FLOATING BOTTOM CONTROL DOCK (320–420px) ── */}
       <FloatingControlDock
-        currentAtmosphere={currentAtmosphere}
+        currentAtmosphere={visibleAtmosphere}
         onSelectAtmosphere={(atm) => {
-          setCurrentAtmosphere(atm);
+          setRoomThemeOverride(atm.id);
           sessionStorage.setItem(`zenith_room_theme_${sessionId}`, atm.id);
         }}
         isCameraOn={isCameraOn}
@@ -611,9 +611,10 @@ export default function LiveRoomPage() {
       <AtmosphereSelectorModal
         isOpen={isAtmosphereModalOpen}
         onClose={() => setIsAtmosphereModalOpen(false)}
-        selectedId={currentAtmosphere.id}
+        selectedId={visibleAtmosphere.id}
+        customAtmosphere={wallpaper || undefined}
         onSelectAtmosphere={(atm) => {
-          setCurrentAtmosphere(atm);
+          setRoomThemeOverride(atm.id);
           sessionStorage.setItem(`zenith_room_theme_${sessionId}`, atm.id);
         }}
       />

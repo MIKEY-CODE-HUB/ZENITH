@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,7 +28,7 @@ const modes = [
 ] as const;
 
 export default function LoginPage() {
-  const { googleAuth, user, loading: authLoading } = useAuth();
+  const { googleAuth, passwordAuth, user, loading: authLoading } = useAuth();
   const router = useRouter();
   const buttonRef = useRef<HTMLDivElement>(null);
   const authCallback = useRef(googleAuth);
@@ -37,6 +37,26 @@ export default function LoginPage() {
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const signup = mode === 'signup';
+
+  async function submitPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setLoading(true);
+    setPasswordError(null);
+    try {
+      await passwordAuth(signup ? 'register' : 'login', {
+        name: signup ? String(form.get('name')) : undefined,
+        username: String(form.get('username')),
+        password: String(form.get('password')),
+      });
+    } catch (failure) {
+      setPasswordError(failure instanceof Error ? failure.message : 'Could not open your account.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
@@ -83,22 +103,49 @@ export default function LoginPage() {
 
   return (
     <main className="grid min-h-[calc(100dvh-3.5rem)] place-items-center px-4 py-12 text-[#f7ebdd]">
-      <section className="w-full max-w-md space-y-6 rounded-3xl border border-[#eed9c3]/15 bg-[#211b17]/95 p-6 shadow-xl sm:p-8">
+      <section className="w-full max-w-md space-y-6 rounded-3xl border border-[#eed9c3]/15 bg-[#211b17]/75 backdrop-blur-sm p-6 shadow-xl sm:p-8">
         <Link href="/" className="inline-flex items-center gap-2 text-sm text-[#dfc2a5] hover:underline"><ArrowLeft size={16} /> Back to welcome</Link>
         <div className="space-y-2">
           <BookOpen size={24} className="text-[#ddae84]" aria-hidden />
           <h1 className="font-serif text-4xl tracking-tight">{mode === 'signin' ? 'Welcome back' : 'Make a space for focus'}</h1>
-          <p className="text-sm text-[#d2bda9]">{mode === 'signin' ? 'Log in to Zenith with your Google account.' : 'Use Google to create your Zenith account.'}</p>
+          <p className="text-sm text-[#d2bda9]">{signup ? 'Choose a username and password or continue with Google.' : 'Log in with your username and password or Google.'}</p>
         </div>
         <div role="group" aria-label="Account action" className="grid grid-cols-2 gap-1 rounded-xl bg-black/20 p-1">
           {modes.map(item => (
             <button type="button" key={item.id} aria-pressed={mode === item.id} disabled={loading}
-              onClick={() => { setMode(item.id); if (scriptLoaded) setError(null); }}
+              onClick={() => { setMode(item.id); setPasswordError(null); if (scriptLoaded) setError(null); }}
               className="rounded-lg px-2 py-2 text-sm text-[#e4d0be] aria-pressed:bg-[#e9c8a5] aria-pressed:font-semibold aria-pressed:text-[#2a1d15]">
               {item.label}
             </button>
           ))}
         </div>
+        <form key={mode} onSubmit={submitPassword} className="space-y-3">
+          <fieldset disabled={loading || !!user || authLoading} className="space-y-3 disabled:opacity-60">
+            {signup && <label className="block text-sm">
+              Name
+              <input name="name" autoComplete="name" required maxLength={80} className="zenith-account-input" />
+            </label>}
+            <label className="block text-sm">
+              Username
+              <input name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} required
+                pattern="[A-Za-z0-9_]{3,24}" maxLength={24} aria-describedby={signup ? 'username-hint' : undefined}
+                className="zenith-account-input" />
+              {signup && <span id="username-hint" className="mt-1 block text-xs text-[#d2bda9]">3–24 letters, numbers or underscores.</span>}
+            </label>
+            <label className="block text-sm">
+              Password
+              <input name="password" type="password" required minLength={signup ? 12 : undefined} maxLength={256}
+                autoComplete={signup ? 'new-password' : 'current-password'} aria-describedby={signup ? 'password-hint' : undefined}
+                className="zenith-account-input" />
+              {signup && <span id="password-hint" className="mt-1 block text-xs text-[#d2bda9]">At least 12 characters.</span>}
+            </label>
+            {passwordError && <p role="alert" className="text-sm text-rose-200">{passwordError}</p>}
+            <button type="submit" className="w-full rounded-lg bg-[#e9c8a5] px-4 py-2.5 text-sm font-semibold text-[#2a1d15] hover:bg-[#ffe2c3]">
+              {signup ? 'Create with password' : 'Log in'}
+            </button>
+          </fieldset>
+        </form>
+        <div className="flex items-center gap-3 text-xs text-[#d2bda9] before:h-px before:flex-1 before:bg-white/15 after:h-px after:flex-1 after:bg-white/15">or</div>
         {googleClientId && <Script src="https://accounts.google.com/gsi/client"
           onReady={() => setScriptLoaded(true)}
           onError={() => setError('Google sign-in could not load. Reload to try again.')} />}

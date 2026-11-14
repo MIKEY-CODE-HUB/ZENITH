@@ -29,12 +29,12 @@ export default function RootLayout({
         <AuthProvider>
           <SocketProvider>
             <AmbientProvider>
-              <div className="flex min-h-screen flex-col">
+              <ScenerySurface>
                 <Navbar />
-                <ScenerySurface>{children}</ScenerySurface>
+                <div className="flex-1">{children}</div>
                 <ScenerySelectorModal />
                 <AmbientSoundMixer />
-              </div>
+              </ScenerySurface>
             </AmbientProvider>
           </SocketProvider>
         </AuthProvider>

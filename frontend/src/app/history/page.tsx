@@ -71,11 +71,11 @@ export default function HistoryPage() {
         {error ? <p role="alert" className="text-sm text-rose-300">{error}</p> : loading ? (
           <div className="space-y-2.5">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-16 rounded-xl bg-[#211c19]/95/60 border border-white/[0.06] animate-pulse" />
+              <div key={i} className="h-16 rounded-xl cozy-glass border border-white/[0.06] animate-pulse" />
             ))}
           </div>
         ) : sessions.length > 0 ? (
-          <div className="rounded-xl bg-[#211c19]/95 border border-white/[0.07] overflow-hidden divide-y divide-white/[0.05]">
+          <div className="rounded-xl cozy-glass border border-white/[0.07] overflow-hidden divide-y divide-white/[0.05]">
             {sessions.map((session) => (
               <Link
                 key={session.id}
@@ -117,7 +117,7 @@ export default function HistoryPage() {
             ))}
           </div>
         ) : (
-          <div className="p-10 rounded-xl bg-[#211c19]/95 border border-white/[0.07] text-center space-y-2">
+          <div className="p-10 rounded-xl cozy-glass border border-white/[0.07] text-center space-y-2">
             <p className="text-xs text-zinc-400">No session history found for this category filter.</p>
           </div>
         )}

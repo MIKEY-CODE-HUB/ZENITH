@@ -42,7 +42,7 @@ export function Navbar() {
   const isLeaderboardActive = pathname.startsWith('/leaderboard');
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-[rgb(var(--tint))]/[0.07] bg-[rgb(var(--page))]/85 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-[rgb(var(--tint))]/[0.07] cozy-glass bg-[rgb(var(--page))]/85 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         
         {/* Left: Zenith Logo (routes to /dashboard) */}

@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   login: (loginIdentifier: string, password: string) => Promise<void>;
   register: (data: { name: string; username: string; email?: string; phoneNumber?: string; password: string; preferredActivity?: string }) => Promise<void>;
+  passwordAuth: (action: 'register' | 'login', data: { username: string; password: string; name?: string }) => Promise<void>;
   googleAuth: (data: { idToken?: string; credential?: string }, inviteRoomId?: string) => Promise<void>;
   sendPhoneOtp: (phoneNumber: string) => Promise<{ success: boolean; message: string; cooldownSeconds: number; devCode?: string }>;
   verifyPhoneOtp: (phoneNumber: string, otpCode: string, name?: string) => Promise<void>;
@@ -82,6 +83,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const passwordAuth: AuthContextType['passwordAuth'] = async (action, data) => {
+    const res = await api.passwordAuth(action, data);
+    if (!res.success || !res.token) throw new Error('Could not start your Zenith session.');
+    api.setToken(res.token);
+    setUser(res.user);
+  };
+
   const googleAuth = async (data: { idToken?: string; credential?: string }, inviteRoomId?: string) => {
     const res = await api.googleAuth(data);
     if (!res.success || !res.token) throw new Error('Google sign-in did not establish a session.');
@@ -135,6 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         login,
         register,
+        passwordAuth,
         googleAuth,
         sendPhoneOtp,
         verifyPhoneOtp,

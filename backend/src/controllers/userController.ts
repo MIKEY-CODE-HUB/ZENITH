@@ -102,16 +102,16 @@ export class UserController {
         return;
       }
 
-      // Validate customThemeUrl against script injection
-      if (req.body.customThemeUrl) {
-        const themeUrl = String(req.body.customThemeUrl).trim();
-        if (
-          themeUrl.startsWith('javascript:') ||
-          themeUrl.startsWith('data:text/html') ||
-          themeUrl.includes('<script>') ||
-          themeUrl.includes('onerror=')
-        ) {
-          res.status(400).json({ success: false, error: 'Invalid or unsafe theme URL detected' });
+      let customThemeUrl: string | null | undefined = req.body.customThemeUrl;
+      if (customThemeUrl === '') customThemeUrl = null;
+      if (customThemeUrl !== undefined && customThemeUrl !== null) {
+        try {
+          if (typeof customThemeUrl !== 'string' || customThemeUrl.length > 2048) throw new Error('Invalid URL');
+          const parsed = new URL(customThemeUrl.trim());
+          if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw new Error('Invalid URL');
+          customThemeUrl = parsed.href;
+        } catch {
+          res.status(400).json({ success: false, error: 'Use a public HTTPS link for your custom background.' });
           return;
         }
       }
@@ -129,7 +129,7 @@ export class UserController {
           sessionCompleteAlerts: sessionCompleteAlerts !== undefined ? Boolean(sessionCompleteAlerts) : undefined,
           streakReminders: streakReminders !== undefined ? Boolean(streakReminders) : undefined,
           appearanceMode: req.body.appearanceMode || undefined,
-          customThemeUrl: req.body.customThemeUrl !== undefined ? req.body.customThemeUrl : undefined,
+          customThemeUrl,
           customThemeTarget: req.body.customThemeTarget || undefined,
           videoLayout: req.body.videoLayout || undefined,
         },
@@ -145,7 +145,7 @@ export class UserController {
           sessionCompleteAlerts: sessionCompleteAlerts !== undefined ? sessionCompleteAlerts : true,
           streakReminders: streakReminders !== undefined ? streakReminders : true,
           appearanceMode: req.body.appearanceMode || 'dark',
-          customThemeUrl: req.body.customThemeUrl || null,
+          customThemeUrl: customThemeUrl ?? null,
           customThemeTarget: req.body.customThemeTarget || 'BOTH',
           videoLayout: req.body.videoLayout || 'footer',
         },

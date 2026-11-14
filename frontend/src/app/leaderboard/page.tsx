@@ -57,7 +57,7 @@ export default function LeaderboardPage() {
           </div>
 
           {/* Metric Selector Tabs */}
-          <div className="flex gap-1 p-1 bg-[#211c19]/95 rounded-xl border border-white/[0.08]">
+          <div className="flex gap-1 p-1 cozy-glass rounded-xl border border-white/[0.08]">
             <button
               onClick={() => setMetric('score')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -92,7 +92,7 @@ export default function LeaderboardPage() {
         </div>
 
         {/* Leaderboard Table */}
-        <div className="rounded-xl bg-[#211c19]/95 border border-white/[0.07] overflow-hidden">
+        <div className="rounded-xl cozy-glass border border-white/[0.07] overflow-hidden">
           <div className="divide-y divide-white/[0.05]">
             {leaderboard.map((item, idx) => (
               <div

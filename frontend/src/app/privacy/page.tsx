@@ -77,7 +77,7 @@ export default function PrivacyPolicyPage() {
               <span>4. Data Storage and Security</span>
             </h2>
             <p>
-              Your account details, weekly focus points, and session timestamps are stored securely using industry-standard hashing (bcrypt) and encrypted database connections. You can export or delete your profile data at any time via Settings.
+              Zenith saves your account details, points, and session timestamps. Password accounts use salted password hashes. You can export your data or delete your account from Settings.
             </p>
           </section>
 

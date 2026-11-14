@@ -35,7 +35,7 @@ import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const { pageSceneries, isPlayingSound, toggleSound, openSceneryModal, activeSound } = useAmbient();
+  const { isPlayingSound, toggleSound, openSceneryModal, activeSound } = useAmbient();
   const router = useRouter();
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -131,14 +131,7 @@ export default function DashboardPage() {
 
       <main className="min-w-0 flex-1 p-5 sm:p-9 max-w-6xl mx-auto space-y-9">
         {/* Dynamic Atmospheric Hero Banner */}
-        <div className={`relative p-6 sm:p-9 rounded-3xl bg-gradient-to-r ${vibe.accent} bg-[#211c19] border border-white/[0.08] shadow-2xl overflow-hidden`}>
-          {pageSceneries.dashboard && (
-            <div className="absolute inset-0 bg-cover bg-center" aria-hidden="true" style={{
-              backgroundImage: pageSceneries.dashboard.bgImageUrl
-                ? `linear-gradient(90deg, rgba(24,19,16,.86), rgba(24,19,16,.48)), url("${pageSceneries.dashboard.bgImageUrl}")`
-                : pageSceneries.dashboard.gradientOverlay,
-            }} />
-          )}
+        <div className={`relative p-6 sm:p-9 rounded-3xl bg-gradient-to-r ${vibe.accent} cozy-glass border border-white/[0.08] shadow-2xl overflow-hidden`}>
           {/* Subtle Ambient Blur Halos */}
           <div className="absolute -top-24 -right-24 w-80 h-80 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -219,7 +212,7 @@ export default function DashboardPage() {
         }} />
 
         {recentSessions.length > 0 && (
-          <section className="space-y-3 rounded-2xl border border-[rgb(var(--tint))]/10 bg-[rgb(var(--panel))] p-5 sm:p-6">
+          <section className="space-y-3 rounded-2xl border border-[rgb(var(--tint))]/10 cozy-glass p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-xl font-semibold">Recent sessions</h2>
               <Link className="text-sm underline" href="/history">View history</Link>
@@ -242,7 +235,7 @@ export default function DashboardPage() {
         )}
 
         {/* Weekly Progress & Verified Points Ledger */}
-        <div className="p-6 sm:p-7 rounded-3xl bg-[#211c19] border border-white/[0.08] shadow-xl space-y-4">
+        <div className="p-6 sm:p-7 rounded-3xl cozy-glass border border-white/[0.08] shadow-xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Weekly Momentum</span>
@@ -296,7 +289,7 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* 1. Education */}
-            <div className="p-5 rounded-2xl bg-gradient-to-b from-[#131b2c] to-[#10121a] border border-sky-500/25 hover:border-sky-500/40 transition-all shadow-lg space-y-3 group">
+            <div className="p-5 rounded-2xl cozy-glass bg-gradient-to-b from-[#131b2c]/35 to-[#10121a]/35 border border-sky-500/25 hover:border-sky-500/40 transition-all shadow-lg space-y-3 group">
               <div className="flex items-center justify-between">
                 <div className="p-2.5 rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/30 shadow-inner">
                   <GraduationCap className="h-5 w-5" />
@@ -313,7 +306,7 @@ export default function DashboardPage() {
             </div>
 
             {/* 2. Exercise */}
-            <div className="p-5 rounded-2xl bg-gradient-to-b from-[#1a1712] to-[#10121a] border border-amber-500/25 hover:border-amber-500/40 transition-all shadow-lg space-y-3 group">
+            <div className="p-5 rounded-2xl cozy-glass bg-gradient-to-b from-[#1a1712]/35 to-[#10121a]/35 border border-amber-500/25 hover:border-amber-500/40 transition-all shadow-lg space-y-3 group">
               <div className="flex items-center justify-between">
                 <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-inner">
                   <Dumbbell className="h-5 w-5" />
@@ -330,7 +323,7 @@ export default function DashboardPage() {
             </div>
 
             {/* 3. Side Quest */}
-            <div className="p-5 rounded-2xl bg-gradient-to-b from-[#10191c] to-[#10121a] border border-teal-500/25 hover:border-teal-500/40 transition-all shadow-lg space-y-3 group">
+            <div className="p-5 rounded-2xl cozy-glass bg-gradient-to-b from-[#10191c]/35 to-[#10121a]/35 border border-teal-500/25 hover:border-teal-500/40 transition-all shadow-lg space-y-3 group">
               <div className="flex items-center justify-between">
                 <div className="p-2.5 rounded-xl bg-teal-500/15 text-teal-400 border border-teal-500/30 shadow-inner">
                   <Compass className="h-5 w-5" />
@@ -347,7 +340,7 @@ export default function DashboardPage() {
             </div>
 
             {/* 4. Interaction */}
-            <div className="p-5 rounded-2xl bg-gradient-to-b from-[#111915] to-[#10121a] border border-emerald-500/25 hover:border-emerald-500/40 transition-all shadow-lg space-y-3 group">
+            <div className="p-5 rounded-2xl cozy-glass bg-gradient-to-b from-[#111915]/35 to-[#10121a]/35 border border-emerald-500/25 hover:border-emerald-500/40 transition-all shadow-lg space-y-3 group">
               <div className="flex items-center justify-between">
                 <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-inner">
                   <MessageSquare className="h-5 w-5" />
@@ -384,7 +377,7 @@ export default function DashboardPage() {
               return (
                 <div
                   key={room.id}
-                  className="p-5 rounded-3xl bg-[#211c19] border border-white/[0.08] hover:border-white/20 transition-all space-y-4 shadow-xl relative overflow-hidden group"
+                  className="p-5 rounded-3xl cozy-glass border border-white/[0.08] hover:border-white/20 transition-all space-y-4 shadow-xl relative overflow-hidden group"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

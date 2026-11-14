@@ -74,3 +74,43 @@ body {
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+.zenith-account-input {
+  display: block;
+  width: 100%;
+  margin-top: .25rem;
+  padding: .55rem .7rem;
+  border-radius: .55rem;
+  border: 1px solid rgb(236 208 175 / .24);
+  background: rgb(20 14 10 / .48);
+}
+.zenith-account-input:focus-visible {
+  outline: 2px solid #e9c8a5;
+  outline-offset: 2px;
+}
+
+[data-cozy-surface] {
+  --cozy-glass: 20 15 12;
+  --cozy-glass-alpha: .58;
+}
+[data-cozy-surface] .cozy-glass {
+  background-color: rgb(var(--cozy-glass) / var(--cozy-glass-alpha));
+  backdrop-filter: blur(7px);
+}
+[data-cozy-surface] header.cozy-glass,
+[data-cozy-surface] aside.cozy-glass {
+  --cozy-glass-alpha: .66;
+}
+.zenith-scenery-shade {
+  background: linear-gradient(180deg, rgb(17 12 10 / .36), rgb(17 12 10 / .57));
+}
+:root[data-appearance='light'] [data-cozy-surface] .cozy-glass {
+  --ink: 250 250 250;
+  --ink-muted: 212 212 216;
+  --ink-secondary: 228 228 231;
+}
+@media (prefers-reduced-transparency: reduce) {
+  [data-cozy-surface] .cozy-glass {
+    --cozy-glass-alpha: .9;
+  }
+}

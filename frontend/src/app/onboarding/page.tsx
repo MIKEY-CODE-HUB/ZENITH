@@ -49,7 +49,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 text-zinc-100">
-      <div className="w-full max-w-lg rounded-2xl bg-[#121215] border border-white/[0.08] p-6 sm:p-8 shadow-2xl space-y-6">
+      <div className="w-full max-w-lg rounded-2xl cozy-glass border border-white/[0.08] p-6 sm:p-8 shadow-2xl space-y-6">
         {/* Progress indicator */}
         <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
           <span className="text-xs font-medium text-zinc-400">

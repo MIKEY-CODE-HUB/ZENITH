@@ -3,11 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import { useAmbient } from '@/contexts/AmbientContext';
+import { loadSceneryMedia, parseSceneryUrl } from '@/lib/sceneryMedia';
 import { Sidebar } from '@/components/Sidebar';
 import { Settings, Shield, Bell, Camera, Clock, Check, Snowflake, Download, ExternalLink, Sparkles } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
+  const { resetBrowserScenery } = useAmbient();
 
   const [idleThreshold, setIdleThreshold] = useState(60);
   const [warningThreshold, setWarningThreshold] = useState(10);
@@ -50,7 +53,7 @@ export default function SettingsPage() {
       setDistractionAlerts(user.settings.distractionAlerts !== false);
       setAppearanceMode(user.settings.appearanceMode || 'dark');
       setCustomThemeUrl(user.settings.customThemeUrl || '');
-      setCustomThemeTarget(user.settings.customThemeTarget || 'BOTH');
+      setCustomThemeTarget(user.settings.customThemeTarget === 'ROOM' ? 'ROOMS' : user.settings.customThemeTarget || 'BOTH');
     }
   }, [user]);
 
@@ -59,6 +62,12 @@ export default function SettingsPage() {
     try {
       setSaving(true);
       setSaveError(null);
+      const rawUrl = customThemeUrl.trim();
+      const media = rawUrl ? parseSceneryUrl(rawUrl) : null;
+      if (rawUrl && !media) throw new Error('Use a public HTTPS image, MP4, or WebM link.');
+      const wallpaperChanged = (media?.url || '') !== (user?.settings?.customThemeUrl || '') ||
+        customThemeTarget !== (user?.settings?.customThemeTarget === 'ROOM' ? 'ROOMS' : user?.settings?.customThemeTarget || 'BOTH');
+      if (media && wallpaperChanged) await loadSceneryMedia(media.url, media.kind);
       await api.updateSettings({
         idleThresholdSeconds: idleThreshold,
         warningThresholdSeconds: warningThreshold,
@@ -66,9 +75,13 @@ export default function SettingsPage() {
         cameraVisibility,
         distractionAlerts,
         appearanceMode,
-        customThemeUrl: customThemeUrl.trim() || undefined,
+        customThemeUrl: media?.url || null,
         customThemeTarget,
       });
+      if (wallpaperChanged && media) {
+        if (customThemeTarget !== 'ROOMS') resetBrowserScenery('dashboard');
+        if (customThemeTarget !== 'DASHBOARD') resetBrowserScenery('rooms');
+      }
       await refreshUser();
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
@@ -252,17 +265,27 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-[rgb(var(--ink-secondary))] block">Custom Background Wallpaper URL</label>
+              <label htmlFor="wallpaper-url" className="text-xs font-medium text-[rgb(var(--ink-secondary))] block">Custom background link</label>
               <input
+                id="wallpaper-url"
                 type="url"
-                placeholder="https://images.unsplash.com/... or custom scenery image URL"
+                placeholder="https://example.com/wallpaper.jpg"
                 value={customThemeUrl}
                 onChange={(e) => setCustomThemeUrl(e.target.value)}
                 className="w-full rounded-lg bg-[rgb(var(--tint))]/[0.03] border border-[rgb(var(--tint))]/[0.08] px-3 py-2 text-xs text-[rgb(var(--ink))] placeholder-[rgb(var(--ink-muted))] focus:outline-none focus:border-[rgb(var(--tint))]/20"
               />
               <p className="text-[11px] text-[rgb(var(--ink-muted))]">
-                Personal ambient background for your dashboard and study sessions.
+                Use a public HTTPS image or MP4/WebM file. Clear the field and save to remove your account wallpaper.
               </p>
+              <label className="flex items-center gap-2 text-xs">
+                Apply to
+                <select value={customThemeTarget} onChange={event => setCustomThemeTarget(event.target.value)}
+                  className="rounded-lg border border-[rgb(var(--tint))]/20 bg-[rgb(var(--panel))] px-2 py-1.5">
+                  <option value="BOTH">Home and rooms</option>
+                  <option value="DASHBOARD">Home</option>
+                  <option value="ROOMS">Join Rooms and focus rooms</option>
+                </select>
+              </label>
             </div>
           </div>
 

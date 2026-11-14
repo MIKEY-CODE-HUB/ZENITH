@@ -63,7 +63,7 @@ export function FocusGoals({ onStart }: { onStart: (goal: FocusGoal) => void }) 
   if (!available) return null;
   const field = 'block w-full rounded-lg border border-[rgb(var(--tint))]/15 bg-transparent px-3 py-2 text-sm';
   return (
-    <section className="space-y-4 rounded-2xl border border-[rgb(var(--tint))]/10 bg-[rgb(var(--panel))] p-5 sm:p-6">
+    <section className="space-y-4 rounded-2xl border border-[rgb(var(--tint))]/10 cozy-glass bg-[rgb(var(--panel))] p-5 sm:p-6">
       <h2 className="text-xl font-semibold">Focus goals</h2>
       {error && <p role="alert" className="text-sm text-[rgb(var(--ink))]">{error}</p>}
       {goals.length === 0 && <p className="text-sm text-[rgb(var(--ink-muted))]">Plan something you can work on across several sessions.</p>}

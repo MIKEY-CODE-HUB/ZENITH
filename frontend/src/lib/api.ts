@@ -108,6 +108,13 @@ class ApiClient {
     });
   }
 
+  async passwordAuth(action: 'register' | 'login', body: { username: string; password: string; name?: string }) {
+    return this.request<{ success: boolean; user: User; token: string }>(`/auth/password/${action}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
   async googleAuth(body: { idToken?: string; credential?: string }) {
     return this.request<{ success: boolean; user: any; token: string }>('/auth/google', {
       method: 'POST',

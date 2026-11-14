@@ -1,6 +1,8 @@
+import { MOTION_SCENERIES, parseSceneryUrl } from './sceneryMedia';
 import { COZY_THEMES, cozyGradient } from './cozyThemes';
 
 export type AtmosphereCategory =
+  | 'VIDEO'
   | 'COZY'
   | 'TECH'
   | 'ATMOSPHERE'
@@ -16,6 +18,7 @@ export interface AtmosphereTheme {
   tagline: string;
   category: AtmosphereCategory;
   bgImageUrl: string;
+  videoUrl?: string;
   effectType: 'rain' | 'particles' | 'cyber-grid' | 'stars' | 'ambient';
   gradientOverlay: string;
   accentColor: string;
@@ -30,6 +33,12 @@ export const ATMOSPHERES: AtmosphereTheme[] = [
       ? `linear-gradient(120deg, ${theme.glow}25, transparent), linear-gradient(180deg, #16120f60, #16120faa)`
       : cozyGradient(theme.glow, theme.base),
     accentColor: theme.glow, recommendedSound: 'brown-noise',
+  })),
+  ...MOTION_SCENERIES.map((theme): AtmosphereTheme => ({
+    id: theme.id, name: theme.name, category: 'VIDEO', tagline: 'A muted looping scene',
+    bgImageUrl: `/scenery/${theme.art}.webp`, videoUrl: `/scenery/${theme.art}-motion.mp4`,
+    effectType: 'ambient', gradientOverlay: 'linear-gradient(180deg, #16120f59, #16120f99)',
+    accentColor: theme.tint, recommendedSound: 'rain',
   })),
   // ── TECH ──────────────────────────────────────────
   {
@@ -236,4 +245,16 @@ export const ATMOSPHERES: AtmosphereTheme[] = [
 export function getAtmosphereById(id: string): AtmosphereTheme {
   const found = ATMOSPHERES.find((a) => a.id === id || a.name.toLowerCase() === id.toLowerCase());
   return found || ATMOSPHERES[0];
+}
+
+export function customRoomAtmosphere(value: string): AtmosphereTheme | null {
+  const media = parseSceneryUrl(value);
+  if (!media) return null;
+  return {
+    id: 'custom', name: 'Custom background', category: 'COZY', tagline: 'Account wallpaper',
+    bgImageUrl: media.kind === 'image' ? media.url : '/scenery/rain.webp',
+    videoUrl: media.kind === 'video' ? media.url : undefined,
+    effectType: 'ambient', gradientOverlay: 'linear-gradient(180deg, #16120f59, #16120f99)',
+    accentColor: '#b68966', recommendedSound: 'rain',
+  };
 }

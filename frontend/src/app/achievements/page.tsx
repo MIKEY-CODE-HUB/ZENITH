@@ -51,7 +51,7 @@ export default function AchievementsPage() {
             </p>
           </div>
 
-          <div className="px-3.5 py-1.5 rounded-lg bg-[#211c19]/95 border border-white/[0.08] text-xs font-medium text-zinc-300 flex items-center gap-2">
+          <div className="px-3.5 py-1.5 rounded-lg cozy-glass border border-white/[0.08] text-xs font-medium text-zinc-300 flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
             <span>Unlocked: {unlockedCount} of {totalCount}</span>
           </div>

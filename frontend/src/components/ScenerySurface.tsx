@@ -2,19 +2,26 @@
 
 import { usePathname } from 'next/navigation';
 import { getDefaultScenery, getSceneryPage, useAmbient } from '@/contexts/AmbientContext';
+import { SceneryVideo } from '@/components/SceneryVideo';
 
 export function ScenerySurface({ children }: { children: React.ReactNode }) {
   const page = getSceneryPage(usePathname());
   const { pageSceneries } = useAmbient();
   const scenery = page && (pageSceneries[page] ?? getDefaultScenery(page));
-  if (!scenery) return <div className="flex-1">{children}</div>;
+  const fallback = page && getDefaultScenery(page);
+  const image = scenery && (scenery.bgImageUrl || (scenery.videoUrl && fallback ? fallback.bgImageUrl : ''));
 
   return (
-    <div className="relative isolate flex-1">
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center"
-        style={{ backgroundImage: scenery.bgImageUrl
-          ? `linear-gradient(120deg, ${scenery.accentColor}24, transparent), linear-gradient(180deg, #14111090, #13100fe8), url("${scenery.bgImageUrl}")`
-          : scenery.gradientOverlay }} />
+    <div data-cozy-surface={scenery ? '' : undefined} className="relative isolate flex min-h-screen flex-col">
+      {scenery && <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[#30251d]" style={{
+        backgroundImage: scenery.gradientOverlay,
+      }}>
+        {image && <img key={image} src={image} alt="" referrerPolicy="no-referrer"
+          onError={event => { event.currentTarget.hidden = true; }}
+          className="absolute inset-0 h-full w-full object-cover object-center" />}
+        {scenery.videoUrl && <SceneryVideo src={scenery.videoUrl} className="absolute inset-0 h-full w-full object-cover object-center" />}
+        <div className="zenith-scenery-shade absolute inset-0" />
+      </div>}
       {children}
     </div>
   );

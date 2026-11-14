@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ATMOSPHERES, AtmosphereCategory, AtmosphereTheme } from '@/lib/atmospheres';
-import { X, Check, Palette, Sparkles } from 'lucide-react';
+import { ATMOSPHERES, AtmosphereTheme } from '@/lib/atmospheres';
+import { X, Check, Palette } from 'lucide-react';
 
 interface AtmosphereSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedId: string;
+  customAtmosphere?: AtmosphereTheme;
   onSelectAtmosphere: (atm: AtmosphereTheme) => void;
 }
 
@@ -15,6 +16,7 @@ export function AtmosphereSelectorModal({
   isOpen,
   onClose,
   selectedId,
+  customAtmosphere,
   onSelectAtmosphere,
 }: AtmosphereSelectorModalProps) {
   const [activeCategory, setActiveCategory] = useState<string>('All');
@@ -24,6 +26,7 @@ export function AtmosphereSelectorModal({
   const categories = [
     'All',
     'COZY',
+    'VIDEO',
     'TECH',
     'ATMOSPHERE',
     'LIBRARY / STUDY',
@@ -33,10 +36,8 @@ export function AtmosphereSelectorModal({
     'ABSTRACT',
   ];
 
-  const filtered =
-    activeCategory === 'All'
-      ? ATMOSPHERES
-      : ATMOSPHERES.filter((a) => a.category === activeCategory);
+  const themes = customAtmosphere ? [customAtmosphere, ...ATMOSPHERES] : ATMOSPHERES;
+  const filtered = activeCategory === 'All' ? themes : themes.filter(theme => theme.category === activeCategory);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
@@ -50,7 +51,7 @@ export function AtmosphereSelectorModal({
             <div>
               <h2 className="text-base font-semibold text-white tracking-tight">Atmosphere Library</h2>
               <p className="text-xs text-zinc-400">
-                Personalized environmental shaders, procedural dynamics & visuals
+                Choose a background for this session.
               </p>
             </div>
           </div>
@@ -97,11 +98,11 @@ export function AtmosphereSelectorModal({
                 }`}
               >
                 <div className="h-28 w-full relative">
-                  <img
+                  {atm.bgImageUrl && <img
                     src={atm.bgImageUrl}
-                    alt={atm.name}
+                    alt="" referrerPolicy="no-referrer" loading="lazy"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
+                  />}
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0d0f14] via-black/40 to-transparent" />
                   {isSelected && (
                     <div className="absolute top-2 right-2 p-1 rounded-full bg-sky-500 text-white shadow-md">

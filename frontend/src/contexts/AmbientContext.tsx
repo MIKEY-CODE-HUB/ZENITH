@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SCENERIES, Scenery } from '@/lib/sceneries';
+import { useAuth } from '@/contexts/AuthContext';
+import { SCENERIES, Scenery, customScenery } from '@/lib/sceneries';
 import { ambientSound, type AmbientSound } from '@/lib/ambientAudio';
 
 export type SceneryPage = 'home' | 'dashboard' | 'rooms' | 'leaderboard' | 'workspace';
@@ -16,7 +17,7 @@ const defaultSceneryIds: Record<SceneryPage, string> = {
 };
 
 export function getDefaultScenery(page: SceneryPage) {
-  return SCENERIES.find(theme => theme.id === defaultSceneryIds[page]);
+  return SCENERIES.find(theme => theme.id === defaultSceneryIds[page])!;
 }
 
 export function getSceneryPage(path: string): SceneryPage | null {
@@ -40,6 +41,7 @@ const PAGE_SCENERY_KEYS = {
 interface AmbientContextType {
   pageSceneries: Record<SceneryPage, Scenery | null>;
   setPageScenery: (page: SceneryPage, scenery: Scenery | null) => void;
+  resetBrowserScenery: (page: SceneryPage) => void;
   sceneryPage: SceneryPage;
   openSceneryModal: (page: SceneryPage) => void;
   currentScenery: Scenery;
@@ -61,15 +63,26 @@ interface AmbientContextType {
 const AmbientContext = createContext<AmbientContextType | undefined>(undefined);
 
 export function AmbientProvider({ children }: { children: React.ReactNode }) {
-  const [pageSceneries, setPageSceneries] = useState<Record<SceneryPage, Scenery | null>>({
-    home: null,
-    dashboard: null,
-    rooms: null,
-    leaderboard: null,
-    workspace: null,
-  });
+  const { user } = useAuth();
+  const [savedSceneries, setSavedSceneries] = useState<Partial<Record<SceneryPage, Scenery | null>>>({});
+  const settingsUrl = user?.settings?.customThemeUrl;
+  const accountScenery = settingsUrl ? customScenery(settingsUrl) : null;
+  const target = user?.settings?.customThemeTarget;
+  const pageSceneries = {
+    home: savedSceneries.home ?? null,
+    dashboard: savedSceneries.dashboard === undefined && target !== 'ROOMS' && target !== 'ROOM'
+      ? accountScenery : savedSceneries.dashboard ?? null,
+    rooms: savedSceneries.rooms === undefined && target !== 'DASHBOARD'
+      ? accountScenery : savedSceneries.rooms ?? null,
+    leaderboard: savedSceneries.leaderboard ?? null,
+    workspace: savedSceneries.workspace ?? null,
+  };
   const [sceneryPage, setSceneryPage] = useState<SceneryPage>('home');
   const [currentScenery, setCurrentScenery] = useState<Scenery>(SCENERIES[0]);
+  const resetBrowserScenery = (page: SceneryPage) => {
+    try { localStorage.removeItem(PAGE_SCENERY_KEYS[page]); } catch {}
+    setSavedSceneries(previous => ({ ...previous, [page]: undefined }));
+  };
   const [isPlayingSound, setIsPlayingSound] = useState(false);
   const [activeSound, setActiveSound] = useState<AmbientSound>('rain');
   const [volume, setVolume] = useState(0.4);
@@ -82,9 +95,11 @@ export function AmbientProvider({ children }: { children: React.ReactNode }) {
     try {
       const loadPageScenery = (page: SceneryPage) => {
         const id = localStorage.getItem(PAGE_SCENERY_KEYS[page]);
-        return SCENERIES.find(scenery => scenery.id === id) ?? null;
+        if (id === 'default') return null;
+        if (id?.startsWith('custom:')) return customScenery(id.slice(7)) ?? undefined;
+        return SCENERIES.find(scenery => scenery.id === id);
       };
-      setPageSceneries({ home: loadPageScenery('home'), dashboard: loadPageScenery('dashboard'), rooms: loadPageScenery('rooms'), leaderboard: loadPageScenery('leaderboard'), workspace: loadPageScenery('workspace') });
+      setSavedSceneries({ home: loadPageScenery('home'), dashboard: loadPageScenery('dashboard'), rooms: loadPageScenery('rooms'), leaderboard: loadPageScenery('leaderboard'), workspace: loadPageScenery('workspace') });
       const savedSceneryId = localStorage.getItem('zenith_scenery_id');
       if (savedSceneryId) {
         const found = SCENERIES.find((s) => s.id === savedSceneryId);
@@ -104,12 +119,12 @@ export function AmbientProvider({ children }: { children: React.ReactNode }) {
 
   const setPageScenery = (page: SceneryPage, scenery: Scenery | null) => {
     try {
-      if (scenery) localStorage.setItem(PAGE_SCENERY_KEYS[page], scenery.id);
-      else localStorage.removeItem(PAGE_SCENERY_KEYS[page]);
+      const customUrl = scenery?.id === 'custom' && (scenery.videoUrl || scenery.bgImageUrl);
+      localStorage.setItem(PAGE_SCENERY_KEYS[page], customUrl ? `custom:${customUrl}` : scenery?.id ?? 'default');
     } catch {
       // The preference still applies for the current tab when storage is unavailable.
     }
-    setPageSceneries(previous => ({ ...previous, [page]: scenery }));
+    setSavedSceneries(previous => ({ ...previous, [page]: scenery }));
   };
 
   const openSceneryModal = (page: SceneryPage) => {
@@ -169,6 +184,7 @@ export function AmbientProvider({ children }: { children: React.ReactNode }) {
       value={{
         pageSceneries,
         setPageScenery,
+        resetBrowserScenery,
         sceneryPage,
         openSceneryModal,
         currentScenery,
