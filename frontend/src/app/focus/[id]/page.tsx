@@ -8,7 +8,7 @@ import { useFocusTracker } from '@/hooks/useFocusTracker';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { api, ApiConnectionError, ApiError } from '@/lib/api';
 import { ATMOSPHERES, getAtmosphereById, AtmosphereTheme, customRoomAtmosphere } from '@/lib/atmospheres';
-import { SceneryVideo } from '@/components/SceneryVideo';
+import { AtmosphericScene } from '@/components/AtmosphericScene';
 import { AtmosphereCanvas } from '@/components/AtmosphereCanvas';
 import { RoomHeader } from '@/components/RoomHeader';
 import { RoomInviteControls } from '@/components/RoomInviteControls';
@@ -482,14 +482,11 @@ function LiveRoom() {
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-black text-zinc-100">
-      {/* ── 80-90% ATMOSPHERE & VISUAL ENVIRONMENT (THE HERO) ── */}
-      {visibleAtmosphere.bgImageUrl && <img src={visibleAtmosphere.bgImageUrl} alt="" aria-hidden
-        referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" />}
-      {visibleAtmosphere.videoUrl && <SceneryVideo src={visibleAtmosphere.videoUrl}
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover" />}
-      <div className="absolute inset-0" style={{ background: visibleAtmosphere.gradientOverlay }} />
-
-      <AtmosphereCanvas effectType={visibleAtmosphere.effectType} accentColor={visibleAtmosphere.accentColor} />
+      <AtmosphericScene scene={visibleAtmosphere} fallbackImage="/scenery/rain.webp" priority paused={isAtmosphereModalOpen} />
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: visibleAtmosphere.gradientOverlay }} />
+      {visibleAtmosphere.effectType !== 'ambient' && (
+        <AtmosphereCanvas effectType={visibleAtmosphere.effectType} accentColor={visibleAtmosphere.accentColor} />
+      )}
 
       {/* ── LAYER A: UNOBTRUSIVE ROOM HEADER ── */}
       <RoomHeader

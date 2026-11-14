@@ -95,6 +95,8 @@ body {
 }
 [data-cozy-surface] .cozy-glass {
   background-color: rgb(var(--cozy-glass) / var(--cozy-glass-alpha));
+  background-color: color-mix(in srgb, rgb(var(--cozy-glass) / var(--cozy-glass-alpha)) 94%,
+    var(--zenith-scene-accent, transparent));
 }
 [data-cozy-surface] .zenith-navbar,
 [data-cozy-surface] aside.cozy-glass {
@@ -262,4 +264,74 @@ body {
 }
 @media (prefers-reduced-transparency: reduce) {
   [data-cozy-surface='dashboard'] .zenith-home-card { --cozy-glass-alpha: .9; }
+}
+
+.zenith-scene-light,
+.zenith-scene-motion {
+  position: absolute;
+  inset: 0;
+}
+.zenith-scene-light {
+  background:
+    radial-gradient(ellipse at var(--scene-light-position, 50% 30%),
+      color-mix(in srgb, var(--scene-tint), transparent 53%), transparent 64%),
+    linear-gradient(155deg, transparent 32%, rgb(16 13 19 / .32) 100%);
+}
+.zenith-scene-motion {
+  opacity: .34;
+}
+[data-scene='rain'] .zenith-scene-motion {
+  inset: -160px -5% -20px;
+  background:
+    repeating-linear-gradient(101deg, transparent 0 47px, rgb(221 237 253 / .27) 48px, transparent 50px 89px);
+  mask-image: radial-gradient(ellipse at 66% 30%, #000 4%, transparent 66%);
+  animation: zenith-rain-fall 2.9s linear infinite;
+}
+[data-scene='snow'] .zenith-scene-motion {
+  inset: -144px -12px -12px;
+  background-image:
+    radial-gradient(circle at 13px 22px, rgb(239 249 255 / .75) 0 1px, transparent 2px),
+    radial-gradient(circle at 81px 67px, rgb(235 244 255 / .58) 0 1.3px, transparent 2.7px),
+    radial-gradient(circle at 121px 109px, rgb(235 244 255 / .65) 0 1px, transparent 2px);
+  background-size: 146px 144px;
+  mask-image: linear-gradient(#000 0%, #000 32%, transparent 80%);
+  animation: zenith-snow-fall 17s linear infinite;
+}
+[data-scene='mist'] .zenith-scene-motion,
+[data-scene='twilight'] .zenith-scene-motion {
+  inset: 18% -10% -10%;
+  background:
+    radial-gradient(ellipse at 28% 77%, color-mix(in srgb, var(--scene-tint), transparent 38%), transparent 51%),
+    radial-gradient(ellipse at 80% 53%, color-mix(in srgb, var(--scene-tint), transparent 57%), transparent 53%);
+  animation: zenith-mist-drift 24s ease-in-out infinite alternate;
+}
+[data-scene='lamplight'] .zenith-scene-motion,
+[data-scene='sunlight'] .zenith-scene-motion {
+  background: radial-gradient(ellipse at var(--scene-light-position),
+    color-mix(in srgb, var(--scene-tint) 72%, #ffe6b7), transparent 56%);
+  animation: zenith-light-breathe 16s ease-in-out infinite alternate;
+}
+[data-scene-paused] .zenith-scene-motion {
+  animation-play-state: paused;
+}
+@keyframes zenith-rain-fall {
+  from { transform: translate3d(0, -18px, 0); }
+  to { transform: translate3d(0, 142px, 0); }
+}
+@keyframes zenith-snow-fall {
+  from { transform: translate3d(-8px, 0, 0); }
+  to { transform: translate3d(10px, 144px, 0); }
+}
+@keyframes zenith-mist-drift {
+  from { transform: translate3d(-4%, 2%, 0); opacity: .32; }
+  to { transform: translate3d(5%, -1%, 0); opacity: .52; }
+}
+@keyframes zenith-light-breathe {
+  from { opacity: .18; }
+  to { opacity: .34; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-scene] .zenith-scene-motion {
+    animation: none;
+  }
 }

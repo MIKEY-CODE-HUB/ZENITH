@@ -1,3 +1,25 @@
+export type CozySceneMood = {
+  effect: 'rain' | 'snow' | 'lamplight' | 'mist' | 'sunlight' | 'twilight';
+  label: string;
+  position: string;
+};
+
+const sceneMoods: Record<string, CozySceneMood> = {
+  rain: { effect: 'rain', label: 'Rain on glass', position: '68% 26%' },
+  library: { effect: 'lamplight', label: 'Soft lamplight', position: '72% 60%' },
+  snow: { effect: 'snow', label: 'Drifting snow', position: '60% 24%' },
+  tea: { effect: 'lamplight', label: 'Lantern glow', position: '55% 64%' },
+  bakery: { effect: 'sunlight', label: 'Warm morning light', position: '28% 22%' },
+  linen: { effect: 'sunlight', label: 'Soft daylight', position: '26% 22%' },
+  forest: { effect: 'mist', label: 'Low forest mist', position: '50% 73%' },
+  lake: { effect: 'twilight', label: 'Blue hour', position: '69% 24%' },
+  canyon: { effect: 'sunlight', label: 'Last sunlight', position: '76% 24%' },
+};
+
+export function getCozySceneMood(art: string): CozySceneMood | undefined {
+  return sceneMoods[art];
+}
+
 type CozyGroup = 'Reading rooms' | 'Rain & snow' | 'Quiet mornings' | 'Outdoors' | 'Still colors';
 
 interface CozyTheme {

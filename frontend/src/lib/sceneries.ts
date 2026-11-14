@@ -1,4 +1,4 @@
-import { COZY_THEMES, cozyGradient } from './cozyThemes';
+import { COZY_THEMES, cozyGradient, getCozySceneMood, type CozySceneMood } from './cozyThemes';
 import { MOTION_SCENERIES, parseSceneryUrl } from './sceneryMedia';
 import type { AmbientSound } from './ambientAudio';
 
@@ -9,6 +9,7 @@ export interface Scenery {
   category: string;
   bgImageUrl: string;
   videoUrl?: string;
+  mood?: CozySceneMood;
   gradientOverlay: string;
   defaultSound: AmbientSound;
   accentColor: string;
@@ -88,7 +89,8 @@ export const SCENERIES: Scenery[] = [
 ];
 
 SCENERIES.unshift(...COZY_THEMES.map(theme => ({
-  id: theme.id, name: theme.name, tagline: theme.group, category: theme.group,
+  id: theme.id, name: theme.name, tagline: getCozySceneMood(theme.art)?.label ?? theme.group, category: theme.group,
+  mood: getCozySceneMood(theme.art),
   bgImageUrl: theme.art ? `/scenery/${theme.art}.webp` : '',
   gradientOverlay: cozyGradient(theme.glow, theme.base),
   defaultSound: theme.art === 'rain' ? 'rain' as const : 'white' as const,
@@ -108,7 +110,8 @@ export function customScenery(value: string): Scenery | null {
 }
 
 SCENERIES.unshift(...MOTION_SCENERIES.map(theme => ({
-  id: theme.id, name: theme.name, category: 'Video', tagline: 'Muted looping scene',
+  id: theme.id, name: theme.name, category: 'Video', tagline: 'Looping video',
+  mood: getCozySceneMood(theme.art),
   bgImageUrl: `/scenery/${theme.art}.webp`, videoUrl: `/scenery/${theme.art}-motion.mp4`,
   gradientOverlay: cozyGradient(theme.tint, '#29201c'),
   defaultSound: 'rain' as const, accentColor: theme.tint,
