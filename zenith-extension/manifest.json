@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
   "name": "ZENITH Focus & Distraction Freeze Guardian",
-  "version": "10.1.2",
-  "description": "Locks all external websites with the Focus Broken UI and forces you back to your ZENITH focus room.",
+  "version": "10.2.0",
+  "minimum_chrome_version": "120",
+  "description": "Blocks requests to distracting websites during protected Zenith focus sessions.",
   "permissions": [
     "tabs",
     "storage",

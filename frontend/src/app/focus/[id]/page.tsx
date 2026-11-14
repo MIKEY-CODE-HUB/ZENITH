@@ -189,6 +189,8 @@ function LiveRoom() {
       return;
     }
     let cancelled = false;
+    let shieldSessionId: string | undefined;
+    setShieldActive(false);
 
     async function initialize() {
       let step = 'Restore your focus session';
@@ -238,6 +240,7 @@ function LiveRoom() {
         if (session.protectionEnabled === false || (reusable && sessionStorage.getItem('active_session_protection') === 'false')) return;
         const blocker = await api.activateBlocker(session.id, 'STRICT').catch(() => null);
         if (blocker?.success && !cancelled) {
+          shieldSessionId = session.id;
           window.postMessage({
             type: 'ZENITH_BLOCKER_ACTIVATE', roomUrl: window.location.href,
             focusSessionId: session.id, blockerToken: blocker.blockerToken,
@@ -258,7 +261,10 @@ function LiveRoom() {
 
     const shieldStatus = (event: MessageEvent) => {
       if (event.source === window && event.origin === window.location.origin &&
-          event.data?.type === 'ZENITH_SHIELD_STATUS') setShieldActive(event.data.active === true);
+          event.data?.type === 'ZENITH_SHIELD_STATUS' && shieldSessionId &&
+          (!event.data.focusSessionId || event.data.focusSessionId === shieldSessionId)) {
+        setShieldActive(event.data.active === true);
+      }
     };
     window.addEventListener('message', shieldStatus);
     void initialize();

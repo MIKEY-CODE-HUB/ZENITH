@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
-import { authMiddleware, optionalAuthMiddleware, AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { authMiddleware, blockerStatusAuth, optionalAuthMiddleware, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { BlockerController } from '../controllers/blockerController.js';
 import { BlockerService } from '../services/blockerService.js';
 import { ALWAYS_BLOCKED_DOMAINS, ALWAYS_ALLOWED_DOMAINS, ALWAYS_BLOCKED_APPS, ALWAYS_ALLOWED_APPS } from '../config/shieldDomains.js';
@@ -46,7 +46,8 @@ router.post('/pair-token', authMiddleware, async (req: AuthenticatedRequest, res
 });
 
 // 2. User-scoped health/status check for extension and desktop agent
-router.get('/live-status', optionalAuthMiddleware, async (req: AuthenticatedRequest, res) => {
+router.get('/live-status', blockerStatusAuth, async (req: AuthenticatedRequest, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const targetUserId = req.user?.userId;
 
@@ -72,7 +73,8 @@ router.get('/live-status', optionalAuthMiddleware, async (req: AuthenticatedRequ
       },
     });
 
-    if (!activeSession) {
+    const expiresAt = activeSession ? BlockerService.protectionDeadline(activeSession.focusSession) : 0;
+    if (!activeSession || expiresAt <= Date.now()) {
       return res.json({
         active: false,
         message: 'No active focus session for authenticated user',
@@ -98,6 +100,7 @@ router.get('/live-status', optionalAuthMiddleware, async (req: AuthenticatedRequ
       activityType: activeSession.focusSession.activityType,
       mode: activeSession.mode,
       startedAt: activeSession.startedAt,
+      expiresAt,
       blockedWebsites,
       blockedApps,
       allowedWebsites,

@@ -132,7 +132,7 @@ export default function SettingsPage() {
                   </span>
                 </h3>
                 <p className="text-xs text-[rgb(var(--ink-muted))] mt-0.5">
-                  Enforces instant tab snap-backs and background redirect interception.
+                  Blocks requests to restricted sites during a protected focus session.
                 </p>
               </div>
             </div>

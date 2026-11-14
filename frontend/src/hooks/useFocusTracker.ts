@@ -100,7 +100,8 @@ export function useFocusTracker(options: FocusTrackerOptions) {
     };
     const interception = (event: MessageEvent) => {
       if (event.source !== window || event.origin !== location.origin ||
-          event.data?.type !== 'ZENITH_DISTRACTION_ATTEMPT' || !optionsRef.current.shieldActive) return;
+          event.data?.type !== 'ZENITH_DISTRACTION_ATTEMPT' || !optionsRef.current.shieldActive ||
+          (event.data.focusSessionId && event.data.focusSessionId !== optionsRef.current.sessionId)) return;
       const domain = event.data.domain;
       if (typeof domain !== 'string' || !/^[a-z0-9.-]{1,253}$/i.test(domain)) return;
       const now = Date.now();
@@ -113,7 +114,7 @@ export function useFocusTracker(options: FocusTrackerOptions) {
         ...previous, blockAttemptCount: previous.blockAttemptCount + 1,
         warningCount: previous.warningCount + Number(optionsRef.current.showWarnings),
       }));
-      if (optionsRef.current.showWarnings) setWarningMessage(`The Shield redirected you from ${domain}.`);
+      if (optionsRef.current.showWarnings) setWarningMessage(`The Shield blocked ${domain}.`);
     };
     const interval = window.setInterval(() => {
       const now = Date.now();

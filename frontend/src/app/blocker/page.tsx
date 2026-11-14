@@ -270,7 +270,7 @@ export default function BlockerDashboardPage() {
                 Distraction Shield
               </h1>
               <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed">
-                Dual-layer enforcement: locks external websites with <strong>instant 0ms snap-back</strong> and auto-hides distracting desktop applications.
+                Chrome blocks requests to restricted sites and brings the focus room forward. The macOS companion handles desktop apps.
               </p>
             </div>
 
@@ -330,13 +330,13 @@ export default function BlockerDashboardPage() {
             <div className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 rounded-full ${activeSession ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
               <span className="font-semibold text-white">
-                Status: {activeSession ? 'Armed & Enforcing (Active Session)' : 'Standby (Click Arm to Begin)'}
+                Status: {activeSession ? 'Shield session active' : 'Shield on standby'}
               </span>
             </div>
             <span className="text-zinc-600">•</span>
             <div className="flex items-center gap-1.5 text-zinc-300">
               <Laptop className="h-3.5 w-3.5 text-emerald-400" />
-              <span>macOS Daemon & Chrome Interceptor: <strong className="text-emerald-400">0ms Snap-Back Active</strong></span>
+              <span>Open the Chrome extension to check browser protection.</span>
             </div>
           </div>
 
@@ -683,7 +683,7 @@ export default function BlockerDashboardPage() {
                     </span>
                   </div>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Operates alongside the Chrome extension to intercept native apps (Discord, Spotify, Steam, Games) and refocus Zenith in &lt;400ms.
+                    Operates alongside the Chrome extension to intercept native apps (Discord, Spotify, Steam, Games) and bring Zenith forward.
                   </p>
                 </div>
               </div>

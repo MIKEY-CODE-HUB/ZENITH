@@ -1,15 +1,10 @@
-# ⚡ ZENITH Chrome Extension — Distraction Freeze & 3s Redirect Blocker
+# Zenith Distraction Shield for Chrome
 
-This companion browser extension enforces full site freezing across all distracting tabs (YouTube, Reddit, Twitter, Instagram, etc.) while your ZENITH focus session is active, and automatically redirects you back to your focus room after **3 seconds**.
+1. Download and unzip the extension from **Settings** in Zenith.
+2. Open `chrome://extensions` in Chrome 120 or later and turn on **Developer mode**.
+3. Choose **Load unpacked** and select the extracted folder containing `manifest.json`. For an existing unpacked install, replace the files in that folder, click **Reload**, then reload the Zenith tab.
+4. Start a focus session with **Distraction Shield** enabled. The room and extension popup show the protection status.
 
----
+Chrome blocks new requests to restricted domains, including embedded frames, fetches, media, and WebSocket handshakes. In Strict mode, unapproved top-level destinations are also blocked. Approved tools can still load normal dependencies. If you open or switch to a restricted page, the extension brings the focus tab forward where Chrome permits it.
 
-## 🚀 10-Second Installation Guide
-
-1. Open your browser (Google Chrome, Brave, Edge, or Arc).
-2. Navigate to: `chrome://extensions`
-3. Enable **"Developer mode"** (toggle in the top-right corner).
-4. Click **"Load unpacked"**.
-5. Select the folder:  
-   `/Users/mikey/Desktop/ZENITH/zenith-extension`
-6. ✅ **Done!** The extension is active. Whenever you switch tabs away from your focus session, the external tab is immediately frozen with an ice-blue lock and auto-redirected back to ZENITH in **3 seconds**.
+Rules are scoped to the protected Chrome session. They clear on session end, room exit, expiry, or browser restart. During protection, the extension checks Zenith periodically for rule changes and server-side session end. Native desktop apps are handled by Zenith's separate macOS companion. Requests served entirely from a site's service worker cache and connections already established before activation can remain available.

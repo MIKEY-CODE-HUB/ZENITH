@@ -6,7 +6,6 @@ const trustedOrigins = new Set([
   'http://127.0.0.1:3000',
 ]);
 
-
 if (trustedOrigins.has(location.origin)) {
   window.addEventListener('message', async (event) => {
     if (event.source !== window || event.origin !== location.origin) return;
@@ -16,11 +15,15 @@ if (trustedOrigins.has(location.origin)) {
     try {
       const result = await chrome.runtime.sendMessage(message);
       if (message.type === 'ZENITH_BLOCKER_ACTIVATE') {
-        window.postMessage({ type: 'ZENITH_SHIELD_STATUS', active: result?.active === true }, location.origin);
+        window.postMessage({
+          type: 'ZENITH_SHIELD_STATUS', focusSessionId: message.focusSessionId, active: result?.active === true,
+        }, location.origin);
       }
     } catch {
       if (message.type === 'ZENITH_BLOCKER_ACTIVATE') {
-        window.postMessage({ type: 'ZENITH_SHIELD_STATUS', active: false }, location.origin);
+        window.postMessage({
+          type: 'ZENITH_SHIELD_STATUS', focusSessionId: message.focusSessionId, active: false,
+        }, location.origin);
       }
     }
   });
