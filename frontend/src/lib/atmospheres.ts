@@ -1,4 +1,7 @@
+import { COZY_THEMES, cozyGradient } from './cozyThemes';
+
 export type AtmosphereCategory =
+  | 'COZY'
   | 'TECH'
   | 'ATMOSPHERE'
   | 'LIBRARY / STUDY'
@@ -20,6 +23,14 @@ export interface AtmosphereTheme {
 }
 
 export const ATMOSPHERES: AtmosphereTheme[] = [
+  ...COZY_THEMES.map((theme): AtmosphereTheme => ({
+    id: theme.id, name: theme.name, tagline: theme.group, category: 'COZY',
+    bgImageUrl: theme.art ? `/scenery/${theme.art}.webp` : '',
+    effectType: 'ambient', gradientOverlay: theme.art
+      ? `linear-gradient(120deg, ${theme.glow}25, transparent), linear-gradient(180deg, #16120f60, #16120faa)`
+      : cozyGradient(theme.glow, theme.base),
+    accentColor: theme.glow, recommendedSound: 'brown-noise',
+  })),
   // ── TECH ──────────────────────────────────────────
   {
     id: 'tokyo-night',

@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { SpotifyPlayer } from '@/components/SpotifyPlayer';
+import { useAmbient } from '@/contexts/AmbientContext';
 import { ZENITH_TRACKS, musicPlayer, Track } from '@/lib/musicEngine';
 import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Music, X, Radio } from 'lucide-react';
 
@@ -11,9 +13,7 @@ interface MusicPlayerModalProps {
 
 export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
   const [activeTab, setActiveTab] = useState<'zenith' | 'spotify'>('zenith');
-  const [spotifyLink, setSpotifyLink] = useState('');
-  const [spotifyEmbed, setSpotifyEmbed] = useState('');
-  const [spotifyError, setSpotifyError] = useState('');
+  const { setIsSoundModalOpen } = useAmbient();
   const [currentTrack, setCurrentTrack] = useState<Track>(musicPlayer.getCurrentTrack());
   const [isPlaying, setIsPlaying] = useState<boolean>(musicPlayer.isPlaying());
   const [volume, setVolume] = useState<number>(musicPlayer.getVolume());
@@ -26,19 +26,6 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
     });
     return unsub;
   }, []);
-
-  function loadSpotify(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    try {
-      const link = new URL(spotifyLink.trim());
-      const match = /^\/(?:intl-[a-z-]+\/)?(?:embed\/)?(track|playlist|album)\/([a-z0-9]{22})\/?$/i.exec(link.pathname);
-      if (link.origin !== 'https://open.spotify.com' || link.username || link.password || !match) throw new Error();
-      setSpotifyEmbed(`https://open.spotify.com/embed/${match[1]}/${match[2]}`);
-      setSpotifyError('');
-    } catch {
-      setSpotifyError('Paste a Spotify track, album, or playlist link.');
-    }
-  }
 
   return (
     <div hidden={!isOpen} className={isOpen ? "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" : "hidden"}>
@@ -160,25 +147,12 @@ export function MusicPlayerModal({ isOpen, onClose }: MusicPlayerModalProps) {
               ))}
             </div>
           </div>
-        ) : (
-          <form className="space-y-2" onSubmit={loadSpotify}>
-            <label htmlFor="spotify-link" className="text-sm">Spotify track, album, or playlist link</label>
-            <div className="flex gap-2">
-              <input id="spotify-link" type="url" required value={spotifyLink} onChange={event => setSpotifyLink(event.target.value)}
-                placeholder="https://open.spotify.com/…" className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm" />
-              <button className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white">Load</button>
-            </div>
-            {spotifyError && <p role="alert" className="text-sm text-rose-300">{spotifyError}</p>}
-          </form>
-        )}
-        {spotifyEmbed && (
-          <div hidden={activeTab !== 'spotify'}>
-            <iframe src={spotifyEmbed} title="Spotify player" width="100%" height="152"
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              className="rounded-xl" />
-            <button type="button" className="mt-2 text-xs text-zinc-300 underline" onClick={() => setSpotifyEmbed('')}>Remove player</button>
-          </div>
-        )}
+        ) : null}
+        <SpotifyPlayer visible={activeTab === 'spotify'} />
+        {activeTab === 'zenith' && <button type="button" className="text-sm underline" onClick={() => {
+          onClose();
+          setIsSoundModalOpen(true);
+        }}>Open white noise and ambience</button>}
 
         <div className="flex justify-end pt-2 border-t border-white/10">
           <button

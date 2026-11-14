@@ -6,7 +6,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   User,
   LogOut,
-  Award,
   ChevronDown,
   Volume2,
   VolumeX,
@@ -15,12 +14,11 @@ import {
   X,
   LogIn,
 } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useAmbient } from '@/contexts/AmbientContext';
+import { usePathname } from 'next/navigation';
+import { getSceneryPage, useAmbient } from '@/contexts/AmbientContext';
 
 export function Navbar() {
-  const { user, logout } = useAuth();
-  const router = useRouter();
+  const { user, logout, loading } = useAuth();
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -29,7 +27,6 @@ export function Navbar() {
     openSceneryModal,
     isPlayingSound,
     setIsSoundModalOpen,
-    activeSound,
   } = useAmbient();
 
   const isFocusRoom = pathname.startsWith('/focus/') && !pathname.includes('/setup') && !pathname.includes('/summary');
@@ -39,7 +36,8 @@ export function Navbar() {
   }
 
   // Header Navbar: ONLY Zenith Logo, Home, Join Room, Leaderboard, Login
-  const isHomeActive = pathname === '/';
+  const sceneryPage = getSceneryPage(pathname);
+  const isHomeActive = pathname === '/dashboard';
   const isJoinRoomActive = pathname.startsWith('/rooms');
   const isLeaderboardActive = pathname.startsWith('/leaderboard');
 
@@ -62,9 +60,9 @@ export function Navbar() {
           </Link>
 
           {/* Core Nav: Home, Join Room, Leaderboard */}
-          <nav className="hidden md:flex items-center gap-1.5">
+          {user && <nav aria-label="Main navigation" className="hidden md:flex items-center gap-1.5">
             <Link
-              href="/"
+              href="/dashboard"
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 isHomeActive
                   ? 'bg-[rgb(var(--tint))]/[0.08] text-[rgb(var(--ink))]'
@@ -82,7 +80,7 @@ export function Navbar() {
                   : 'text-[rgb(var(--ink-muted))] hover:text-[rgb(var(--ink-secondary))] hover:bg-[rgb(var(--tint))]/[0.04]'
               }`}
             >
-              Join Room
+              Join Rooms
             </Link>
 
             <Link
@@ -95,17 +93,17 @@ export function Navbar() {
             >
               Leaderboard
             </Link>
-          </nav>
+          </nav>}
         </div>
 
         {/* Right: Ambient toggles + Login / User Profile */}
         <div className="flex items-center gap-3">
           {/* Subtle Ambient Triggers */}
-          <div className="hidden sm:flex items-center gap-1 border border-[rgb(var(--tint))]/[0.08] bg-[rgb(var(--tint))]/[0.02] rounded-lg p-1">
+          {sceneryPage && <div className="flex items-center gap-1 border border-[rgb(var(--tint))]/[0.08] bg-[rgb(var(--tint))]/[0.02] rounded-lg p-1">
             <button
-              onClick={() => openSceneryModal(pathname === '/' ? 'home' : 'dashboard')}
+              onClick={() => openSceneryModal(sceneryPage)}
               className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-[rgb(var(--ink-muted))] hover:text-[rgb(var(--ink))] hover:bg-[rgb(var(--tint))]/[0.06] transition-colors"
-              title="Customize Theme"
+              title="Customize Theme" aria-label="Customize theme"
             >
               <ImageIcon className="h-3 w-3 text-emerald-400" />
               <span>Theme</span>
@@ -118,22 +116,22 @@ export function Navbar() {
                   ? 'text-emerald-400 bg-emerald-500/15 font-semibold'
                   : 'text-[rgb(var(--ink-muted))] hover:text-[rgb(var(--ink-secondary))] hover:bg-[rgb(var(--tint))]/[0.06]'
               }`}
-              title="Toggle ambient study audio"
+              title="Music and white noise" aria-label="Music and white noise"
             >
               {isPlayingSound ? (
                 <Volume2 className="h-3 w-3 text-emerald-400 animate-pulse" />
               ) : (
                 <VolumeX className="h-3 w-3 text-[rgb(var(--ink-muted))]" />
               )}
-              <span className="capitalize">{activeSound}</span>
+              <span className="hidden sm:inline">Audio</span>
             </button>
-          </div>
+          </div>}
 
           {/* Login or User Profile */}
           {user ? (
             <div className="relative">
               <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
+                onClick={() => setShowUserMenu(!showUserMenu)} aria-label="Account menu" aria-expanded={showUserMenu}
                 className="flex items-center gap-2 rounded-lg border border-[rgb(var(--tint))]/[0.08] bg-[rgb(var(--tint))]/[0.03] p-1.5 pr-2.5 hover:bg-[rgb(var(--tint))]/[0.06] transition-colors"
               >
                 <img
@@ -157,14 +155,14 @@ export function Navbar() {
                     className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[rgb(var(--ink-secondary))] hover:text-[rgb(var(--ink))] hover:bg-[rgb(var(--tint))]/[0.05] transition-colors"
                   >
                     <User className="h-4 w-4 text-[rgb(var(--ink-muted))]" />
-                    <span>Profile & Stats</span>
+                    <span>Profile</span>
                   </Link>
                   <Link
-                    href="/dashboard"
+                    href="/settings"
                     onClick={() => setShowUserMenu(false)}
                     className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[rgb(var(--ink-secondary))] hover:text-[rgb(var(--ink))] hover:bg-[rgb(var(--tint))]/[0.05] transition-colors"
                   >
-                    <span>Dashboard</span>
+                    <span>Settings</span>
                   </Link>
                   <div className="my-1 border-t border-[rgb(var(--tint))]/[0.06]" />
                   <button
@@ -180,34 +178,34 @@ export function Navbar() {
                 </div>
               )}
             </div>
-          ) : (
+          ) : !loading && pathname !== '/login' && (
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[rgb(var(--action))] text-[rgb(var(--action-ink))] font-semibold text-xs hover:bg-[rgb(var(--action-hover))] transition-colors shadow-sm"
               >
                 <LogIn className="h-3.5 w-3.5" />
-                <span>Login</span>
+                <span>Log in</span>
               </Link>
             </div>
           )}
 
           {/* Mobile hamburger */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          {user && <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-expanded={mobileMenuOpen}
             className="p-1.5 rounded-lg text-[rgb(var(--ink-muted))] hover:text-[rgb(var(--ink))] md:hidden"
             aria-label="Toggle navigation menu"
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          </button>}
         </div>
       </div>
 
       {/* Mobile Dropdown Menu */}
-      {mobileMenuOpen && (
+      {user && mobileMenuOpen && (
         <div className="md:hidden border-t border-[rgb(var(--tint))]/[0.07] bg-[rgb(var(--sidebar))] px-4 py-3 space-y-1">
           <Link
-            href="/"
+            href="/dashboard"
             onClick={() => setMobileMenuOpen(false)}
             className={`block px-3 py-2 rounded-lg text-xs font-medium ${
               isHomeActive ? 'bg-[rgb(var(--tint))]/[0.08] text-[rgb(var(--ink))]' : 'text-[rgb(var(--ink-secondary))] hover:bg-[rgb(var(--tint))]/[0.04]'
@@ -222,7 +220,7 @@ export function Navbar() {
               isJoinRoomActive ? 'bg-[rgb(var(--tint))]/[0.08] text-[rgb(var(--ink))]' : 'text-[rgb(var(--ink-secondary))] hover:bg-[rgb(var(--tint))]/[0.04]'
             }`}
           >
-            Join Room
+            Join Rooms
           </Link>
           <Link
             href="/leaderboard"
@@ -233,13 +231,13 @@ export function Navbar() {
           >
             Leaderboard
           </Link>
-          {!user && (
+          {user && (
             <Link
-              href="/login"
+              href="/profile"
               onClick={() => setMobileMenuOpen(false)}
               className="block px-3 py-2 rounded-lg text-xs font-semibold text-emerald-400 hover:bg-emerald-500/10"
             >
-              Login
+              Profile
             </Link>
           )}
         </div>

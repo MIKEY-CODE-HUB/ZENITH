@@ -473,7 +473,7 @@ export default function LiveRoomPage() {
       <div
         className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out"
         style={{
-          backgroundImage: `url(${currentAtmosphere.bgImageUrl})`,
+          backgroundImage: currentAtmosphere.bgImageUrl ? `url(${currentAtmosphere.bgImageUrl})` : undefined,
         }}
       />
       <div

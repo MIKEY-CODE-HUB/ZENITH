@@ -144,7 +144,7 @@ export default function RoomsPage() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-[#09090b] text-zinc-100">
+    <div className="flex min-h-[calc(100vh-4rem)] text-zinc-100">
       <Sidebar />
 
       <main className="flex-1 p-6 sm:p-10 max-w-7xl mx-auto space-y-8">

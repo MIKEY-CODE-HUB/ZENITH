@@ -1,11 +1,14 @@
+import { COZY_THEMES, cozyGradient } from './cozyThemes';
+import type { AmbientSound } from './ambientAudio';
+
 export interface Scenery {
   id: string;
   name: string;
   tagline: string;
-  category: 'Cozy' | 'Lofi' | 'Nature' | 'Dark Academia' | 'Minimal';
+  category: string;
   bgImageUrl: string;
   gradientOverlay: string;
-  defaultSound: 'rain' | 'fire' | 'cafe' | 'forest' | 'alpha';
+  defaultSound: AmbientSound;
   accentColor: string;
 }
 
@@ -81,3 +84,11 @@ export const SCENERIES: Scenery[] = [
     accentColor: '#10b981',
   },
 ];
+
+SCENERIES.unshift(...COZY_THEMES.map(theme => ({
+  id: theme.id, name: theme.name, tagline: theme.group, category: theme.group,
+  bgImageUrl: theme.art ? `/scenery/${theme.art}.webp` : '',
+  gradientOverlay: cozyGradient(theme.glow, theme.base),
+  defaultSound: theme.art === 'rain' ? 'rain' as const : 'white' as const,
+  accentColor: theme.glow,
+})));

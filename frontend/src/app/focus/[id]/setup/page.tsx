@@ -91,7 +91,7 @@ export default function PreSessionSetupPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-6 bg-[#09090b] text-zinc-100">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-6  text-zinc-100">
       <div className="w-full max-w-lg rounded-2xl bg-[#121215] border border-white/[0.08] p-6 sm:p-8 shadow-2xl space-y-6">
         {/* Header */}
         <div className="text-center space-y-1.5 border-b border-white/[0.06] pb-5">
@@ -135,7 +135,7 @@ export default function PreSessionSetupPage() {
               </div>
             )}
 
-            <div className="absolute bottom-2.5 flex items-center gap-2 bg-[#09090b]/80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10">
+            <div className="absolute bottom-2.5 flex items-center gap-2 /80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10">
               <button
                 onClick={toggleCamera}
                 className={`p-1 rounded text-xs transition-colors ${

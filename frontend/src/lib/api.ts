@@ -1,4 +1,4 @@
-import { BlockedResource, BlockerStatistics, FocusEvent, FocusGoal, FocusSession, ScoreBreakdown, User, Room } from './types';
+import { BlockedResource, BlockerStatistics, FocusEvent, FocusGoal, FocusSession, UserProfile, ScoreBreakdown, User, Room } from './types';
 
 const getApiBaseUrl = () => {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -391,7 +391,7 @@ class ApiClient {
 
   // User Profile & Settings & Leaderboard
   async getProfile() {
-    return this.request<{ success: boolean; profile: any }>('/users/profile');
+    return this.request<{ success: boolean; profile: UserProfile }>('/users/profile');
   }
 
   async exportAccountData() {

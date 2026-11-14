@@ -23,6 +23,7 @@ export function AtmosphereSelectorModal({
 
   const categories = [
     'All',
+    'COZY',
     'TECH',
     'ATMOSPHERE',
     'LIBRARY / STUDY',

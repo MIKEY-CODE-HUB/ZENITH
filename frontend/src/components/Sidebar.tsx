@@ -24,8 +24,8 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   const navItems = [
-    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Rooms', href: '/rooms', icon: Radio, badge: 'Live' },
+    { label: 'Home', href: '/dashboard', icon: LayoutDashboard },
+    { label: 'Join Rooms', href: '/rooms', icon: Radio, badge: 'Live' },
     { label: 'Distraction Shield', href: '/blocker', icon: Shield },
     { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
     { label: 'Achievements', href: '/achievements', icon: Award },

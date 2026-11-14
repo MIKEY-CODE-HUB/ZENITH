@@ -2,13 +2,30 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SCENERIES, Scenery } from '@/lib/sceneries';
-import { ambientSound } from '@/lib/ambientAudio';
+import { ambientSound, type AmbientSound } from '@/lib/ambientAudio';
 
-export type SceneryPage = 'home' | 'dashboard';
+export type SceneryPage = 'home' | 'dashboard' | 'rooms' | 'leaderboard' | 'workspace';
+
+export const SCENERY_PAGES: Record<SceneryPage, string> = {
+  home: 'Welcome', dashboard: 'Home', rooms: 'Join Rooms', leaderboard: 'Leaderboard', workspace: 'Other pages',
+};
+
+export function getSceneryPage(path: string): SceneryPage | null {
+  const section = path.split('/')[1];
+  if (['blocker', 'profile', 'settings'].includes(section)) return null;
+  if (!section || section === 'login' || section === 'signup' || section === 'welcome') return 'home';
+  if (section === 'dashboard') return 'dashboard';
+  if (section === 'rooms' || section === 'leaderboard') return section;
+  if (section === 'focus' && /^\/focus\/[^/]+\/?$/.test(path)) return null;
+  return 'workspace';
+}
 
 const PAGE_SCENERY_KEYS = {
   home: 'zenith_home_scenery_id',
   dashboard: 'zenith_dashboard_scenery_id',
+  rooms: 'zenith_rooms_scenery_id',
+  leaderboard: 'zenith_leaderboard_scenery_id',
+  workspace: 'zenith_workspace_scenery_id',
 } satisfies Record<SceneryPage, string>;
 
 interface AmbientContextType {
@@ -19,10 +36,10 @@ interface AmbientContextType {
   currentScenery: Scenery;
   setSceneryId: (id: string) => void;
   isPlayingSound: boolean;
-  activeSound: 'rain' | 'fire' | 'cafe' | 'forest' | 'alpha';
+  activeSound: AmbientSound;
   volume: number;
   toggleSound: () => void;
-  changeSound: (type: 'rain' | 'fire' | 'cafe' | 'forest' | 'alpha') => void;
+  changeSound: (type: AmbientSound) => void;
   changeVolume: (val: number) => void;
   isZenMode: boolean;
   toggleZenMode: () => void;
@@ -38,11 +55,14 @@ export function AmbientProvider({ children }: { children: React.ReactNode }) {
   const [pageSceneries, setPageSceneries] = useState<Record<SceneryPage, Scenery | null>>({
     home: null,
     dashboard: null,
+    rooms: null,
+    leaderboard: null,
+    workspace: null,
   });
   const [sceneryPage, setSceneryPage] = useState<SceneryPage>('home');
   const [currentScenery, setCurrentScenery] = useState<Scenery>(SCENERIES[0]);
   const [isPlayingSound, setIsPlayingSound] = useState(false);
-  const [activeSound, setActiveSound] = useState<'rain' | 'fire' | 'cafe' | 'forest' | 'alpha'>('rain');
+  const [activeSound, setActiveSound] = useState<AmbientSound>('rain');
   const [volume, setVolume] = useState(0.4);
   const [isZenMode, setIsZenMode] = useState(false);
   const [isSceneryModalOpen, setIsSceneryModalOpen] = useState(false);
@@ -55,7 +75,7 @@ export function AmbientProvider({ children }: { children: React.ReactNode }) {
         const id = localStorage.getItem(PAGE_SCENERY_KEYS[page]);
         return SCENERIES.find(scenery => scenery.id === id) ?? null;
       };
-      setPageSceneries({ home: loadPageScenery('home'), dashboard: loadPageScenery('dashboard') });
+      setPageSceneries({ home: loadPageScenery('home'), dashboard: loadPageScenery('dashboard'), rooms: loadPageScenery('rooms'), leaderboard: loadPageScenery('leaderboard'), workspace: loadPageScenery('workspace') });
       const savedSceneryId = localStorage.getItem('zenith_scenery_id');
       if (savedSceneryId) {
         const found = SCENERIES.find((s) => s.id === savedSceneryId);
@@ -116,7 +136,7 @@ export function AmbientProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const changeSound = (type: 'rain' | 'fire' | 'cafe' | 'forest' | 'alpha') => {
+  const changeSound = (type: AmbientSound) => {
     setActiveSound(type);
     if (isPlayingSound) {
       ambientSound.play(type);

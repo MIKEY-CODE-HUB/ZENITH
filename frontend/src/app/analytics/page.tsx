@@ -141,7 +141,7 @@ export default function AnalyticsPage() {
   const maxDayMinutes = Math.max(...days.map((d) => d.focusedMinutes), 60);
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-[#09090b] text-zinc-100">
+    <div className="flex min-h-[calc(100vh-4rem)] text-zinc-100">
       <Sidebar />
 
       <main className="flex-1 p-5 sm:p-8 max-w-6xl mx-auto space-y-7">
@@ -191,7 +191,7 @@ export default function AnalyticsPage() {
 
         {/* 2. FOCUS OVERVIEW STRIP (4 Key Metrics) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-xl bg-[#121215] border border-white/[0.07] space-y-1">
+          <div className="p-4 rounded-xl bg-[#211c19]/95 border border-white/[0.07] space-y-1">
             <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
               <span>Total Focus Time</span>
               <Clock className="h-3.5 w-3.5 text-zinc-400" />
@@ -202,7 +202,7 @@ export default function AnalyticsPage() {
             <p className="text-[11px] text-zinc-500">Verified session duration</p>
           </div>
 
-          <div className="p-4 rounded-xl bg-[#121215] border border-white/[0.07] space-y-1">
+          <div className="p-4 rounded-xl bg-[#211c19]/95 border border-white/[0.07] space-y-1">
             <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
               <span>Completed Sessions</span>
               <Target className="h-3.5 w-3.5 text-zinc-400" />
@@ -213,7 +213,7 @@ export default function AnalyticsPage() {
             <p className="text-[11px] text-zinc-500">Rooms fully completed</p>
           </div>
 
-          <div className="p-4 rounded-xl bg-[#121215] border border-white/[0.07] space-y-1">
+          <div className="p-4 rounded-xl bg-[#211c19]/95 border border-white/[0.07] space-y-1">
             <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
               <span>Avg Session Length</span>
               <Layers className="h-3.5 w-3.5 text-zinc-400" />
@@ -224,7 +224,7 @@ export default function AnalyticsPage() {
             <p className="text-[11px] text-zinc-500">Target: 45-60 minutes</p>
           </div>
 
-          <div className="p-4 rounded-xl bg-[#121215] border border-white/[0.07] space-y-1">
+          <div className="p-4 rounded-xl bg-[#211c19]/95 border border-white/[0.07] space-y-1">
             <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
               <span>Focus Rate</span>
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
@@ -242,7 +242,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* 3. DAY-OF-WEEK DISTRIBUTION (Monday - Sunday Bar Graph) */}
-        <div className="p-6 rounded-2xl bg-[#121215] border border-white/[0.08] space-y-5">
+        <div className="p-6 rounded-2xl bg-[#211c19]/95 border border-white/[0.08] space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
             <div>
               <h2 className="text-sm font-semibold text-white">Day-of-Week Distribution</h2>
@@ -299,7 +299,7 @@ export default function AnalyticsPage() {
         {/* 4. STREAKS & PERSONAL RECORDS (2 Columns) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Consistency & Streaks Card */}
-          <div className="p-6 rounded-2xl bg-[#121215] border border-white/[0.08] space-y-4">
+          <div className="p-6 rounded-2xl bg-[#211c19]/95 border border-white/[0.08] space-y-4">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
               <div className="flex items-center gap-2">
                 <Flame className="h-4 w-4 text-amber-400" />
@@ -334,7 +334,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Personal Records Card */}
-          <div className="p-6 rounded-2xl bg-[#121215] border border-white/[0.08] space-y-4">
+          <div className="p-6 rounded-2xl bg-[#211c19]/95 border border-white/[0.08] space-y-4">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
               <div className="flex items-center gap-2">
                 <Trophy className="h-4 w-4 text-amber-400" />
@@ -389,7 +389,7 @@ export default function AnalyticsPage() {
         {/* 5. TOP DISTRACTION SOURCES & BEHAVIORAL INSIGHT (2 Columns) */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* Top Distraction Sources Breakdown (5 cols) */}
-          <div className="md:col-span-5 p-6 rounded-2xl bg-[#121215] border border-white/[0.08] space-y-4">
+          <div className="md:col-span-5 p-6 rounded-2xl bg-[#211c19]/95 border border-white/[0.08] space-y-4">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="h-4 w-4 text-rose-400" />
@@ -425,7 +425,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Personalized Cognitive Insight Card (7 cols) */}
-          <div className="md:col-span-7 p-6 rounded-2xl bg-[#121215] border border-white/[0.08] space-y-4 flex flex-col justify-between">
+          <div className="md:col-span-7 p-6 rounded-2xl bg-[#211c19]/95 border border-white/[0.08] space-y-4 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
                 <div className="flex items-center gap-2">

@@ -63,7 +63,7 @@ export default function SessionSummaryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-[#09090b]">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center ">
         <div className="flex flex-col items-center gap-3">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white" />
           <p className="text-xs text-zinc-400 font-medium">Calculating session summary...</p>
@@ -74,7 +74,7 @@ export default function SessionSummaryPage() {
 
   if (error || !session) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-[#09090b]">
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 ">
         <div className="rounded-xl bg-[#121215] border border-white/[0.08] p-6 max-w-sm text-center space-y-3">
           <p className="text-xs font-medium text-rose-400">Session not found</p>
           <button
@@ -118,7 +118,7 @@ export default function SessionSummaryPage() {
   const blockAttemptsCount = session.blockAttemptCount || (session.blockAttempts?.length || 0);
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] max-w-4xl mx-auto p-5 sm:p-8 space-y-6 bg-[#09090b] text-zinc-100">
+    <div className="min-h-[calc(100vh-4rem)] max-w-4xl mx-auto p-5 sm:p-8 space-y-6  text-zinc-100">
       {/* 1. Header Banner */}
       <div className="text-center space-y-2 border-b border-white/[0.06] pb-6">
         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-zinc-400 text-xs font-medium">

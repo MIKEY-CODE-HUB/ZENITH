@@ -3,6 +3,7 @@ import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SocketProvider } from '@/contexts/SocketContext';
 import { AmbientProvider } from '@/contexts/AmbientContext';
+import { ScenerySurface } from '@/components/ScenerySurface';
 import { Navbar } from '@/components/Navbar';
 import { ScenerySelectorModal } from '@/components/ScenerySelectorModal';
 import { AmbientSoundMixer } from '@/components/AmbientSoundMixer';
@@ -30,7 +31,7 @@ export default function RootLayout({
             <AmbientProvider>
               <div className="flex min-h-screen flex-col">
                 <Navbar />
-                <main className="flex-1">{children}</main>
+                <ScenerySurface>{children}</ScenerySurface>
                 <ScenerySelectorModal />
                 <AmbientSoundMixer />
               </div>

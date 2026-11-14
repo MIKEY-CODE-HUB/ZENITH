@@ -126,7 +126,7 @@ export function FloatingControlDock({
             <div className="space-y-3">
               <p className="text-[11px] text-zinc-400">Select an immersive atmosphere for your study canvas.</p>
               <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto no-scrollbar pr-1">
-                {ATMOSPHERES.slice(0, 8).map((atm) => {
+                {ATMOSPHERES.map((atm) => {
                   const isSelected = atm.id === currentAtmosphere.id;
                   return (
                     <button

@@ -304,3 +304,20 @@ export interface DashboardStats {
   recentSessions: FocusSession[];
   insights: string[];
 }
+
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  username: string;
+  email?: string | null;
+  avatarUrl?: string | null;
+  preferredActivity: string;
+  typicalDuration: number;
+  currentStreak: number;
+  totalFocusedMinutes: number;
+  totalSessionsCount: number;
+  averageFocusScore: number;
+  bestFocusScore: number;
+  userAchievements: { id: string; achievement?: { title: string; icon: string; category: string } }[];
+}

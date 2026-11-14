@@ -118,20 +118,20 @@ export default function DashboardPage() {
 
   if (authLoading || !user || loading || dashboardError) {
     return (
-      <main className="grid min-h-screen place-content-center gap-3 bg-zinc-950 p-6 text-zinc-100">
-        {dashboardError ? <p role="alert">{dashboardError}</p> : <p role="status">Loading your dashboard…</p>}
+      <main className="grid min-h-screen place-content-center gap-3 p-6 text-zinc-100">
+        {dashboardError ? <p role="alert">{dashboardError}</p> : <p role="status">Loading your home…</p>}
         {dashboardError && <button className="text-sky-300 underline" onClick={() => window.location.reload()}>Retry</button>}
       </main>
     );
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-[rgb(var(--page))] text-[rgb(var(--ink))]">
+    <div className="flex min-h-[calc(100vh-4rem)] text-zinc-100">
       <Sidebar />
 
       <main className="min-w-0 flex-1 p-5 sm:p-9 max-w-6xl mx-auto space-y-9">
         {/* Dynamic Atmospheric Hero Banner */}
-        <div className={`relative p-6 sm:p-9 rounded-3xl bg-gradient-to-r ${vibe.accent} bg-[#10121a] border border-white/[0.08] shadow-2xl overflow-hidden`}>
+        <div className={`relative p-6 sm:p-9 rounded-3xl bg-gradient-to-r ${vibe.accent} bg-[#211c19] border border-white/[0.08] shadow-2xl overflow-hidden`}>
           {pageSceneries.dashboard && (
             <div className="absolute inset-0 bg-cover bg-center" aria-hidden="true" style={{
               backgroundImage: pageSceneries.dashboard.bgImageUrl
@@ -242,7 +242,7 @@ export default function DashboardPage() {
         )}
 
         {/* Weekly Progress & Verified Points Ledger */}
-        <div className="p-6 sm:p-7 rounded-3xl bg-[#10121a] border border-white/[0.08] shadow-xl space-y-4">
+        <div className="p-6 sm:p-7 rounded-3xl bg-[#211c19] border border-white/[0.08] shadow-xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Weekly Momentum</span>
@@ -384,7 +384,7 @@ export default function DashboardPage() {
               return (
                 <div
                   key={room.id}
-                  className="p-5 rounded-3xl bg-[#10121a] border border-white/[0.08] hover:border-white/20 transition-all space-y-4 shadow-xl relative overflow-hidden group"
+                  className="p-5 rounded-3xl bg-[#211c19] border border-white/[0.08] hover:border-white/20 transition-all space-y-4 shadow-xl relative overflow-hidden group"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

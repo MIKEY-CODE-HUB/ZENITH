@@ -33,7 +33,7 @@ export default function AchievementsPage() {
   }, []);
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-[#09090b] text-zinc-100">
+    <div className="flex min-h-[calc(100vh-4rem)] text-zinc-100">
       <Sidebar />
 
       <main className="flex-1 p-5 sm:p-8 max-w-7xl mx-auto space-y-8">
@@ -51,7 +51,7 @@ export default function AchievementsPage() {
             </p>
           </div>
 
-          <div className="px-3.5 py-1.5 rounded-lg bg-[#121215] border border-white/[0.08] text-xs font-medium text-zinc-300 flex items-center gap-2">
+          <div className="px-3.5 py-1.5 rounded-lg bg-[#211c19]/95 border border-white/[0.08] text-xs font-medium text-zinc-300 flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
             <span>Unlocked: {unlockedCount} of {totalCount}</span>
           </div>
