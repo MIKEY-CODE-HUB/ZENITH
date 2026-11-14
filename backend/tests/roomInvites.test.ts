@@ -86,3 +86,71 @@ test('private room invites authorize entry, can be rotated and revoked, and expi
     await prisma.user.deleteMany({ where: { id: { in: [owner.id, guest.id, outsider.id] } } });
   }
 });
+
+test('hosting returns a private room and a revocable code that admits members', async () => {
+  const owner = await prisma.user.create({ data: { name: 'Code Host', username: randomUUID() } });
+  const guest = await prisma.user.create({ data: { name: 'Code Guest', username: randomUUID() } });
+  const server = app.listen(0, '127.0.0.1');
+  let roomId: string | undefined;
+  try {
+    await new Promise<void>((resolve, reject) => server.once('listening', resolve).once('error', reject));
+    const address = server.address();
+    assert(address && typeof address !== 'string');
+    const base = `http://127.0.0.1:${address.port}/api/rooms`;
+    const request = (path: string, user: typeof owner | undefined, method = 'GET', body?: object) =>
+      fetch(base + path, {
+        method,
+        headers: {
+          'content-type': 'application/json',
+          ...(user ? { authorization: `Bearer ${generateToken({ userId: user.id, username: user.username })}` } : {}),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+    assert.equal((await request('/host', undefined, 'POST', { name: 'Study with a code' })).status, 401);
+    const hosted = await request('/host', owner, 'POST', { name: 'Study with a code', isPrivate: true });
+    assert.equal(hosted.status, 201);
+    assert.equal(hosted.headers.get('cache-control'), 'no-store');
+    const { room, invitation } = await hosted.json();
+    roomId = room.id as string;
+    assert.equal(room.isPrivate, true);
+    assert.match(invitation.code, /^(?:[0-9A-F]{4}-){3}[0-9A-F]{4}$/);
+    const stored = await prisma.roomInvite.findUniqueOrThrow({ where: { roomId } });
+    assert.notEqual(stored.codeHash, invitation.code);
+    assert.equal((await request(`/${roomId}`, guest)).status, 404);
+    assert.equal((await request('/join-by-code', undefined, 'POST', { inviteCode: invitation.code })).status, 401);
+    assert.equal((await request('/join-by-code', guest, 'POST', { inviteCode: 'DEAD-BEEF-0000-0000' })).status, 404);
+
+    const enter = (code: string) => request('/join-by-code', guest, 'POST', { inviteCode: code });
+    const first = await enter(invitation.code.toLowerCase().replace(/-/g, ' '));
+    assert.equal(first.status, 200);
+    assert.equal((await first.json()).participant.role, 'MEMBER');
+    assert.equal((await request(`/${roomId}`, guest)).status, 200);
+    const host = await request(`/${roomId}/join`, owner, 'POST');
+    assert.equal(host.status, 200);
+    assert.equal((await host.json()).participant.role, 'HOST');
+
+    const rotated = await request(`/${roomId}/invite`, owner, 'POST');
+    assert.equal(rotated.status, 200);
+    const replacement = await rotated.json();
+    assert.equal((await enter(invitation.code)).status, 404);
+    await prisma.roomInvite.update({ where: { roomId }, data: { expiresAt: new Date(0) } });
+    assert.equal((await enter(replacement.code)).status, 404);
+    assert.equal((await request(`/${roomId}/invite`, owner, 'DELETE')).status, 200);
+    assert.equal((await enter(replacement.code)).status, 404);
+
+    await prisma.room.update({ where: { id: roomId }, data: { category: 'INTERACTION' } });
+    const paidInvite = await request(`/${roomId}/invite`, owner, 'POST');
+    const { code: paidCode } = await paidInvite.json();
+    assert.equal((await enter(paidCode)).status, 402);
+    await prisma.pointTransaction.create({ data: { userId: guest.id, amount: 20, type: 'SESSION_COMPLETED', source: 'SESSION' } });
+    const confirm = () => request('/join-by-code', guest, 'POST', { inviteCode: paidCode, confirmInteraction: true });
+    assert.deepEqual((await Promise.all([confirm(), confirm()])).map(response => response.status), [200, 200]);
+    const debits = await prisma.pointTransaction.findMany({ where: { userId: guest.id, source: 'INTERACTION_ENTRY' } });
+    assert.deepEqual(debits.map(debit => debit.amount), [-6]);
+  } finally {
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    if (roomId) await prisma.room.delete({ where: { id: roomId } });
+    await prisma.user.deleteMany({ where: { id: { in: [owner.id, guest.id] } } });
+  }
+});

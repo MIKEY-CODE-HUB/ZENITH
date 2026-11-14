@@ -9,16 +9,14 @@ import {
   Search,
   Plus,
   Users,
-  MessageSquare,
   Mic,
+  MessageSquare,
   Video,
   Lock,
-  Star,
-  GraduationCap,
-  Dumbbell,
-  Compass,
   ArrowRight,
   ShieldAlert,
+  KeyRound,
+  Shuffle,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -28,7 +26,15 @@ export default function RoomsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [search, setSearch] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [roomAction, setRoomAction] = useState<'host' | 'member' | null>(null);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const action = url.searchParams.get('roomAction');
+    if (action !== 'host' && action !== 'member') return;
+    setRoomAction(action);
+    url.searchParams.delete('roomAction');
+    window.history.replaceState(window.history.state, '', url);
+  }, []);
 
   // Interaction Entry Modal State
   const [interactionRoomToJoin, setInteractionRoomToJoin] = useState<Room | null>(null);
@@ -42,11 +48,11 @@ export default function RoomsPage() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   const categories = [
-    { id: 'All', label: 'All Rooms', icon: null },
-    { id: 'EDUCATION', label: 'Education', icon: GraduationCap },
-    { id: 'EXERCISE', label: 'Exercise', icon: Dumbbell },
-    { id: 'SIDE_QUEST', label: 'Side Quest', icon: Compass },
-    { id: 'INTERACTION', label: 'Interaction (Voice)', icon: MessageSquare },
+    { id: 'All', label: 'All Rooms' },
+    { id: 'EDUCATION', label: 'Education' },
+    { id: 'EXERCISE', label: 'Exercise' },
+    { id: 'SIDE_QUEST', label: 'Side Quest' },
+    { id: 'INTERACTION', label: 'Interaction' },
   ];
 
   const [roomListError, setRoomListError] = useState<string | null>(null);
@@ -112,11 +118,11 @@ export default function RoomsPage() {
   const [matchmaking, setMatchmaking] = useState<boolean>(false);
   const [matchmakeError, setMatchmakeError] = useState<string | null>(null);
 
-  const handleDynamicMatchmake = async (cat?: string) => {
+  const handleDynamicMatchmake = async () => {
     try {
       setMatchmaking(true);
       setMatchmakeError(null);
-      const targetCategory = cat || (selectedCategory === 'All' ? 'EDUCATION' : selectedCategory);
+      const targetCategory = selectedCategory === 'All' ? 'EDUCATION' : selectedCategory;
 
       let confirmInteraction = false;
       if (targetCategory === 'INTERACTION') {
@@ -147,91 +153,41 @@ export default function RoomsPage() {
     <div className="flex min-h-[calc(100vh-4rem)] text-zinc-100">
       <Sidebar />
 
-      <main className="flex-1 p-6 sm:p-10 max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-6">
+      <main className="zenith-room-content mx-auto min-w-0 flex-1 px-4 py-6 sm:px-7 sm:py-9 xl:px-10">
+        <header className="zenith-room-intro cozy-glass">
           <div>
-            <h1 className="text-3xl font-semibold text-white tracking-tight">Focus & Interaction Rooms</h1>
-            <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-              Find a quiet place to work or join a room with voice.
-            </p>
+            <h1 className="font-serif text-4xl tracking-tight text-[#fff5e9] sm:text-5xl">Focus rooms</h1>
+            <p className="mt-2 max-w-md text-sm leading-relaxed text-[#e3d1c0]">Find a room to study, train, or work alongside others.</p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => handleDynamicMatchmake()}
-              disabled={matchmaking}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white text-xs font-semibold transition-all shadow-md disabled:opacity-50"
-            >
-              <span>{matchmaking ? 'Finding a room…' : 'Quick Match'}</span>
-            </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-zinc-950 text-xs font-semibold hover:bg-zinc-100 transition-colors shadow-sm"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Create Room</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Dynamic Matchmaking Feature Card */}
-        <div className="rounded-2xl p-5 cozy-glass bg-gradient-to-br from-sky-950/35 to-transparent border border-sky-500/20 backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl">
-          <div className="space-y-1">
-            <h3 className="text-base font-semibold text-white tracking-tight">
-              Find an open seat
-            </h3>
-            <p className="text-xs text-zinc-400 max-w-xl">
-              Choose a category and Zenith will find a room with space.
-            </p>
-            {matchmakeError && <p className="text-xs text-rose-400 font-medium pt-1">{matchmakeError}</p>}
-          </div>
-
           <div className="flex flex-wrap items-center gap-2">
-            {(['EDUCATION', 'EXERCISE', 'SIDE_QUEST', 'INTERACTION'] as const).map((cat) => (
-              <button
-                key={cat}
-                onClick={() => handleDynamicMatchmake(cat)}
-                disabled={matchmaking}
-                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium border border-white/10 transition-colors capitalize disabled:opacity-50"
-              >
-                Join {cat.replace('_', ' ').toLowerCase()}
-              </button>
+            <button type="button" onClick={() => setRoomAction('member')} className="zenith-room-quiet">
+              <KeyRound size={16} /> Join with code
+            </button>
+            <button type="button" onClick={() => setRoomAction('host')} className="zenith-room-primary">
+              <Plus size={17} /> Create room
+            </button>
+          </div>
+        </header>
+
+        <div className="zenith-room-toolbar cozy-glass">
+          <div role="group" aria-label="Room category" className="flex flex-wrap gap-1.5">
+            {categories.map(({ id, label }) => (
+              <button type="button" key={id} aria-pressed={selectedCategory === id} onClick={() => setSelectedCategory(id)}
+                className="zenith-room-tab">{label}</button>
             ))}
           </div>
+          <form onSubmit={handleSearchSubmit} role="search" className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3.5 top-3.5 h-4 w-4 text-[#e3d1c0]" aria-hidden />
+            <input type="search" aria-label="Search rooms" placeholder="Search rooms" value={search}
+              onChange={event => setSearch(event.target.value)} className="zenith-room-field !mt-0 !pl-10" />
+          </form>
+          <button type="button" onClick={() => handleDynamicMatchmake()} disabled={matchmaking} className="zenith-room-quiet justify-center">
+            <Shuffle size={16} /> {matchmaking ? 'Finding a room…' : 'Quick match'}
+          </button>
         </div>
+        {matchmakeError && <p role="alert" className="mb-4 text-sm text-rose-100">{matchmakeError}</p>}
 
-        {/* Category Tabs */}
-        <div className="flex flex-wrap gap-2 border-b border-white/[0.06] pb-3">
-          {categories.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setSelectedCategory(c.id)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                selectedCategory === c.id
-                  ? 'bg-white text-zinc-950 font-semibold shadow-sm'
-                  : 'bg-white/[0.03] text-zinc-400 hover:text-white hover:bg-white/[0.08]'
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Search */}
-        <form onSubmit={handleSearchSubmit} className="relative max-w-md">
-          <Search className="absolute left-3.5 top-3 h-4 w-4 text-zinc-500" />
-          <input
-            type="text"
-            placeholder="Search rooms by name or topic..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl bg-white/[0.03] border border-white/[0.08] pl-10 pr-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:border-white/20 focus:outline-none transition-colors"
-          />
-        </form>
-
-        {/* Room Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="zenith-room-grid">
           {loading && <p role="status">Loading rooms…</p>}
           {!loading && roomListError && (
             <div role="alert">
@@ -244,76 +200,28 @@ export default function RoomsPage() {
             const isInteraction = room.category === 'INTERACTION';
             const isFull = room.activeParticipantsCount >= room.maxParticipants;
 
+            const categoryLabel = categories.find(category => category.id === room.category)?.label ?? 'Focus';
             return (
-              <div
-                key={room.id}
-                className="group relative rounded-2xl cozy-glass border border-white/[0.07] hover:border-white/15 p-5 transition-all duration-300 flex flex-col justify-between space-y-4 hover:shadow-xl hover:shadow-black/40"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-base font-bold text-white tracking-wider">{room.name}</span>
-                    <span
-                      className={`text-[10px] font-mono px-2.5 py-1 rounded-md border ${
-                        isInteraction
-                          ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
-                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      }`}
-                    >
-                      {isInteraction ? '6 people max' : room.category}
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-zinc-400 mt-2 line-clamp-2 leading-relaxed">{room.description}</p>
-
-                  {room.topic && (
-                    <div className="mt-2.5 p-2 rounded-lg bg-amber-500/5 border border-amber-500/15 text-[11px] text-amber-200">
-                      Topic: <span className="font-semibold text-white">{room.topic}</span>
-                    </div>
-                  )}
-
-                  <div className="mt-3 flex items-center gap-3 text-xs text-zinc-400">
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5 text-zinc-500" />
-                      <span className="font-mono text-zinc-300">
-                        {room.activeParticipantsCount} / {room.maxParticipants}
-                      </span>
-                    </div>
-                    {isInteraction && (
-                      <div className="flex items-center gap-1 text-amber-400">
-                        <Mic className="h-3.5 w-3.5" />
-                        <span>Voice Enabled</span>
-                      </div>
-                    )}
-                    {room.defaultCamera && (
-                      <div className="flex items-center gap-1 text-zinc-400">
-                        <Video className="h-3.5 w-3.5 text-zinc-500" />
-                        <span>Camera</span>
-                      </div>
-                    )}
-                  </div>
+              <article key={room.id} className="zenith-room-card cozy-glass">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="min-w-0 break-words text-lg font-semibold tracking-tight text-[#fff5e9]">{room.name}</h2>
+                  <span className="rounded-full border border-[#edd4ae]/20 bg-[#edd4ae]/10 px-2.5 py-1 text-xs text-[#f7dfbc]">{categoryLabel}</span>
                 </div>
-
-                <div className="pt-4 border-t border-white/[0.06] flex items-center justify-between">
-                  <div className="text-[11px] font-mono text-zinc-500">
-                    Code: {room.roomCode}
+                {room.description && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[#e3d1c0]">{room.description}</p>}
+                {room.topic && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[#f0d2a6]">{room.topic}</p>}
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+                  <div className="flex flex-wrap items-center gap-2.5 text-xs text-[#ead6c3]">
+                    <span className="inline-flex items-center gap-1.5"><Users size={15} aria-hidden /> {room.activeParticipantsCount}/{room.maxParticipants}</span>
+                    {isInteraction && <span className="inline-flex items-center gap-1"><Mic size={14} aria-hidden /> Voice</span>}
+                    {room.defaultCamera && <span className="inline-flex items-center gap-1"><Video size={14} aria-hidden /> Camera</span>}
                   </div>
-
-                  <button
-                    onClick={() => handleRoomClick(room)}
-                    disabled={isFull}
-                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                      isFull
-                        ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                        : isInteraction
-                        ? 'bg-amber-400 text-zinc-950 hover:bg-amber-300 shadow-md font-bold'
-                        : 'bg-white/10 hover:bg-white text-zinc-100 hover:text-zinc-950'
-                    }`}
-                  >
-                    <span>{isFull ? 'Room Full' : isInteraction ? 'Enter (30% Points)' : 'Enter Room'}</span>
-                    {!isFull && <ArrowRight className="h-3.5 w-3.5" />}
+                  <button type="button" onClick={() => handleRoomClick(room)} disabled={isFull}
+                    className={isInteraction ? 'zenith-room-primary' : 'zenith-room-quiet'}>
+                    {isFull ? 'Full' : isInteraction ? 'Enter · 30% points' : 'Enter room'}
+                    {!isFull && <ArrowRight size={15} />}
                   </button>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
@@ -384,13 +292,7 @@ export default function RoomsPage() {
           </div>
         )}
 
-        <CreateRoomModal
-          isOpen={showCreateModal}
-          onClose={() => {
-            setShowCreateModal(false);
-            fetchRooms();
-          }}
-        />
+        {roomAction && <CreateRoomModal initialMode={roomAction} onClose={() => setRoomAction(null)} onCreated={fetchRooms} />}
       </main>
     </div>
   );

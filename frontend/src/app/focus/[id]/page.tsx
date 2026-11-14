@@ -499,7 +499,7 @@ export default function LiveRoomPage() {
         onExit={() => setShowExitConfirm(true)}
       />
 
-      {room?.isPrivate && room.creator?.id === user?.id && (
+      {room && user && room.creator?.id === user.id && (
         <details className="absolute left-4 top-16 z-30 max-w-[calc(100%-2rem)] rounded-xl bg-zinc-950/90 p-2 text-sm text-zinc-100">
           <summary className="cursor-pointer px-2 py-1">Room invite</summary>
           <RoomInviteControls roomId={room.id} />

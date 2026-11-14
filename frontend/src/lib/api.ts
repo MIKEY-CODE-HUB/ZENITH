@@ -13,6 +13,8 @@ const getApiBaseUrl = () => {
   return 'http://127.0.0.1:5001/api';
 };
 
+export type RoomInvitation = { token: string; code: string; expiresAt: string };
+
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number) { super(message); }
 }
@@ -186,7 +188,7 @@ class ApiClient {
     return this.request<{ success: boolean; iceServers: RTCIceServer[] }>(`/rooms/${roomId}/ice-servers`);
   }
 
-  async createRoom(body: {
+  async hostRoom(body: {
     name: string;
     description?: string;
     category?: string;
@@ -199,7 +201,7 @@ class ApiClient {
     camera: boolean;
     mic: boolean;
   }) {
-    return this.request<{ success: boolean; room: any }>('/rooms', {
+    return this.request<{ success: boolean; room: Room; invitation: RoomInvitation }>('/rooms/host', {
       method: 'POST',
       body: JSON.stringify(body),
     });
@@ -225,8 +227,14 @@ class ApiClient {
     });
   }
 
+  async joinRoomByCode(inviteCode: string, confirmInteraction = false) {
+    return this.request<{ success: boolean; room: Room }>('/rooms/join-by-code', {
+      method: 'POST', body: JSON.stringify({ inviteCode, confirmInteraction }),
+    });
+  }
+
   async createRoomInvite(roomId: string) {
-    return this.request<{ success: boolean; token: string; expiresAt: string }>(`/rooms/${roomId}/invite`, { method: 'POST' });
+    return this.request<{ success: boolean } & RoomInvitation>(`/rooms/${roomId}/invite`, { method: 'POST' });
   }
 
   async revokeRoomInvite(roomId: string) {

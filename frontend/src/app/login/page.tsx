@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+import { loginDestination, useAuth } from '@/contexts/AuthContext';
 import { AlertCircle, ArrowLeft, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 
@@ -65,8 +65,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (authLoading || !user) return;
-    const invite = new URLSearchParams(window.location.search).get('invite');
-    router.replace(invite && /^[a-f0-9-]{36}$/i.test(invite) ? `/invite/${invite}` : '/dashboard');
+    router.replace(loginDestination(window.location.search));
   }, [authLoading, user, router]);
 
   useEffect(() => {
@@ -88,8 +87,7 @@ export default function LoginPage() {
         setLoading(true);
         setError(null);
         try {
-          const invite = new URLSearchParams(window.location.search).get('invite');
-          await authCallback.current({ idToken: credential }, invite ?? undefined);
+          await authCallback.current({ idToken: credential });
         } catch (error) {
           setError(error instanceof Error ? error.message : 'Google sign-in failed.');
         } finally {

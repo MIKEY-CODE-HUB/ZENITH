@@ -1,21 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, BookOpen, Timer, Users } from 'lucide-react';
+import { ArrowRight, Timer, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function WelcomePage() {
   const { user, loading } = useAuth();
 
   return (
-    <main className="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-7xl flex-col justify-center px-6 py-14 text-[#fff2e4] sm:px-12 lg:px-20">
-      <div className="grid items-end gap-10 lg:grid-cols-[1.2fr_1fr]">
+    <main className="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-7xl flex-col justify-end px-5 pb-9 pt-24 text-[#fff2e4] sm:px-10 lg:px-16">
+      <div className="grid items-end gap-8 lg:grid-cols-[1.2fr_.75fr] lg:gap-14">
         <section className="space-y-6">
-          <div className="inline-flex rounded-2xl border border-white/20 bg-[#2c221c]/80 p-3 text-[#e3b891]">
-            <BookOpen size={23} aria-hidden />
-          </div>
-          <h1 className="max-w-xl font-serif text-6xl leading-[1.02] tracking-tight drop-shadow-lg sm:text-7xl lg:text-8xl">A quiet place to focus.</h1>
-          <p className="max-w-md text-lg leading-relaxed text-[#f0ddc9]">
+          <h1 className="max-w-xl font-serif text-5xl leading-[1.02] tracking-tight drop-shadow-lg sm:text-7xl lg:text-8xl">A quiet place to focus.</h1>
+          <p className="max-w-md text-base leading-relaxed text-[#f8e5d2] drop-shadow-lg sm:text-lg">
             Set a timer, put on something calming, and get to work. Study on your own or settle into a room with others.
           </p>
           <div className="flex flex-wrap items-center gap-5">
@@ -26,7 +23,7 @@ export default function WelcomePage() {
             {!loading && !user && <Link href="/login" className="text-sm font-medium text-[#ffe7cf] underline underline-offset-4">Already have an account? Log in</Link>}
           </div>
         </section>
-        <div className="max-w-md divide-y divide-[#f3ddc6]/15 rounded-2xl border border-[#f3ddc6]/15 bg-[#211b17]/80 px-5 shadow-lg backdrop-blur-sm">
+        <div className="max-w-md divide-y divide-[#f3ddc6]/15 rounded-2xl border border-[#f3ddc6]/15 bg-[#211b17]/70 px-5 shadow-lg backdrop-blur-sm">
           <div className="flex gap-4 py-5">
             <Timer size={19} className="mt-0.5 shrink-0 text-[#dcac80]" aria-hidden />
             <div><h2 className="font-medium">Focus at your own pace</h2><p className="mt-1 text-sm text-[#d6bcaa]">Choose a task, a timer, and a background that feels right.</p></div>
@@ -37,7 +34,7 @@ export default function WelcomePage() {
           </div>
         </div>
       </div>
-      <footer className="mt-12 flex flex-wrap gap-5 text-sm text-[#e2cbb7]">
+      <footer className="mt-9 flex flex-wrap gap-5 text-sm text-[#e2cbb7]">
         <Link href="/privacy" className="hover:underline">Privacy</Link>
         <Link href="/terms" className="hover:underline">Terms</Link>
       </footer>

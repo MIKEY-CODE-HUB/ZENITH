@@ -131,7 +131,7 @@ export default function DashboardPage() {
 
       <main className="min-w-0 flex-1 p-5 sm:p-9 max-w-6xl mx-auto space-y-9">
         {/* Dynamic Atmospheric Hero Banner */}
-        <div className={`relative p-6 sm:p-9 rounded-3xl bg-gradient-to-r ${vibe.accent} cozy-glass border border-white/[0.08] shadow-2xl overflow-hidden`}>
+        <div className={`relative p-6 sm:p-9 rounded-3xl bg-gradient-to-r ${vibe.accent} zenith-home-card cozy-glass border border-white/[0.08] shadow-2xl overflow-hidden`}>
           {/* Subtle Ambient Blur Halos */}
           <div className="absolute -top-24 -right-24 w-80 h-80 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />

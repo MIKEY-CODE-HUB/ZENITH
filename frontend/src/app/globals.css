@@ -114,3 +114,151 @@ body {
     --cozy-glass-alpha: .9;
   }
 }
+
+.zenith-room-content {
+  width: min(100%, 76rem);
+  color: #fff5e9;
+  --cozy-glass: 29 22 17;
+  --cozy-glass-alpha: .76;
+  --zenith-button-accent: color-mix(in srgb, #efd3ac 86%, var(--zenith-scene-accent, #efd3ac));
+}
+.zenith-room-intro,
+.zenith-room-toolbar,
+.zenith-room-card,
+.zenith-achievement {
+  background-color: rgb(29 22 17 / .76);
+  border: 1px solid rgb(239 211 172 / .18);
+  border-radius: 1rem;
+}
+.zenith-room-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+  padding: clamp(1rem, 3vw, 1.7rem);
+}
+.zenith-room-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .65rem;
+  padding: .7rem;
+  margin-bottom: 1rem;
+}
+.zenith-room-toolbar form {
+  min-width: min(100%, 11rem);
+}
+.zenith-room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18.5rem), 1fr));
+  gap: .9rem;
+}
+.zenith-room-card,
+.zenith-achievement {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 1rem;
+}
+.zenith-room-card > :last-child {
+  margin-top: auto;
+}
+.zenith-room-card > :nth-last-child(2) {
+  margin-bottom: .9rem;
+}
+.zenith-room-card:hover,
+.zenith-achievement[data-earned='true'] {
+  border-color: rgb(239 211 172 / .36);
+}
+.zenith-room-primary,
+.zenith-room-quiet,
+.zenith-room-tab {
+  display: inline-flex;
+  min-height: 2.4rem;
+  align-items: center;
+  gap: .45rem;
+  border-radius: .65rem;
+  padding: .45rem .8rem;
+  font-size: .8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  transition: background-color .15s ease;
+}
+.zenith-room-primary,
+.zenith-room-tab[aria-pressed='true'] {
+  color: #261b14;
+  background: var(--zenith-button-accent, #efd3ac);
+}
+.zenith-room-primary:hover:not(:disabled),
+.zenith-room-tab[aria-pressed='true']:hover:not(:disabled) {
+  background: #ffe3bd;
+}
+.zenith-room-quiet,
+.zenith-room-tab:not([aria-pressed='true']) {
+  color: #f8e8d8;
+  border: 1px solid rgb(239 211 172 / .2);
+}
+.zenith-room-quiet:hover:not(:disabled),
+.zenith-room-tab:not([aria-pressed='true']):hover:not(:disabled) {
+  background: rgb(239 211 172 / .14);
+}
+.zenith-room-primary:disabled,
+.zenith-room-quiet:disabled {
+  cursor: default;
+  opacity: .55;
+}
+.zenith-room-tab {
+  justify-content: center;
+}
+.zenith-room-field {
+  display: block;
+  width: 100%;
+  margin-top: .35rem;
+  min-height: 2.65rem;
+  border: 1px solid rgb(239 211 172 / .22);
+  border-radius: .6rem;
+  background: #261d18;
+  color: #fff5e9;
+  padding: .55rem .75rem;
+  font-size: .875rem;
+}
+.zenith-room-field::placeholder {
+  color: #cbb5a2;
+}
+.zenith-room-primary:focus-visible,
+.zenith-room-quiet:focus-visible,
+.zenith-room-tab:focus-visible,
+.zenith-room-field:focus-visible {
+  outline: 2px solid #efd3ac;
+  outline-offset: 3px;
+}
+.zenith-room-dialog {
+  color: #fff5e9;
+  background: #281f19;
+  border: 1px solid rgb(239 211 172 / .25);
+  box-shadow: 0 1rem 4rem rgb(0 0 0 / .5);
+  color-scheme: dark;
+}
+.zenith-room-dialog::backdrop {
+  background: rgb(12 8 5 / .66);
+  backdrop-filter: blur(6px);
+}
+.zenith-achievement-progress {
+  display: block;
+  width: 100%;
+  height: .4rem;
+  accent-color: #efd3ac;
+}
+
+[data-cozy-surface='home'] .zenith-scenery-shade {
+  background: linear-gradient(0deg, rgb(16 10 6 / .9), rgb(16 10 6 / .52) 39%, rgb(16 10 6 / .15) 79%),
+    linear-gradient(90deg, rgb(14 10 7 / .48), transparent 70%);
+}
+[data-cozy-surface='dashboard'] .zenith-home-card {
+  --cozy-glass-alpha: .43;
+}
+@media (prefers-reduced-transparency: reduce) {
+  [data-cozy-surface='dashboard'] .zenith-home-card { --cozy-glass-alpha: .9; }
+}

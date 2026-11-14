@@ -1,49 +1,69 @@
 'use client';
 
 import { useState } from 'react';
-import { api } from '@/lib/api';
+import { api, type RoomInvitation } from '@/lib/api';
+import { Check, Copy } from 'lucide-react';
 
-export function RoomInviteControls({ roomId }: { roomId: string }) {
-  const [link, setLink] = useState('');
+export function RoomInviteControls({ roomId, initialInvitation }: { roomId: string; initialInvitation?: RoomInvitation }) {
+  const [invitation, setInvitation] = useState(initialInvitation);
   const [message, setMessage] = useState('');
+  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function update(revoke: boolean) {
     setBusy(true);
     setMessage('');
+    setCopied(null);
     try {
       if (revoke) {
         await api.revokeRoomInvite(roomId);
-        setLink('');
-        setMessage('Invite revoked.');
+        setInvitation(undefined);
+        setMessage('Invitation revoked.');
       } else {
-        const { token } = await api.createRoomInvite(roomId);
-        setLink(`${window.location.origin}/invite/${roomId}#${token}`);
-        setMessage('Link expires in 24 hours. Creating a new link replaces the previous one.');
+        setInvitation(await api.createRoomInvite(roomId));
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not update the invite.');
+      setMessage(error instanceof Error ? error.message : 'Could not update the invitation.');
     } finally {
       setBusy(false);
     }
   }
 
+  async function copy(kind: 'code' | 'link') {
+    if (!invitation) return;
+    const value = kind === 'code' ? invitation.code : `${window.location.origin}/invite/${roomId}#${invitation.token}`;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(kind);
+      setMessage(kind === 'code' ? 'Room code copied.' : 'Invite link copied.');
+    } catch {
+      setMessage(kind === 'code' ? 'Select the room code to copy it.' : 'Could not copy the link. You can share the room code.');
+    }
+  }
+
   return (
-    <section className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm" aria-label="Private room invitation">
-      <div className="flex flex-wrap gap-4">
-        <button type="button" disabled={busy} className="underline" onClick={() => void update(false)}>Create invite link</button>
-        <button type="button" disabled={busy} className="underline" onClick={() => void update(true)}>Revoke invite</button>
-      </div>
-      {link && (
-        <div className="flex gap-2">
-          <input className="min-w-0 flex-1 rounded border border-white/10 bg-black/30 p-2" aria-label="Invite link" value={link} readOnly onFocus={event => event.target.select()} />
-          <button type="button" className="underline" onClick={async () => {
-            try { await navigator.clipboard.writeText(link); setMessage('Invite copied. It expires in 24 hours.'); }
-            catch { setMessage('Select the link to copy it.'); }
-          }}>Copy</button>
-        </div>
+    <section className="space-y-3 rounded-xl border border-white/15 bg-white/5 p-4 text-sm" aria-label="Room invitation">
+      {invitation && (
+        <>
+          <label className="block text-xs text-[#e3d1c0]" htmlFor={`room-code-${roomId}`}>Room code</label>
+          <div className="flex flex-wrap items-center gap-2">
+            <input id={`room-code-${roomId}`} className="min-w-[13rem] flex-1 rounded-lg border border-white/15 bg-black/30 px-3 py-2 font-mono tracking-wide"
+              value={invitation.code} readOnly onFocus={event => event.target.select()} />
+            <button type="button" className="zenith-room-quiet" onClick={() => void copy('code')}>
+              {copied === 'code' ? <Check size={14} /> : <Copy size={14} />} Copy code
+            </button>
+          </div>
+          <p className="text-xs leading-relaxed text-[#e3d1c0]">Share the code or link with members. Both expire in 24 hours.</p>
+        </>
       )}
-      {message && <p role="status">{message}</p>}
+      <div className="flex flex-wrap gap-4 text-xs">
+        {invitation && <button type="button" className="underline underline-offset-4" onClick={() => void copy('link')}>Copy invite link</button>}
+        <button type="button" disabled={busy} className="underline underline-offset-4" onClick={() => void update(false)}>
+          {invitation ? 'Replace code and link' : 'Generate code and link'}
+        </button>
+        <button type="button" disabled={busy} className="underline underline-offset-4" onClick={() => void update(true)}>Revoke invitation</button>
+      </div>
+      {message && <p role="status" className="text-xs text-[#efd3ac]">{message}</p>}
     </section>
   );
 }

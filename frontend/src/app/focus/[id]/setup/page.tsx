@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import { RoomInviteControls } from '@/components/RoomInviteControls';
+import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiError } from '@/lib/api';
 import { useCameraStream } from '@/hooks/useCameraStream';
 import {
@@ -107,13 +107,19 @@ export default function PreSessionSetupPage() {
           </p>
         </div>
 
+        {room && user && room.creator?.id === user.id && (
+          <details className="space-y-3">
+            <summary className="cursor-pointer text-sm text-[#efd3ac]">Share your room</summary>
+            <RoomInviteControls roomId={room.id} />
+          </details>
+        )}
+
         {error && (
           <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs font-medium text-center">
             {error}
           </div>
         )}
 
-        {room?.isPrivate && user && room.creator?.id === user.id && <RoomInviteControls roomId={room.id} />}
 
         {cameraError && <p role="status" className="text-sm text-amber-200">{cameraError}</p>}
 

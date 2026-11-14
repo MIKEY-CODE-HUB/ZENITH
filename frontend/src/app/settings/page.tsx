@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { useAmbient } from '@/contexts/AmbientContext';
-import { loadSceneryMedia, parseSceneryUrl } from '@/lib/sceneryMedia';
+import { loadSceneryMedia, parseSceneryUrl, sceneryLinkError } from '@/lib/sceneryMedia';
 import { Sidebar } from '@/components/Sidebar';
 import { Settings, Shield, Bell, Camera, Clock, Check, Snowflake, Download, ExternalLink, Sparkles } from 'lucide-react';
 
@@ -64,7 +64,7 @@ export default function SettingsPage() {
       setSaveError(null);
       const rawUrl = customThemeUrl.trim();
       const media = rawUrl ? parseSceneryUrl(rawUrl) : null;
-      if (rawUrl && !media) throw new Error('Use a public HTTPS image, MP4, or WebM link.');
+      if (rawUrl && !media) throw new Error(sceneryLinkError(rawUrl));
       const wallpaperChanged = (media?.url || '') !== (user?.settings?.customThemeUrl || '') ||
         customThemeTarget !== (user?.settings?.customThemeTarget === 'ROOM' ? 'ROOMS' : user?.settings?.customThemeTarget || 'BOTH');
       if (media && wallpaperChanged) await loadSceneryMedia(media.url, media.kind);

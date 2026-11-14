@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { getDefaultScenery, SCENERY_PAGES, type SceneryPage, useAmbient } from '@/contexts/AmbientContext';
 import { SceneryVideo } from '@/components/SceneryVideo';
-import { loadSceneryMedia, parseSceneryUrl } from '@/lib/sceneryMedia';
+import { loadSceneryMedia, parseSceneryUrl, sceneryLinkError } from '@/lib/sceneryMedia';
 import { type Scenery, SCENERIES, customScenery } from '@/lib/sceneries';
 
 const sections = Object.entries(SCENERY_PAGES) as [SceneryPage, string][];
@@ -32,7 +32,7 @@ export function ScenerySelectorModal() {
   async function previewCustom() {
     const media = parseSceneryUrl(customUrl);
     if (!media) {
-      setCustomError('Paste a public HTTPS link to an image or MP4/WebM video.');
+      setCustomError(sceneryLinkError(customUrl));
       return;
     }
     const request = ++previewRequest.current;
@@ -68,10 +68,10 @@ export function ScenerySelectorModal() {
       ref={dialog}
       aria-labelledby="scenery-title"
       onCancel={() => setIsSceneryModalOpen(false)}
-      className="m-auto max-h-[85dvh] w-[calc(100%_-_2rem)] max-w-xl overflow-y-auto rounded-2xl border border-[rgb(var(--tint))]/10 bg-[rgb(var(--panel))] p-5 text-[rgb(var(--ink))] shadow-2xl backdrop:bg-black/65 sm:p-6"
+      className="zenith-room-dialog m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-2xl overflow-y-auto rounded-3xl p-5 sm:p-6"
     >
       <div className="flex items-center justify-between gap-3">
-        <h2 id="scenery-title" className="text-lg font-semibold">Customize Theme</h2>
+        <h2 id="scenery-title" className="font-serif text-3xl tracking-tight">Customize Theme</h2>
         <button type="button" aria-label="Close" className="rounded-lg p-2 hover:bg-[rgb(var(--tint))]/10" onClick={() => setIsSceneryModalOpen(false)}>
           <X size={20} />
         </button>
@@ -86,7 +86,7 @@ export function ScenerySelectorModal() {
               setPage(id);
               selectPreview(pageSceneries[id]);
             }}
-            className="rounded-lg px-3 py-2 text-sm aria-pressed:bg-[rgb(var(--tint))]/10 aria-pressed:font-semibold"
+            className="zenith-room-tab"
           >
             {label}
           </button>
@@ -101,6 +101,7 @@ export function ScenerySelectorModal() {
       </div>
       <form className="mt-4 space-y-2" onSubmit={event => { event.preventDefault(); void previewCustom(); }}>
         <label htmlFor="scenery-url" className="text-sm font-medium">Custom image or video link</label>
+        <p className="text-xs text-[#e3d1c0]">From Google Images, open the image and choose Copy image address.</p>
         <div className="flex flex-wrap gap-2">
           <input id="scenery-url" type="url" value={customUrl} placeholder="https://example.com/wallpaper.jpg"
             onChange={event => {
@@ -108,41 +109,41 @@ export function ScenerySelectorModal() {
               setChecking(false);
               setCustomError('');
               setCustomUrl(event.target.value);
-            }} className="min-w-0 flex-1 rounded-lg border border-[rgb(var(--tint))]/20 bg-transparent px-3 py-2 text-sm" />
-          <button disabled={checking || !customUrl.trim()} className="rounded-lg border border-[rgb(var(--tint))]/20 px-3 py-2 text-sm disabled:opacity-50">
+            }} className="zenith-room-field !mt-0 min-w-0 flex-1" />
+          <button disabled={checking || !customUrl.trim()} className="zenith-room-quiet">
             {checking ? 'Checking…' : 'Preview link'}
           </button>
         </div>
-        {customError && <p role="alert" className="text-sm text-red-500">{customError}</p>}
+        {customError && <p role="alert" className="text-sm text-rose-200">{customError}</p>}
       </form>
       <label className="mt-4 flex items-center gap-3 text-sm">
         Theme collection
-        <select className="rounded-lg border border-[rgb(var(--tint))]/10 bg-[rgb(var(--panel))] px-2 py-1"
+        <select className="rounded-lg border border-[#efd3ac]/20 bg-[#261d18] px-2 py-1"
           value={category} onChange={event => setCategory(event.target.value)}>
           {categories.map(group => <option key={group}>{group}</option>)}
         </select>
       </label>
-      <div className="mt-3 grid max-h-64 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3" role="group" aria-label="Preview a background">
+      <div className="mt-3 grid max-h-52 grid-cols-2 gap-2.5 overflow-y-auto sm:grid-cols-3" role="group" aria-label="Preview a background">
         {SCENERIES.filter(theme => category === 'All' || theme.category === category).map(scenery => (
           <button
             type="button"
             key={scenery.id}
             aria-pressed={preview?.id === scenery.id}
             onClick={() => selectPreview(scenery)}
-            className="overflow-hidden rounded-lg border border-[rgb(var(--tint))]/15 text-left text-sm hover:bg-[rgb(var(--tint))]/5 aria-pressed:border-emerald-500"
+            className="flex flex-col overflow-hidden rounded-xl border border-[#efd3ac]/20 text-left text-sm hover:bg-white/5 aria-pressed:border-[#efd3ac]"
             title={scenery.name}
           >
-            <span className="block h-12 bg-cover bg-center" style={{ backgroundImage: scenery.bgImageUrl ? `url("${scenery.bgImageUrl}")` : scenery.gradientOverlay }} aria-hidden />
+            <span className="block h-14 w-full shrink-0 bg-cover bg-center" style={{ backgroundImage: scenery.bgImageUrl ? `url("${scenery.bgImageUrl}")` : scenery.gradientOverlay }} aria-hidden />
             <span className="block px-2 py-2">{scenery.name}</span>
           </button>
         ))}
       </div>
-      <div className="mt-5 flex flex-wrap justify-between gap-3">
+      <div className="sticky -bottom-5 z-10 mt-4 flex flex-wrap justify-between gap-3 border-t border-white/10 bg-[#281f19] py-3 sm:-bottom-6">
         <button type="button" onClick={() => selectPreview(null)} className="rounded-lg px-3 py-2 text-sm underline underline-offset-4">Restore default</button>
         <button type="button" disabled={checking || (!!customUrl.trim() && (preview?.id !== 'custom' || customUrl !== (preview.videoUrl || preview.bgImageUrl)))} onClick={() => {
           setPageScenery(page, preview);
           setIsSceneryModalOpen(false);
-        }} className="rounded-lg bg-[rgb(var(--action))] px-4 py-2 text-sm font-semibold text-[rgb(var(--action-ink))] disabled:opacity-50">
+        }} className="zenith-room-primary">
           Apply to {SCENERY_PAGES[page]}
         </button>
       </div>

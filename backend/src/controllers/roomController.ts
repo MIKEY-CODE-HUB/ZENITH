@@ -11,6 +11,17 @@ import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
 const hashInvite = (token: string) => createHash('sha256').update(token).digest('hex');
 
+function generateRoomInvite() {
+  const token = randomBytes(32).toString('base64url');
+  const digits = randomBytes(8).toString('hex').toUpperCase();
+  const code = digits.match(/.{4}/g)!.join('-');
+  return {
+    token,
+    code,
+    record: { tokenHash: hashInvite(token), codeHash: hashInvite(digits), expiresAt: new Date(Date.now() + 86_400_000) },
+  };
+}
+
 export class RoomController {
   public static async getIceServers(req: AuthenticatedRequest, res: Response): Promise<void> {
     const { roomId } = req.params;
@@ -47,7 +58,7 @@ export class RoomController {
       const result = await prisma.$transaction(async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${roomId}))`;
         const room = await tx.room.findFirst({
-          where: { id: roomId, creatorId: userId, isPrivate: true, status: 'ACTIVE' },
+          where: { id: roomId, creatorId: userId, status: 'ACTIVE' },
           select: { id: true },
         });
         if (!room) return null;
@@ -55,14 +66,12 @@ export class RoomController {
           await tx.roomInvite.deleteMany({ where: { roomId } });
           return {};
         }
-        const token = randomBytes(32).toString('base64url');
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-        const data = { tokenHash: hashInvite(token), expiresAt };
-        await tx.roomInvite.upsert({ where: { roomId }, create: { roomId, ...data }, update: data });
-        return { token, expiresAt };
+        const { token, code, record } = generateRoomInvite();
+        await tx.roomInvite.upsert({ where: { roomId }, create: { roomId, ...record }, update: record });
+        return { token, code, expiresAt: record.expiresAt };
       });
       if (!result) {
-        res.status(404).json({ success: false, error: 'Private room not found.' });
+        res.status(404).json({ success: false, error: 'Room not found.' });
         return;
       }
       res.setHeader('Cache-Control', 'no-store').json({ success: true, ...result });
@@ -215,8 +224,8 @@ export class RoomController {
         mic = false,
       } = req.body;
 
-      if (!name) {
-        res.status(400).json({ success: false, error: 'Room name is required' });
+      if (typeof name !== 'string' || !name.trim() || name.trim().length > 72) {
+        res.status(400).json({ success: false, error: 'Enter a room name of up to 72 characters.' });
         return;
       }
       if (!['EDUCATION', 'EXERCISE', 'SIDE_QUEST', 'INTERACTION'].includes(category)) {
@@ -228,14 +237,13 @@ export class RoomController {
       const effectiveCap = category === 'INTERACTION' ? 6 : 10;
       const finalMaxParticipants = Math.max(1, Math.min(effectiveCap, parseInt(maxParticipants, 10) || effectiveCap));
 
-      // Generate room code like GRN-4821 or INT-1234
-      const prefix = (category === 'INTERACTION' ? 'INT' : name.substring(0, 3)).toUpperCase();
-      const randomNum = Math.floor(1000 + Math.random() * 9000);
-      const roomCode = `${prefix}-${randomNum}`;
+      const prefix = category === 'INTERACTION' ? 'INT' : name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3) || 'ZTH';
+      const roomCode = `${prefix}-${randomBytes(6).toString('hex').toUpperCase()}`;
+      const invite = isPrivate || req.path === '/host' ? generateRoomInvite() : null;
 
       const room = await prisma.room.create({
         data: {
-          name,
+          name: name.trim(),
           description,
           category,
           topic: topic || null,
@@ -245,6 +253,7 @@ export class RoomController {
           creatorId: userId,
           roomCode,
           isPrivate: Boolean(isPrivate),
+          ...(invite ? { invite: { create: invite.record } } : {}),
           maxParticipants: finalMaxParticipants,
           defaultDuration: parseInt(duration, 10) || 50,
           defaultCamera: camera !== undefined ? Boolean(camera) : true,
@@ -257,7 +266,12 @@ export class RoomController {
         },
       });
 
-      res.status(201).json({ success: true, room });
+      if (invite) res.setHeader('Cache-Control', 'no-store');
+      res.status(201).json({
+        success: true,
+        room,
+        ...(invite ? { invitation: { token: invite.token, code: invite.code, expiresAt: invite.record.expiresAt } } : {}),
+      });
     } catch (error: any) {
       console.error('Error creating room:', error);
       res.status(500).json({ success: false, error: error.message || 'Failed to create room' });
@@ -267,8 +281,18 @@ export class RoomController {
   public static async joinRoom(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const userId = req.user!.userId;
-      const { roomId } = req.params;
-      const { inviteToken, confirmInteraction } = req.body ?? {};
+      const { inviteToken, inviteCode, confirmInteraction } = req.body ?? {};
+      let roomId = req.params.roomId;
+      let codeHash: string | undefined;
+      if (!roomId) {
+        const code = typeof inviteCode === 'string' && inviteCode.length <= 32
+          ? inviteCode.toUpperCase().replace(/[\s-]/g, '') : '';
+        if (!/^[0-9A-F]{16}$/.test(code)) throw new Error('ROOM_NOT_FOUND');
+        codeHash = hashInvite(code);
+        const invite = await prisma.roomInvite.findUnique({ where: { codeHash }, select: { roomId: true } });
+        if (!invite) throw new Error('ROOM_NOT_FOUND');
+        roomId = invite.roomId;
+      }
       if (inviteToken !== undefined && (typeof inviteToken !== 'string' || !/^[\w-]{43}$/.test(inviteToken))) {
         res.status(404).json({ success: false, error: 'Invalid or expired room invite.' });
         return;
@@ -286,9 +310,10 @@ export class RoomController {
 
         if (!room || room.status !== 'ACTIVE') throw new Error('ROOM_NOT_FOUND');
         const isAlreadyActive = room.participants.some(p => p.userId === userId);
-        if (room.isPrivate && room.creatorId !== userId && !isAlreadyActive) {
-          const invite = inviteToken && await tx.roomInvite.findFirst({
-            where: { roomId, tokenHash: hashInvite(inviteToken), expiresAt: { gt: new Date() } },
+        if (codeHash || inviteToken || (room.isPrivate && room.creatorId !== userId && !isAlreadyActive)) {
+          const credential = codeHash ? { codeHash } : inviteToken ? { tokenHash: hashInvite(inviteToken) } : null;
+          const invite = credential && await tx.roomInvite.findFirst({
+            where: { roomId, ...credential, expiresAt: { gt: new Date() } },
             select: { roomId: true },
           });
           if (!invite) throw new Error('ROOM_NOT_FOUND');
@@ -328,7 +353,7 @@ export class RoomController {
             where: { userId, roomId, status: 'ACTIVE', expiresAt: { gt: new Date() } },
           });
           if (!authorization) {
-            if (!room.isPrivate || !inviteToken || confirmInteraction !== true) {
+            if ((!inviteToken && !codeHash) || confirmInteraction !== true) {
               throw new Error('INTERACTION_AUTH_REQUIRED');
             }
             await PointService.debitInteractionEntry(tx, userId, room);
@@ -364,7 +389,7 @@ export class RoomController {
         return { participant, room };
       });
 
-      res.json({ success: true, participant: result.participant, room: result.room });
+      res.setHeader('Cache-Control', 'no-store').json({ success: true, participant: result.participant, room: result.room });
     } catch (error: any) {
       if (error.message === 'ROOM_NOT_FOUND') {
         res.status(404).json({ success: false, error: 'Room not found' });

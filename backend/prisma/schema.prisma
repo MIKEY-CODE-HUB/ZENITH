@@ -121,6 +121,7 @@ model RoomInvite {
   roomId    String   @id
   room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   tokenHash String
+  codeHash  String? @unique
   expiresAt DateTime
 
   @@map("room_invites")
