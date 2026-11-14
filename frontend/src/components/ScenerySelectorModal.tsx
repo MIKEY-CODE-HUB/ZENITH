@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { SCENERY_PAGES, type SceneryPage, useAmbient } from '@/contexts/AmbientContext';
+import { getDefaultScenery, SCENERY_PAGES, type SceneryPage, useAmbient } from '@/contexts/AmbientContext';
 import { type Scenery, SCENERIES } from '@/lib/sceneries';
 
 const sections = Object.entries(SCENERY_PAGES) as [SceneryPage, string][];
@@ -24,6 +24,8 @@ export function ScenerySelectorModal() {
     element?.showModal();
     return () => element?.close();
   }, [isSceneryModalOpen, sceneryPage, pageSceneries]);
+
+  const displayed = preview ?? getDefaultScenery(page);
 
   return (
     <dialog
@@ -55,9 +57,9 @@ export function ScenerySelectorModal() {
         ))}
       </div>
       <div className="mt-4 flex aspect-[3/1] items-end rounded-xl bg-cover bg-center bg-[#30251d] p-3 text-white" style={{
-        backgroundImage: preview?.bgImageUrl
-          ? `linear-gradient(0deg, #14100dcc, transparent 70%), url("${preview.bgImageUrl}")`
-          : preview?.gradientOverlay,
+        backgroundImage: displayed?.bgImageUrl
+          ? `linear-gradient(0deg, #14100dcc, transparent 70%), url("${displayed.bgImageUrl}")`
+          : displayed?.gradientOverlay,
       }}>
         <span className="text-sm font-medium">{preview?.name ?? 'Default background'}</span>
       </div>

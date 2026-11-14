@@ -1,21 +1,12 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { getSceneryPage, useAmbient, type SceneryPage } from '@/contexts/AmbientContext';
-import { SCENERIES } from '@/lib/sceneries';
-
-const defaults: Record<SceneryPage, string> = {
-  home: 'walnut-window',
-  dashboard: 'moss-library',
-  rooms: 'tea-at-dusk',
-  leaderboard: 'violet-lake',
-  workspace: 'linen-desk',
-};
+import { getDefaultScenery, getSceneryPage, useAmbient } from '@/contexts/AmbientContext';
 
 export function ScenerySurface({ children }: { children: React.ReactNode }) {
   const page = getSceneryPage(usePathname());
   const { pageSceneries } = useAmbient();
-  const scenery = page && (pageSceneries[page] ?? SCENERIES.find(item => item.id === defaults[page]));
+  const scenery = page && (pageSceneries[page] ?? getDefaultScenery(page));
   if (!scenery) return <div className="flex-1">{children}</div>;
 
   return (

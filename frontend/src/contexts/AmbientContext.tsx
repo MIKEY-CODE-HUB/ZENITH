@@ -10,6 +10,15 @@ export const SCENERY_PAGES: Record<SceneryPage, string> = {
   home: 'Welcome', dashboard: 'Home', rooms: 'Join Rooms', leaderboard: 'Leaderboard', workspace: 'Other pages',
 };
 
+const defaultSceneryIds: Record<SceneryPage, string> = {
+  home: 'walnut-window', dashboard: 'moss-library', rooms: 'tea-at-dusk',
+  leaderboard: 'violet-lake', workspace: 'linen-desk',
+};
+
+export function getDefaultScenery(page: SceneryPage) {
+  return SCENERIES.find(theme => theme.id === defaultSceneryIds[page]);
+}
+
 export function getSceneryPage(path: string): SceneryPage | null {
   const section = path.split('/')[1];
   if (['blocker', 'profile', 'settings'].includes(section)) return null;
