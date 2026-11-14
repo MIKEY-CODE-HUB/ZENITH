@@ -167,7 +167,7 @@ async function deactivate() {
   lastAttempt = undefined;
   if (session) {
     console.info('shield.deactivated');
-    await notifyRoom(session, { type: 'ZENITH_SHIELD_STATUS', active: false });
+    await notifyRoom(session, { type: 'ZENITH_SHIELD_STATUS', active: false, stopped: true });
   }
 }
 
@@ -273,17 +273,22 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
 
     const room = parseUrl(message.roomUrl);
     if (!room || room.origin !== senderUrl.origin || !/^\/focus\/[^/]+\/?$/.test(room.pathname) ||
-        !sameRoom(senderUrl.href, room) || typeof message.blockerToken !== 'string' ||
+        typeof message.blockerToken !== 'string' ||
         typeof message.focusSessionId !== 'string' || !Number.isFinite(message.expiresAt) ||
         message.expiresAt <= Date.now()) return { active: false };
+    // A content script can outlive several client-side route changes. Check the live frame.
+    const targetFrame = { tabId: sender.tab.id, frameId: 0 };
+    const frame = await chrome.webNavigation.getFrame(targetFrame);
+    if (!sameRoom(frame?.url, room)) return { active: false };
     const status = await fetchStatus(room, message.blockerToken);
     if (!isEnforced(status, message.focusSessionId)) return { active: false };
+    if (!sameRoom((await chrome.webNavigation.getFrame(targetFrame))?.url, room)) return { active: false };
 
     const expiresAt = Math.min(message.expiresAt, Date.now() + maxSessionLength,
       Number.isFinite(status.expiresAt) ? status.expiresAt : Date.now() + 2 * 60 * 60_000);
     if (expiresAt <= Date.now()) return { active: false };
     const session = {
-      id: status.sessionId, url: senderUrl.href, tabId: sender.tab.id, token: message.blockerToken,
+      id: status.sessionId, url: room.href, tabId: sender.tab.id, token: message.blockerToken,
       expiresAt,
       ...verifiedPolicy(status),
     };

@@ -58,6 +58,7 @@ function createExtension() {
     },
     windows: { onFocusChanged: event('window'), update: async () => {} },
     webNavigation: {
+      getFrame: async ({ tabId }) => openTabs.get(tabId),
       onCommitted: event('committed'), onHistoryStateUpdated: event('history'), onErrorOccurred: event('navigation-error'),
     },
   };
@@ -148,6 +149,14 @@ test('activation rejects foreign frames, a different room or an unverified sessi
   assert.equal((await ext.send({ ...activation, focusSessionId: 'other-session' })).active, false);
   assert.equal(ext.rules.length, 0);
   assert.equal(ext.alarms.size, 0);
+});
+
+test('checks the current room after a client-side transition from the dashboard', async () => {
+  const ext = createExtension();
+  const source = { ...sender, url: new URL('/dashboard', roomUrl).href };
+  assert.equal((await ext.send(activation, source)).active, true);
+  ext.openTabs.get(sender.tab.id).url = source.url;
+  assert.equal((await ext.send(activation, sender)).active, false);
 });
 
 test('policy changes reach the same session and server-side end removes all rules', async () => {

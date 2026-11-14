@@ -490,7 +490,7 @@ class ApiClient {
     });
   }
 
-  async activateBlocker(focusSessionId: string, mode: 'MONITOR' | 'BLOCK' | 'STRICT' = 'BLOCK') {
+  async activateBlocker(focusSessionId: string, mode: 'MONITOR' | 'BLOCK' | 'STRICT' = 'BLOCK', signal?: AbortSignal) {
     return this.request<{
       success: boolean;
       blockerSession: any;
@@ -499,6 +499,7 @@ class ApiClient {
     }>('/blocker/activate', {
       method: 'POST',
       body: JSON.stringify({ focusSessionId, mode }),
+      signal,
     });
   }
 

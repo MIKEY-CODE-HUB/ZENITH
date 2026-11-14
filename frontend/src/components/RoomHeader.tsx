@@ -8,7 +8,7 @@ interface RoomHeaderProps {
   roomName: string;
   category: string;
   participantCount: number | null;
-  shieldActive: boolean;
+  shieldStatus: 'checking' | 'active' | 'unavailable' | 'stopped' | 'off';
   maxParticipants: number;
   videoLayout: VideoLayoutMode;
   onChangeVideoLayout: (layout: VideoLayoutMode) => void;
@@ -19,12 +19,13 @@ export function RoomHeader({
   roomName,
   category,
   participantCount,
-  shieldActive,
+  shieldStatus,
   maxParticipants,
   videoLayout,
   onChangeVideoLayout,
   onExit,
 }: RoomHeaderProps) {
+  const shieldLabels = { checking: 'Connecting Shield', active: 'Shield active', unavailable: 'Shield unavailable', stopped: 'Shield stopped', off: 'Shield off' };
   return (
     <header className="absolute top-3 inset-x-4 z-30 flex items-center justify-between pointer-events-none">
       {/* Left: Zenith Brand & Room Indicator */}
@@ -50,9 +51,9 @@ export function RoomHeader({
             {participantCount === null ? 'Presence unavailable' : `${participantCount}/${maxParticipants}`}
           </span>
           <span className="text-zinc-600">•</span>
-          <span className={`flex items-center gap-1 text-[11px] ${shieldActive ? 'text-emerald-400' : 'text-zinc-400'}`}>
+          <span className={`flex items-center gap-1 text-[11px] ${shieldStatus === 'active' ? 'text-emerald-400' : 'text-zinc-400'}`}>
             <ShieldCheck className="h-3.5 w-3.5" />
-            <span>{shieldActive ? 'Shield Active' : 'Shield unconfirmed'}</span>
+            <span>{shieldLabels[shieldStatus]}</span>
           </span>
         </div>
       </div>

@@ -161,10 +161,15 @@ export default function BlockerDashboardPage() {
     }
   };
 
-  const handleCopyPairCommand = () => {
-    if (!pairingToken) return;
-    const cmd = `npm run blocker -- --pair ${pairingToken}`;
-    navigator.clipboard.writeText(cmd);
+  const pairCommand = pairingToken ? `npm run blocker -- --backend ${window.location.origin} --pair ${pairingToken}` : '';
+
+  const handleCopyPairCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(pairCommand);
+    } catch {
+      setErrorMessage('Could not copy the command. Select and copy it from the panel.');
+      return;
+    }
     setCopiedToken(true);
     setNotification('Copied pairing command to clipboard!');
     setTimeout(() => {
@@ -725,12 +730,11 @@ export default function BlockerDashboardPage() {
                 </div>
 
                 <div className="p-3 rounded-xl bg-zinc-950 font-mono text-[11px] text-emerald-400 border border-white/5 overflow-x-auto whitespace-nowrap">
-                  npm run blocker -- --pair {pairingToken}
+                  {pairCommand}
                 </div>
 
                 <p className="text-[11px] text-zinc-400">
-                  Run this command once in your terminal. It pairs your local desktop blocker with your authenticated Zenith session and saves credentials securely to <code className="text-zinc-200 font-mono bg-zinc-800 px-1 py-0.5 rounded">~/.zenith/desktop-token.json</code>.
-                </p>
+                  Run this command in the Zenith repository on your Mac and leave Terminal running during focus sessions. Approve the macOS Automation and Accessibility prompts if they appear.</p>
               </div>
             ) : (
               <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-zinc-400">
@@ -739,7 +743,7 @@ export default function BlockerDashboardPage() {
                   <ol className="list-decimal list-inside space-y-0.5 text-zinc-400 text-[11px]">
                     <li>Click <strong>Generate Pairing Token</strong> above to get your authenticated 7-day key.</li>
                     <li>Open your Terminal in the Zenith repository.</li>
-                    <li>Run <code className="text-emerald-400 font-mono bg-black/40 px-1 py-0.5 rounded">npm run blocker</code> to start the guardian.</li>
+                    <li>Copy and run the pairing command shown after generating your token.</li>
                   </ol>
                 </div>
                 <div className="shrink-0 p-3 rounded-xl bg-black/40 border border-white/5 font-mono text-[11px] text-zinc-300">

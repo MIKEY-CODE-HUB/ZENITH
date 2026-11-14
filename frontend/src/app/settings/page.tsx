@@ -127,9 +127,6 @@ export default function SettingsPage() {
               <div>
                 <h3 className="text-xs font-semibold text-[rgb(var(--ink))] flex items-center gap-2">
                   <span>Companion Browser Extension</span>
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    Ready
-                  </span>
                 </h3>
                 <p className="text-xs text-[rgb(var(--ink-muted))] mt-0.5">
                   Blocks requests to restricted sites during a protected focus session.
@@ -156,7 +153,7 @@ export default function SettingsPage() {
               <li>Open <code className="text-[rgb(var(--ink-secondary))] font-mono">chrome://extensions</code> in your browser.</li>
               <li>Enable <strong>Developer mode</strong> in the top-right corner.</li>
               <li>Click <strong>Load unpacked</strong>.</li>
-              <li>Select your local <code className="text-[rgb(var(--ink-secondary))] font-mono">zenith-extension</code> folder.</li>
+              <li>Select the extracted folder containing <code className="text-[rgb(var(--ink-secondary))] font-mono">manifest.json</code>, then reload the focus tab.</li>
             </ol>
           </div>
         </div>
@@ -190,19 +187,25 @@ export default function SettingsPage() {
               </p>
             </div>
 
+            <label className="block space-y-1 text-xs text-[rgb(var(--ink-secondary))]">
+              <span className="block font-medium">Time away before a warning · {warningThreshold}s</span>
+              <input type="range" min="5" max="60" step="5" value={warningThreshold}
+                onChange={(event) => setWarningThreshold(Number(event.target.value))} className="w-full accent-[rgb(var(--action))]" />
+            </label>
+
             {/* Distraction Alert Toggle */}
-            <div className="flex items-center justify-between p-3 rounded-lg bg-[rgb(var(--tint))]/[0.02] border border-[rgb(var(--tint))]/[0.05]">
-              <div>
-                <p className="text-xs font-medium text-[rgb(var(--ink-secondary))]">Active Distraction Interception</p>
-                <p className="text-[11px] text-[rgb(var(--ink-muted))]">Lock off-task tabs and display refocus alert</p>
-              </div>
+            <label className="flex items-center justify-between gap-3 rounded-lg border border-[rgb(var(--tint))]/[0.05] bg-[rgb(var(--tint))]/[0.02] p-3">
+              <span>
+                <span className="block text-xs font-medium text-[rgb(var(--ink-secondary))]">Distraction warnings</span>
+                <span className="block text-[11px] text-[rgb(var(--ink-muted))]">Show a warning after a block attempt or prolonged time away.</span>
+              </span>
               <input
                 type="checkbox"
                 checked={distractionAlerts}
                 onChange={(e) => setDistractionAlerts(e.target.checked)}
                 className="accent-[rgb(var(--action))] h-4 w-4 rounded"
               />
-            </div>
+            </label>
           </div>
 
           {/* Privacy & Camera Defaults */}

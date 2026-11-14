@@ -78,6 +78,7 @@ export default function PreSessionSetupPage() {
       if (sessionRes.success && sessionRes.session) {
         const sessionId = sessionRes.session.id;
         sessionStorage.setItem('active_session_id', sessionId);
+        sessionStorage.setItem('active_session_protection', String(sessionRes.session.protectionEnabled ?? true));
         sessionStorage.setItem('active_session_duration', String(duration));
 
 
@@ -183,9 +184,9 @@ export default function PreSessionSetupPage() {
         <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center gap-3">
           <Lock className="h-4 w-4 text-emerald-400 shrink-0" />
           <div className="text-left text-xs">
-            <p className="font-medium text-zinc-200">Enforcement Ready</p>
+            <p className="font-medium text-zinc-200">Distraction Shield</p>
             <p className="text-[11px] text-zinc-400 leading-relaxed mt-0.5">
-              Distraction Shield will engage upon entry. Switching tabs will trigger an immediate snap-back.
+              Chrome protection starts when the Zenith extension confirms it. Approved work sites stay available.
             </p>
           </div>
         </div>

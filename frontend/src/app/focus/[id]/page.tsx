@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { SocketProvider, useSocket } from '@/contexts/SocketContext';
 import { useFocusTracker } from '@/hooks/useFocusTracker';
+import { useRoomShield } from '@/hooks/useRoomShield';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { api, ApiConnectionError, ApiError } from '@/lib/api';
 import { ATMOSPHERES, getAtmosphereById, AtmosphereTheme, customRoomAtmosphere } from '@/lib/atmospheres';
@@ -75,9 +76,11 @@ function LiveRoom() {
   const [roomError, setRoomError] = useState<string | null>(null);
   const [presenceError, setPresenceError] = useState<string | null>(null);
   const [finishError, setFinishError] = useState<string | null>(null);
-  const [shieldActive, setShieldActive] = useState(false);
+  const [protectionEnabled, setProtectionEnabled] = useState(true);
   const [deadline, setDeadline] = useState<number | null>(null);
   const finishing = useRef(false);
+  const shield = useRoomShield(sessionId, protectionEnabled, deadline);
+  const shieldActive = shield.status === 'active';
 
   // Video Layout Mode ('footer' [DEFAULT], 'header', 'middle', 'scattered')
   const [videoLayout, setVideoLayout] = useState<VideoLayoutMode>(() => {
@@ -189,8 +192,6 @@ function LiveRoom() {
       return;
     }
     let cancelled = false;
-    let shieldSessionId: string | undefined;
-    setShieldActive(false);
 
     async function initialize() {
       let step = 'Restore your focus session';
@@ -227,6 +228,7 @@ function LiveRoom() {
         setRoom(currentRoom);
         setIceServers(relay?.iceServers);
         setSessionId(session.id);
+        setProtectionEnabled(session.protectionEnabled ?? (session.id !== storedId || sessionStorage.getItem('active_session_protection') !== 'false'));
         setCategory(session.category ?? 'EDUCATION');
         setActivityName(session.specificActivity || session.activityType);
         setPlannedMinutes(session.plannedDuration);
@@ -237,16 +239,6 @@ function LiveRoom() {
         setRoomThemeOverride(savedRoomTheme);
         if (session.atmosphere) setCurrentAtmosphere(getAtmosphereById(session.atmosphere));
 
-        if (session.protectionEnabled === false || (reusable && sessionStorage.getItem('active_session_protection') === 'false')) return;
-        const blocker = await api.activateBlocker(session.id, 'STRICT').catch(() => null);
-        if (blocker?.success && !cancelled) {
-          shieldSessionId = session.id;
-          window.postMessage({
-            type: 'ZENITH_BLOCKER_ACTIVATE', roomUrl: window.location.href,
-            focusSessionId: session.id, blockerToken: blocker.blockerToken,
-            expiresAt: end + 60_000, config: blocker.config,
-          }, window.location.origin);
-        }
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 401) {
@@ -259,19 +251,8 @@ function LiveRoom() {
       }
     }
 
-    const shieldStatus = (event: MessageEvent) => {
-      if (event.source === window && event.origin === window.location.origin &&
-          event.data?.type === 'ZENITH_SHIELD_STATUS' && shieldSessionId &&
-          (!event.data.focusSessionId || event.data.focusSessionId === shieldSessionId)) {
-        setShieldActive(event.data.active === true);
-      }
-    };
-    window.addEventListener('message', shieldStatus);
     void initialize();
-    return () => {
-      cancelled = true;
-      window.removeEventListener('message', shieldStatus);
-    };
+    return () => { cancelled = true; };
   }, [authLoading, user?.id, roomIdOrCode, router, joinAttempt]);
 
   // Focus Tracker Hook (Page Visibility API + Idle Detection)
@@ -499,12 +480,22 @@ function LiveRoom() {
         roomName={room?.name || 'Solo focus'}
         category={category}
         participantCount={room && connected && participants.length > 0 ? participants.length : room ? null : 1}
-        shieldActive={shieldActive}
+        shieldStatus={shield.status}
         maxParticipants={room?.maxParticipants || 1}
         videoLayout={videoLayout}
         onChangeVideoLayout={handleVideoLayoutChange}
         onExit={() => setShowExitConfirm(true)}
       />
+
+      {shield.status === 'unavailable' && (
+        <div className="absolute inset-x-4 top-14 z-30 mx-auto w-fit max-w-[calc(100%-2rem)] rounded-xl border border-amber-300/30 bg-zinc-950/95 px-4 py-3 text-xs text-amber-100 shadow-lg sm:text-sm">
+          <p role="status" className="max-w-md">{shield.message} Distraction warnings can still appear in this room.</p>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+            <button type="button" onClick={shield.retry} className="font-semibold underline">Retry Shield</button>
+            <a href="/zenith-extension.zip" download className="underline">Download Chrome extension</a>
+          </div>
+        </div>
+      )}
 
       {room && user && room.creator?.id === user.id && (
         <details className="absolute left-4 top-16 z-30 max-w-[calc(100%-2rem)] rounded-xl bg-zinc-950/90 p-2 text-sm text-zinc-100">

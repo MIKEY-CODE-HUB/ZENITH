@@ -16,13 +16,13 @@ if (trustedOrigins.has(location.origin)) {
       const result = await chrome.runtime.sendMessage(message);
       if (message.type === 'ZENITH_BLOCKER_ACTIVATE') {
         window.postMessage({
-          type: 'ZENITH_SHIELD_STATUS', focusSessionId: message.focusSessionId, active: result?.active === true,
+          type: 'ZENITH_SHIELD_STATUS', requestId: message.requestId, focusSessionId: message.focusSessionId, active: result?.active === true,
         }, location.origin);
       }
     } catch {
       if (message.type === 'ZENITH_BLOCKER_ACTIVATE') {
         window.postMessage({
-          type: 'ZENITH_SHIELD_STATUS', focusSessionId: message.focusSessionId, active: false,
+          type: 'ZENITH_SHIELD_STATUS', requestId: message.requestId, focusSessionId: message.focusSessionId, active: false,
         }, location.origin);
       }
     }

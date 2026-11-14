@@ -189,8 +189,6 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [], goal, 
         })
       );
 
-      sessionStorage.setItem('active_session_protection', String(protectionEnabled));
-
       // Store in sessionStorage for room init
       sessionStorage.setItem('active_session_duration', String(durationMinutes));
       sessionStorage.setItem('active_session_atmosphere', selectedAtmosphere);
@@ -231,6 +229,7 @@ export function StartSessionModal({ isOpen, onClose, availableRooms = [], goal, 
 
       if (res.success && res.session) {
         sessionStorage.setItem('active_session_id', res.session.id);
+        sessionStorage.setItem('active_session_protection', String(res.session.protectionEnabled ?? protectionEnabled));
         onClose();
         router.push(`/focus/${targetRoomId || res.session.id}`);
       }

@@ -51,9 +51,11 @@ export function useFocusTracker(options: FocusTrackerOptions) {
     events.current = saved.events;
     setStats({ ...saved.stats, currentFocusStreak: 0 });
     status.current = 'FOCUSED';
+    setWarningMessage('');
     let lastInput = Date.now();
     let hiddenSince: number | null = null;
     let warned = false;
+    let idleWarned = false;
     let lastDeparture = 0;
     let lastBlocked = { domain: '', timestamp: 0 };
     const saveDraft = () => {
@@ -73,6 +75,7 @@ export function useFocusTracker(options: FocusTrackerOptions) {
     const activity = () => {
       lastInput = Date.now();
       if (status.current === 'IDLE') {
+        idleWarned = false;
         transition('FOCUSED');
         record('FOCUSED');
       }
@@ -85,15 +88,31 @@ export function useFocusTracker(options: FocusTrackerOptions) {
       }
       lastDeparture = now;
     };
+    const warn = (message: string, metadata?: object) => {
+      record('WARNING', metadata);
+      setStats(previous => ({ ...previous, warningCount: previous.warningCount + 1 }));
+      setWarningMessage(message);
+    };
+    const checkAwayWarning = (now: number) => {
+      const settings = optionsRef.current;
+      if (hiddenSince === null || warned || settings.shieldActive || !settings.showWarnings ||
+          now - hiddenSince < settings.warningThresholdSeconds * 1000) return;
+      warned = true;
+      warn('You were away from your focus session.');
+    };
     const visibility = () => {
-      if (document.hidden) {
+      if (document.hidden || !document.hasFocus()) {
+        if (hiddenSince !== null) return;
         hiddenSince = Date.now();
         warned = false;
         if (!optionsRef.current.shieldActive) departure();
         transition(optionsRef.current.shieldActive ? 'OFFLINE' : 'DISTRACTED');
       } else if (hiddenSince !== null) {
+        const now = Date.now();
+        checkAwayWarning(now);
         hiddenSince = null;
-        lastInput = Date.now();
+        lastInput = now;
+        idleWarned = false;
         record('WINDOW_FOCUS');
         transition('FOCUSED');
       }
@@ -109,27 +128,28 @@ export function useFocusTracker(options: FocusTrackerOptions) {
       lastBlocked = { domain, timestamp: now };
       departure();
       record('BLOCK_ATTEMPT', { domain });
-      if (optionsRef.current.showWarnings) record('WARNING', { domain });
       setStats(previous => ({
         ...previous, blockAttemptCount: previous.blockAttemptCount + 1,
-        warningCount: previous.warningCount + Number(optionsRef.current.showWarnings),
       }));
-      if (optionsRef.current.showWarnings) setWarningMessage(`The Shield blocked ${domain}.`);
+      if (optionsRef.current.showWarnings) {
+        warned = true;
+        warn(`The Shield blocked ${domain}.`, { domain });
+      }
     };
     const interval = window.setInterval(() => {
       const now = Date.now();
       const settings = optionsRef.current;
-      if (hiddenSince !== null && !settings.shieldActive && !warned && settings.showWarnings &&
-          now - hiddenSince >= settings.warningThresholdSeconds * 1000) {
-        warned = true;
-        record('WARNING');
-        setStats(previous => ({ ...previous, warningCount: previous.warningCount + 1 }));
-        setWarningMessage('You were away from your focus session.');
-      }
-      if (!document.hidden && status.current === 'FOCUSED' && settings.trackKeyboardInactivity &&
-          now - lastInput >= settings.idleThresholdSeconds * 1000) {
-        transition('IDLE');
-        record('IDLE');
+      checkAwayWarning(now);
+      if (hiddenSince === null && settings.trackKeyboardInactivity) {
+        if (status.current === 'FOCUSED' && now - lastInput >= settings.idleThresholdSeconds * 1000) {
+          transition('IDLE');
+          record('IDLE');
+        }
+        if (status.current === 'IDLE' && !idleWarned && settings.showWarnings &&
+            now - lastInput >= (settings.idleThresholdSeconds + settings.warningThresholdSeconds) * 1000) {
+          idleWarned = true;
+          warn('Still working? Return to your focus session when you’re ready.');
+        }
       }
       const current = status.current;
       setStats(previous => {
@@ -146,6 +166,8 @@ export function useFocusTracker(options: FocusTrackerOptions) {
     }, 1000);
     for (const event of ['pointermove', 'pointerdown', 'keydown', 'touchstart']) window.addEventListener(event, activity);
     document.addEventListener('visibilitychange', visibility);
+    window.addEventListener('blur', visibility);
+    window.addEventListener('focus', visibility);
     window.addEventListener('message', interception);
     window.addEventListener('pagehide', saveDraft);
     const saveTimer = window.setInterval(saveDraft, 5000);
@@ -155,6 +177,8 @@ export function useFocusTracker(options: FocusTrackerOptions) {
       clearInterval(saveTimer);
       for (const event of ['pointermove', 'pointerdown', 'keydown', 'touchstart']) window.removeEventListener(event, activity);
       document.removeEventListener('visibilitychange', visibility);
+      window.removeEventListener('blur', visibility);
+      window.removeEventListener('focus', visibility);
       window.removeEventListener('message', interception);
       window.removeEventListener('pagehide', saveDraft);
     };
