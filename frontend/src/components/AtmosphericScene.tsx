@@ -6,11 +6,12 @@ import { SceneryVideo } from '@/components/SceneryVideo';
 
 type Scene = Pick<Scenery, 'bgImageUrl' | 'videoUrl' | 'gradientOverlay' | 'accentColor' | 'mood'>;
 
-export function AtmosphericScene({ scene, fallbackImage, priority = false, paused = false }: {
+export function AtmosphericScene({ scene, fallbackImage, priority = false, paused = false, still = false }: {
   scene: Scene;
   fallbackImage?: string;
   priority?: boolean;
   paused?: boolean;
+  still?: boolean;
 }) {
   const image = scene.bgImageUrl || (scene.videoUrl ? fallbackImage : undefined);
 
@@ -35,10 +36,10 @@ export function AtmosphericScene({ scene, fallbackImage, priority = false, pause
             }
           }} />
       )}
-      {scene.videoUrl && <SceneryVideo src={scene.videoUrl} paused={paused} className="absolute inset-0 h-full w-full object-cover" />}
+      {!still && scene.videoUrl && <SceneryVideo src={scene.videoUrl} paused={paused} className="absolute inset-0 h-full w-full object-cover" />}
       {scene.mood && <>
         <div className="zenith-scene-light" />
-        {!scene.videoUrl && <div className="zenith-scene-motion" />}
+        {!still && !scene.videoUrl && <div className="zenith-scene-motion" />}
       </>}
     </div>
   );

@@ -20,8 +20,8 @@ export class ApiError extends Error {
 }
 
 export class ApiConnectionError extends Error {
-  constructor() {
-    super('Could not connect to Zenith. Check your connection and try again.');
+  constructor(message = 'Could not connect to Zenith. Check your connection and try again.') {
+    super(message);
     this.name = 'ApiConnectionError';
   }
 }
@@ -63,6 +63,9 @@ class ApiClient {
         headers,
       });
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'TimeoutError') {
+        throw new ApiConnectionError('Zenith took too long to respond. Try again.');
+      }
       if (!(error instanceof TypeError)) throw error;
       throw new ApiConnectionError();
     }
@@ -113,6 +116,7 @@ class ApiClient {
   async passwordAuth(action: 'register' | 'login', body: { username: string; password: string; name?: string }) {
     return this.request<{ success: boolean; user: User; token: string }>(`/auth/password/${action}`, {
       method: 'POST',
+      signal: AbortSignal.timeout(12_000),
       body: JSON.stringify(body),
     });
   }
@@ -120,6 +124,7 @@ class ApiClient {
   async googleAuth(body: { idToken?: string; credential?: string }) {
     return this.request<{ success: boolean; user: any; token: string }>('/auth/google', {
       method: 'POST',
+      signal: AbortSignal.timeout(12_000),
       body: JSON.stringify(body),
     });
   }
@@ -160,7 +165,7 @@ class ApiClient {
   }
 
   async getMe() {
-    return this.request<{ success: boolean; user: any }>('/auth/me');
+    return this.request<{ success: boolean; user: User }>('/auth/me', { signal: AbortSignal.timeout(8_000) });
   }
 
   async updateOnboarding(body: any) {

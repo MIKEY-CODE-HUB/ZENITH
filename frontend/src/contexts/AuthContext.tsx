@@ -103,7 +103,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!res.success || !res.token) throw new Error('Google sign-in did not establish a session.');
     api.setToken(res.token);
     setUser(res.user);
-    window.location.assign(loginDestination(window.location.search));
   };
 
   const sendPhoneOtp = async (phoneNumber: string) => {

@@ -1,27 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import { loginDestination, useAuth } from '@/contexts/AuthContext';
-import { AlertCircle, ArrowLeft, BookOpen } from 'lucide-react';
+import { GoogleSignIn } from '@/components/GoogleSignIn';
+import { ArrowLeft, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 
 type AuthMode = 'signin' | 'signup';
-type GoogleIdentity = {
-  initialize(config: {
-    client_id: string;
-    use_fedcm_for_button: boolean;
-    callback: (response: { credential?: string }) => void;
-  }): void;
-  renderButton(container: HTMLElement, options: {
-    theme: 'outline';
-    size: 'large';
-    text: 'signin_with' | 'signup_with';
-  }): void;
-};
-
-const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 const modes = [
   { id: 'signin', label: 'Log in' },
   { id: 'signup', label: 'Create an account' },
@@ -30,19 +16,18 @@ const modes = [
 export default function LoginPage() {
   const { googleAuth, passwordAuth, user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const buttonRef = useRef<HTMLDivElement>(null);
-  const authCallback = useRef(googleAuth);
-  authCallback.current = googleAuth;
+  const inFlight = useRef(false);
   const [mode, setMode] = useState<AuthMode>('signin');
-  const [scriptLoaded, setScriptLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const signup = mode === 'signup';
 
   async function submitPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (inFlight.current || user) return;
     const form = new FormData(event.currentTarget);
+    inFlight.current = true;
     setLoading(true);
     setPasswordError(null);
     try {
@@ -54,6 +39,26 @@ export default function LoginPage() {
     } catch (failure) {
       setPasswordError(failure instanceof Error ? failure.message : 'Could not open your account.');
     } finally {
+      inFlight.current = false;
+      setLoading(false);
+    }
+  }
+
+  async function submitGoogle(credential?: string) {
+    if (inFlight.current || user) return;
+    if (!credential) {
+      setGoogleError('Google did not return a credential. Try again.');
+      return;
+    }
+    inFlight.current = true;
+    setLoading(true);
+    setGoogleError(null);
+    try {
+      await googleAuth({ idToken: credential });
+    } catch (failure) {
+      setGoogleError(failure instanceof Error ? failure.message : 'Google sign-in failed.');
+    } finally {
+      inFlight.current = false;
       setLoading(false);
     }
   }
@@ -68,37 +73,6 @@ export default function LoginPage() {
     router.replace(loginDestination(window.location.search));
   }, [authLoading, user, router]);
 
-  useEffect(() => {
-    if (!scriptLoaded || !buttonRef.current || !googleClientId) return;
-    const identity = (window as Window & { google?: { accounts?: { id?: GoogleIdentity } } }).google?.accounts?.id;
-    if (!identity) {
-      setError('Google sign-in could not initialize. Reload to try again.');
-      return;
-    }
-    const button = buttonRef.current;
-    identity.initialize({
-      client_id: googleClientId,
-      use_fedcm_for_button: true,
-      callback: async ({ credential }) => {
-        if (!credential) {
-          setError('Google did not return a credential. Try again.');
-          return;
-        }
-        setLoading(true);
-        setError(null);
-        try {
-          await authCallback.current({ idToken: credential });
-        } catch (error) {
-          setError(error instanceof Error ? error.message : 'Google sign-in failed.');
-        } finally {
-          setLoading(false);
-        }
-      },
-    });
-    button.replaceChildren();
-    identity.renderButton(button, { theme: 'outline', size: 'large', text: mode === 'signin' ? 'signin_with' : 'signup_with' });
-  }, [mode, scriptLoaded]);
-
   return (
     <main className="grid min-h-[calc(100dvh-3.5rem)] place-items-center px-4 py-12 text-[#f7ebdd]">
       <section className="w-full max-w-md space-y-6 rounded-3xl border border-[#eed9c3]/15 bg-[#211b17]/80 p-6 shadow-xl sm:p-8">
@@ -110,8 +84,8 @@ export default function LoginPage() {
         </div>
         <div role="group" aria-label="Account action" className="grid grid-cols-2 gap-1 rounded-xl bg-black/20 p-1">
           {modes.map(item => (
-            <button type="button" key={item.id} aria-pressed={mode === item.id} disabled={loading}
-              onClick={() => { setMode(item.id); setPasswordError(null); if (scriptLoaded) setError(null); }}
+            <button type="button" key={item.id} aria-pressed={mode === item.id} disabled={loading || !!user}
+              onClick={() => { setMode(item.id); setPasswordError(null); setGoogleError(null); }}
               className="rounded-lg px-2 py-2 text-sm text-[#e4d0be] aria-pressed:bg-[#e9c8a5] aria-pressed:font-semibold aria-pressed:text-[#2a1d15]">
               {item.label}
             </button>
@@ -144,19 +118,9 @@ export default function LoginPage() {
           </fieldset>
         </form>
         <div className="flex items-center gap-3 text-xs text-[#d2bda9] before:h-px before:flex-1 before:bg-white/15 after:h-px after:flex-1 after:bg-white/15">or</div>
-        {googleClientId && <Script src="https://accounts.google.com/gsi/client"
-          onReady={() => setScriptLoaded(true)}
-          onError={() => setError('Google sign-in could not load. Reload to try again.')} />}
-        {(error || !googleClientId) && (
-          <p role="alert" className="flex items-start gap-2 rounded-lg bg-rose-500/10 p-3 text-sm text-rose-200">
-            <AlertCircle size={16} className="mt-0.5 shrink-0" />
-            {error ?? 'Google sign-in is unavailable on this deployment.'}
-          </p>
-        )}
-        <div className={loading || user ? 'pointer-events-none opacity-60' : ''} aria-busy={loading || authLoading}>
-          <div ref={buttonRef} className="flex min-h-10 justify-center" />
-          {((googleClientId && !scriptLoaded && !error) || loading || user) && <p role="status" className="text-center text-sm">{loading || user ? 'Opening your home…' : 'Loading Google sign-in…'}</p>}
-        </div>
+        <GoogleSignIn onCredential={submitGoogle} disabled={loading || authLoading || !!user} />
+        {googleError && <p role="alert" className="text-sm text-rose-200">{googleError}</p>}
+        {(loading || user) && <p role="status" className="text-center text-sm">{user ? 'Opening your home…' : 'Signing in…'}</p>}
         <p className="text-xs text-[#c9b5a3]">
           By continuing, you agree to the <Link href="/terms" className="underline">Terms of Service</Link> and <Link href="/privacy" className="underline">Privacy Policy</Link>.
         </p>
