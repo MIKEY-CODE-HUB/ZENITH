@@ -1,18 +1,23 @@
 {
   "manifest_version": 3,
   "name": "ZENITH Focus & Distraction Freeze Guardian",
-  "version": "10.2.1",
+  "version": "10.3.0",
   "minimum_chrome_version": "120",
   "description": "Blocks requests to distracting websites during protected Zenith focus sessions.",
   "permissions": [
     "tabs",
     "storage",
     "webNavigation",
-    "declarativeNetRequestWithHostAccess",
-    "alarms"
+    "declarativeNetRequest",
+    "alarms",
+    "scripting"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "https://zenith-dusky-theta.vercel.app/*",
+    "https://zenith-git-fix-zenith-room-re-944e0c-mikey-sketch-hubs-projects.vercel.app/*",
+    "https://zenith-git-fix-zenith-launch-6c62e3-mikey-sketch-hubs-projects.vercel.app/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -36,18 +41,12 @@
       "all_frames": false
     }
   ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "blocked.html"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
-    }
-  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "ZENITH Focus Guardian"
-  }
+  },
+  "optional_permissions": [
+    "nativeMessaging"
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1KmIhrlTf4FNxenDBc4FkNqXf2QpErc0pBQEJONr9zrDGCZkAZGdMNuzU+skjMW2qMwxuRH+XrGwfWJsvKPo0g9NQkPyhkt8/mcQfk0lYBR2w2prr2qeQ824JNViOlmbaKGM6giWWYzY4cv025x0/Oj5HdLB4UP15QIAIctfOeF1U3904xtpN13qvia06DsXXlobNfaaSyWkrU9ncqNxYD8LhzrEdPWWuevpPWSNU84oabj7Z2Jbk38ujlqFtX9LnaSgrKoVfDaaED5cEHg3NyWGng7YUp3/Wmv1k7ZxIVqIDv08XVidPq+N1K2Ss5vXNWu+M6iX0IzeOEJ66dEZswIDAQAB"
 }

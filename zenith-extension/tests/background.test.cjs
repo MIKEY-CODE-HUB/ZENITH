@@ -2,20 +2,36 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const { test } = require('node:test');
-const { runInNewContext } = require('node:vm');
+const { createContext, runInContext } = require('node:vm');
 
 const background = readFileSync(join(__dirname, '../background.js'), 'utf8');
+const bridge = readFileSync(join(__dirname, '../desktop-bridge.js'), 'utf8');
+const popupUrl = 'chrome-extension://extension-id/popup.html';
 const roomUrl = 'https://zenith-dusky-theta.vercel.app/focus/session-room';
 const sender = { url: roomUrl, tab: { id: 1, windowId: 1 }, frameId: 0 };
 const activation = {
   type: 'ZENITH_BLOCKER_ACTIVATE', roomUrl, focusSessionId: 'session-id', blockerToken: 'scoped-token',
 };
 
-function createExtension() {
+function createExtension({ mac = false } = {}) {
   const listeners = new Map();
   const event = (name) => ({ addListener: (listener) => listeners.set(name, listener) });
   const messages = [];
   const alarms = new Map();
+  const nativeMessages = [];
+  const injected = [];
+  let nativeMessage;
+  let nativeDisconnect;
+  let disconnected = false;
+  const port = {
+    postMessage(message) {
+      nativeMessages.push(message);
+      if (message.type === 'ping') nativeMessage({ type: 'ready' });
+    },
+    disconnect() { disconnected = true; nativeDisconnect(); },
+    onMessage: { addListener: fn => { nativeMessage = fn; } },
+    onDisconnect: { addListener: fn => { nativeDisconnect = fn; } },
+  };
   const status = {
     mode: 'STRICT', active: true, sessionId: 'session-id',
     allowedWebsites: ['allowed.test', 'instagram.com'], blockedWebsites: ['blocked.test', 'github.com'],
@@ -49,7 +65,10 @@ function createExtension() {
       clear: async (name) => alarms.delete(name),
       onAlarm: event('alarm'),
     },
-    runtime: { onMessage: event('message') },
+    runtime: { onMessage: event('message'), getURL: () => popupUrl,
+      connectNative: () => port, getPlatformInfo: async () => ({ os: mac ? 'mac' : 'linux' }) },
+    permissions: { contains: async () => mac },
+    scripting: { executeScript: async (script) => { injected.push(script); } },
     tabs: {
       onActivated: event('activation'), onRemoved: event('removed'),
       get: async (id) => openTabs.get(id),
@@ -62,8 +81,9 @@ function createExtension() {
       onCommitted: event('committed'), onHistoryStateUpdated: event('history'), onErrorOccurred: event('navigation-error'),
     },
   };
-  const context = {
-    chrome, URL, Date: { now: () => now }, AbortSignal,
+  const context = createContext({
+    chrome, URL, Date: { now: () => now }, AbortSignal, setTimeout, clearTimeout,
+    importScripts: () => runInContext(bridge, context),
     console: { info() {}, error() {} },
     fetch: async (url, options) => {
       assert.equal(url.href, new URL('/api/blocker/live-status', roomUrl).href);
@@ -72,10 +92,12 @@ function createExtension() {
       if (unavailable) throw Error('offline');
       return { ok: true, json: async () => status };
     },
-  };
-  runInNewContext(background, context);
+  });
+  runInContext(background, context);
   return {
-    status, alarms, messages, openTabs,
+    status, alarms, messages, openTabs, nativeMessages, injected,
+    get disconnected() { return disconnected; },
+    nativeMessage: message => nativeMessage(message),
     get rules() { return rules; }, get updateCount() { return updateCount; },
     failRuleUpdates: () => { updateFails = true; },
     goOffline: () => { unavailable = true; },
@@ -86,7 +108,7 @@ function createExtension() {
     }),
     async emit(name, detail) {
       listeners.get(name)(detail);
-      await runInNewContext('pendingChange', context);
+      await runInContext('pendingChange', context);
       await new Promise(setImmediate);
     },
   };
@@ -222,6 +244,51 @@ test('snaps back after a top-level block, ignores failed embeds, and clears on r
   assert.equal(ext.messages.length, 1);
   await ext.emit('history', { tabId: 1, frameId: 0, url: `${roomUrl}?view=other` });
   assert.ok(ext.rules.length);
-  await ext.emit('history', { tabId: 1, frameId: 0, url: new URL('/dashboard', roomUrl).href });
+  const dashboard = new URL('/dashboard', roomUrl).href;
+  await ext.emit('history', { tabId: 1, frameId: 0, url: dashboard });
+  assert.ok(ext.rules.length, 'a queued event from an older navigation must not disable the live room');
+  ext.openTabs.get(1).url = dashboard;
+  await ext.emit('history', { tabId: 1, frameId: 0, url: dashboard });
   assert.equal(ext.rules.length, 0);
+});
+
+test('authentication, room lookup and Chrome rule rejection get separate diagnostics', async () => {
+  const ext = createExtension();
+  ext.status.active = false;
+  assert.equal((await ext.send()).reason, 'session_inactive');
+  assert.equal((await ext.send({ ...activation, roomUrl: `${roomUrl}-other` })).reason, 'room_changed');
+  ext.status.active = true;
+  ext.failRuleUpdates();
+  assert.equal((await ext.send()).reason, 'rules_rejected');
+  ext.goOffline();
+  assert.equal((await ext.send()).reason, 'status_unreachable');
+});
+
+test('only the extension popup can reconnect an already-open trusted room', async () => {
+  const ext = createExtension();
+  const request = { type: 'ZENITH_RECONNECT_ROOM', tabId: 1 };
+  assert.equal((await ext.send(request)).active, false);
+  assert.equal((await ext.send(request, { url: popupUrl })).ok, true);
+  assert.equal(ext.injected[0].files[0], 'content.js');
+  assert.equal(ext.messages.at(-1).type, 'ZENITH_RETRY_SHIELD');
+  ext.openTabs.get(1).url = 'https://untrusted.test/focus/one';
+  assert.equal((await ext.send(request, { url: popupUrl })).ok, false);
+});
+
+test('Mac gets verified rules through Chrome without any account credential', async () => {
+  const ext = createExtension({ mac: true });
+  ext.status.blockedApps = ['Discord'];
+  ext.status.allowedApps = ['Code'];
+  assert.equal((await ext.send()).active, true);
+  await new Promise(setImmediate);
+  const message = ext.nativeMessages[0];
+  assert.equal(message.type, 'protect');
+  assert.equal(message.sessionId, activation.focusSessionId);
+  assert.equal(message.blockedApps[0], 'Discord');
+  assert.equal(Object.hasOwn(message, 'token'), false);
+  ext.nativeMessage({ type: 'blocked', sessionId: activation.focusSessionId, app: 'Discord' });
+  await new Promise(setImmediate);
+  assert.equal(ext.messages.at(-1).type, 'ZENITH_DESKTOP_DISTRACTION');
+  await ext.send({ type: 'ZENITH_ROOM_ENDED', focusSessionId: activation.focusSessionId });
+  assert.equal(ext.disconnected, true);
 });

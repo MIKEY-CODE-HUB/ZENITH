@@ -487,6 +487,11 @@ function LiveRoom() {
         onExit={() => setShowExitConfirm(true)}
       />
 
+      {shieldActive && shield.desktopNeedsPermission && (
+        <p role="status" className="absolute inset-x-4 top-14 z-30 mx-auto w-fit rounded-xl border border-amber-300/30 bg-zinc-950/95 px-4 py-3 text-xs text-amber-100 shadow-lg">
+          Mac app blocking needs permission. Check Automation and Accessibility in macOS Privacy &amp; Security.
+        </p>
+      )}
       {shield.status === 'unavailable' && (
         <div className="absolute inset-x-4 top-14 z-30 mx-auto w-fit max-w-[calc(100%-2rem)] rounded-xl border border-amber-300/30 bg-zinc-950/95 px-4 py-3 text-xs text-amber-100 shadow-lg sm:text-sm">
           <p role="status" className="max-w-md">{shield.message} Distraction warnings can still appear in this room.</p>

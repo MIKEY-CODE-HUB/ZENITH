@@ -1,3 +1,5 @@
+importScripts('desktop-bridge.js');
+
 const TIER_1_ALWAYS_BLOCKED = [
   'instagram.com',
   'web.whatsapp.com',
@@ -160,6 +162,7 @@ async function notifyRoom(session, message) {
 async function deactivate() {
   const session = await getSession();
   await applyRules(null);
+  stopDesktopProtection();
   await chrome.storage.session.remove('shield');
   await chrome.storage.local.remove(['zenithFocusUrl', 'isFocusSessionActive']);
   await chrome.alarms.clear(expiryAlarm);
@@ -200,6 +203,7 @@ async function reconcile() {
   if (!isEnforced(status, session.id)) return deactivate();
 
   const policy = verifiedPolicy(status);
+  void syncDesktopProtection(session, status).catch(reportError);
   if (JSON.stringify(policy) === JSON.stringify({ mode: session.mode, allowed: session.allowed, blocked: session.blocked })) return;
   const updated = { ...session, ...policy };
   try {
@@ -254,6 +258,14 @@ async function enforceForeground(tabId, url, navigationFailed = false) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
+  if (sender.url === chrome.runtime.getURL('popup.html') && message?.type === 'ZENITH_RECONNECT_ROOM') {
+    void reconnectRoom(message.tabId).then(respond, () => respond({ ok: false }));
+    return true;
+  }
+  if (sender.url === chrome.runtime.getURL('popup.html') && message?.type === 'ZENITH_CONNECT_MAC') {
+    void connectDesktopFromPopup().then(respond, () => respond({ ok: false, reason: 'host_unavailable' }));
+    return true;
+  }
   if (!message || typeof message.type !== 'string') return false;
   const senderUrl = parseUrl(sender.url);
   if (!senderUrl || !trustedOrigins.has(senderUrl.origin) || !Number.isInteger(sender.tab?.id) || sender.frameId !== 0) return false;
@@ -278,15 +290,20 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
         message.expiresAt <= Date.now()) return { active: false };
     // A content script can outlive several client-side route changes. Check the live frame.
     const targetFrame = { tabId: sender.tab.id, frameId: 0 };
-    const frame = await chrome.webNavigation.getFrame(targetFrame);
-    if (!sameRoom(frame?.url, room)) return { active: false };
-    const status = await fetchStatus(room, message.blockerToken);
-    if (!isEnforced(status, message.focusSessionId)) return { active: false };
-    if (!sameRoom((await chrome.webNavigation.getFrame(targetFrame))?.url, room)) return { active: false };
+    if (!sameRoom((await chrome.webNavigation.getFrame(targetFrame))?.url, room)) return { active: false, reason: 'room_changed' };
+    let status;
+    try {
+      status = await fetchStatus(room, message.blockerToken);
+    } catch (error) {
+      reportError(error);
+      return { active: false, reason: 'status_unreachable' };
+    }
+    if (!isEnforced(status, message.focusSessionId)) return { active: false, reason: 'session_inactive' };
+    if (!sameRoom((await chrome.webNavigation.getFrame(targetFrame))?.url, room)) return { active: false, reason: 'room_changed' };
 
     const expiresAt = Math.min(message.expiresAt, Date.now() + maxSessionLength,
       Number.isFinite(status.expiresAt) ? status.expiresAt : Date.now() + 2 * 60 * 60_000);
-    if (expiresAt <= Date.now()) return { active: false };
+    if (expiresAt <= Date.now()) return { active: false, reason: 'session_expired' };
     const session = {
       id: status.sessionId, url: room.href, tabId: sender.tab.id, token: message.blockerToken,
       expiresAt,
@@ -298,12 +315,14 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       await applyRules(session);
       await chrome.storage.session.set({ shield: session });
     } catch (error) {
-      await deactivate();
-      throw error;
+      console.error('shield.rules_rejected', error.message);
+      await deactivate().catch(reportError);
+      return { active: false, reason: 'rules_rejected' };
     }
     console.info('shield.activated', session.mode);
+    void syncDesktopProtection(session, status).catch(reportError);
     return { active: true };
-  }).then(respond, () => respond({ active: false }));
+  }).then(respond, () => respond({ active: false, reason: 'extension_error' }));
   return true;
 });
 
@@ -321,7 +340,10 @@ function onRoomNavigation({ tabId, frameId, url }) {
   if (frameId !== 0 || url.startsWith('chrome-error:')) return;
   void serialize(async () => {
     const session = await getSession();
-    if (session?.tabId === tabId && !sameRoom(url, new URL(session.url))) await deactivate();
+    if (session?.tabId !== tabId) return;
+    const frame = await chrome.webNavigation.getFrame({ tabId, frameId: 0 }).catch(() => null);
+    if (frame?.url?.startsWith('chrome-error:')) return;
+    if (!sameRoom(frame?.url || url, new URL(session.url))) await deactivate();
   });
 }
 

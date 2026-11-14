@@ -118,22 +118,23 @@ export function useFocusTracker(options: FocusTrackerOptions) {
       }
     };
     const interception = (event: MessageEvent) => {
-      if (event.source !== window || event.origin !== location.origin ||
-          event.data?.type !== 'ZENITH_DISTRACTION_ATTEMPT' || !optionsRef.current.shieldActive ||
-          (event.data.focusSessionId && event.data.focusSessionId !== optionsRef.current.sessionId)) return;
-      const domain = event.data.domain;
-      if (typeof domain !== 'string' || !/^[a-z0-9.-]{1,253}$/i.test(domain)) return;
+      if (event.source !== window || event.origin !== location.origin || !optionsRef.current.shieldActive) return;
+      const data = event.data;
+      if (data?.focusSessionId && data.focusSessionId !== optionsRef.current.sessionId) return;
+      const desktop = data?.type === 'ZENITH_DESKTOP_DISTRACTION';
+      if (!desktop && data?.type !== 'ZENITH_DISTRACTION_ATTEMPT') return;
+      const label = desktop ? data.app : data.domain;
+      if (typeof label !== 'string' || (desktop ? !label.trim() || label.length > 100 : !/^[a-z0-9.-]{1,253}$/i.test(label))) return;
       const now = Date.now();
-      if (lastBlocked.domain === domain && now - lastBlocked.timestamp < 1500) return;
-      lastBlocked = { domain, timestamp: now };
+      if (lastBlocked.domain === label && now - lastBlocked.timestamp < 1500) return;
+      lastBlocked = { domain: label, timestamp: now };
+      const metadata = desktop ? { app: label } : { domain: label };
       departure();
-      record('BLOCK_ATTEMPT', { domain });
-      setStats(previous => ({
-        ...previous, blockAttemptCount: previous.blockAttemptCount + 1,
-      }));
+      record('BLOCK_ATTEMPT', metadata);
+      setStats(previous => ({ ...previous, blockAttemptCount: previous.blockAttemptCount + 1 }));
       if (optionsRef.current.showWarnings) {
         warned = true;
-        warn(`The Shield blocked ${domain}.`, { domain });
+        warn(`The Shield blocked ${label}.`, metadata);
       }
     };
     const interval = window.setInterval(() => {

@@ -30,8 +30,6 @@ import {
   Layers,
   ArrowRight,
   Terminal,
-  Copy,
-  Key,
 } from 'lucide-react';
 
 export default function BlockerDashboardPage() {
@@ -42,11 +40,6 @@ export default function BlockerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [blockerMode, setBlockerMode] = useState<'MONITOR' | 'BLOCK' | 'STRICT'>('STRICT');
   const [shieldToggling, setShieldToggling] = useState<boolean>(false);
-
-  // Desktop Blocker Pairing Token State
-  const [pairingToken, setPairingToken] = useState<string | null>(null);
-  const [generatingToken, setGeneratingToken] = useState<boolean>(false);
-  const [copiedToken, setCopiedToken] = useState<boolean>(false);
 
   // Form State for Tier 3 Custom Rules
   const [newIdentifier, setNewIdentifier] = useState('');
@@ -143,39 +136,6 @@ export default function BlockerDashboardPage() {
 
     const returnUrl = typeof window !== 'undefined' ? window.location.href : '/blocker';
     router.push(`/blocker/blocked?domain=instagram.com&url=https://instagram.com&room=${encodeURIComponent(returnUrl)}`);
-  };
-
-  const handleGeneratePairToken = async () => {
-    try {
-      setGeneratingToken(true);
-      const res = await api.getDesktopPairToken();
-      if (res.success && res.token) {
-        setPairingToken(res.token);
-        setNotification('Desktop Companion Pairing Token generated successfully!');
-        setTimeout(() => setNotification(null), 4000);
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to generate desktop companion token');
-    } finally {
-      setGeneratingToken(false);
-    }
-  };
-
-  const pairCommand = pairingToken ? `npm run blocker -- --backend ${window.location.origin} --pair ${pairingToken}` : '';
-
-  const handleCopyPairCommand = async () => {
-    try {
-      await navigator.clipboard.writeText(pairCommand);
-    } catch {
-      setErrorMessage('Could not copy the command. Select and copy it from the panel.');
-      return;
-    }
-    setCopiedToken(true);
-    setNotification('Copied pairing command to clipboard!');
-    setTimeout(() => {
-      setCopiedToken(false);
-      setNotification(null);
-    }, 3000);
   };
 
   const handleToggleResource = async (res: BlockedResource) => {
@@ -682,7 +642,7 @@ export default function BlockerDashboardPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Native Desktop Blocker Daemon</h2>
+                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">Mac app blocking</h2>
                     <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
                       Phase 2 Companion
                     </span>
@@ -693,64 +653,18 @@ export default function BlockerDashboardPage() {
                 </div>
               </div>
 
-              <button
-                onClick={handleGeneratePairToken}
-                disabled={generatingToken}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg active:scale-95 disabled:opacity-50 shrink-0"
-              >
-                <Key className="h-3.5 w-3.5" />
-                <span>{generatingToken ? 'Generating...' : pairingToken ? 'Regenerate Pairing Token' : 'Generate Pairing Token'}</span>
-              </button>
+              <a href="/zenith-mac-shield.zip" download
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500">
+                <Terminal className="h-4 w-4" /> Download Mac setup
+              </a>
             </div>
 
-            {/* Pairing Token Terminal Snippet */}
-            {pairingToken ? (
-              <div className="p-4 rounded-2xl bg-black/60 border border-indigo-500/30 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300">
-                    <Terminal className="h-4 w-4 text-indigo-400" />
-                    <span>One-Line Pairing Command (Terminal)</span>
-                  </div>
-                  <button
-                    onClick={handleCopyPairCommand}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-xs font-medium text-indigo-200 transition-colors"
-                  >
-                    {copiedToken ? (
-                      <>
-                        <Check className="h-3.5 w-3.5 text-emerald-400" />
-                        <span className="text-emerald-300">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5" />
-                        <span>Copy Command</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="p-3 rounded-xl bg-zinc-950 font-mono text-[11px] text-emerald-400 border border-white/5 overflow-x-auto whitespace-nowrap">
-                  {pairCommand}
-                </div>
-
-                <p className="text-[11px] text-zinc-400">
-                  Run this command in the Zenith repository on your Mac and leave Terminal running during focus sessions. Approve the macOS Automation and Accessibility prompts if they appear.</p>
-              </div>
-            ) : (
-              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-zinc-400">
-                <div className="space-y-1">
-                  <p className="font-semibold text-zinc-200">How to launch the Desktop Companion:</p>
-                  <ol className="list-decimal list-inside space-y-0.5 text-zinc-400 text-[11px]">
-                    <li>Click <strong>Generate Pairing Token</strong> above to get your authenticated 7-day key.</li>
-                    <li>Open your Terminal in the Zenith repository.</li>
-                    <li>Copy and run the pairing command shown after generating your token.</li>
-                  </ol>
-                </div>
-                <div className="shrink-0 p-3 rounded-xl bg-black/40 border border-white/5 font-mono text-[11px] text-zinc-300">
-                  npm run blocker
-                </div>
-              </div>
-            )}
+            <ol className="list-decimal space-y-2 pl-5 text-sm text-zinc-300">
+              <li>Install the current Zenith extension in Google Chrome.</li>
+              <li>Unzip the Mac download and run the included setup with Node.js. The download includes the exact command.</li>
+              <li>Open the extension popup and select <strong>Connect Mac app blocking</strong>.</li>
+            </ol>
+            <p className="text-xs text-zinc-400">Chrome starts the Mac helper during protected focus sessions. Approve any macOS Automation or Accessibility prompts for app blocking.</p>
 
             {/* Architecture & Guarantees */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-[11px]">
