@@ -71,6 +71,13 @@ function attachNativeHost(input, output, runScript = appleScript) {
   }
   function receive(message) {
     if (message?.type === 'ping') return send({ type: 'ready' });
+    if (message?.type === 'check_setup') {
+      void runScript('/usr/bin/osascript', ['-e', readForeground], { timeout: 2500 }).then(
+        () => send({ type: 'setup_status', canReadForeground: true }),
+        () => send({ type: 'setup_status', canReadForeground: false }),
+      );
+      return;
+    }
     if (message?.type !== 'protect' || typeof message.sessionId !== 'string' ||
         !['BLOCK', 'STRICT'].includes(message.mode) || !Number.isFinite(message.expiresAt) ||
         message.expiresAt <= Date.now() || message.expiresAt > Date.now() + 241 * 60_000) return;

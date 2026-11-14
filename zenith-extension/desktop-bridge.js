@@ -1,4 +1,9 @@
 const desktopHost = 'app.zenith.focus';
+const alwaysBlockedApps = [
+  'YouTube', 'Instagram', 'Roblox', 'Discord', 'Spotify', 'Steam', 'Telegram', 'WhatsApp', 'Slack',
+  'Epic Games', 'Battle.net', 'LeagueClient', 'RiotClientServices', 'Twitch', 'TikTok',
+];
+const alwaysBlockedAppKeys = new Set(alwaysBlockedApps.map(name => name.toLowerCase()));
 let desktopPort;
 let desktopBinding;
 
@@ -40,13 +45,16 @@ function getDesktopPort() {
 async function syncDesktopProtection(session, status) {
   if ((await chrome.runtime.getPlatformInfo()).os !== 'mac' ||
       (await getSession())?.id !== session.id || Date.now() >= session.expiresAt) return;
+  const validNames = names => Array.isArray(names) ? names.filter(name => typeof name === 'string').slice(0, 300) : [];
+  const allowedApps = validNames(status.allowedApps)
+    .filter(name => !alwaysBlockedAppKeys.has(name.trim().toLowerCase().replace(/\.app$/, '')));
+  const blockedApps = [...new Set([...alwaysBlockedApps, ...validNames(status.blockedApps)])];
   try {
     const port = getDesktopPort();
     desktopBinding = session;
     port.postMessage({
       type: 'protect', sessionId: session.id, mode: 'BLOCK', expiresAt: session.expiresAt,
-      allowedApps: (Array.isArray(status.allowedApps) ? status.allowedApps : []).filter(x => typeof x === 'string').slice(0, 300),
-      blockedApps: (Array.isArray(status.blockedApps) ? status.blockedApps : []).filter(x => typeof x === 'string').slice(0, 300),
+      allowedApps, blockedApps,
     });
   } catch {
     stopDesktopProtection();
@@ -62,4 +70,46 @@ async function reconnectRoom(tabId) {
   await chrome.scripting.executeScript({ target: { tabId, frameIds: [0] }, files: ['content.js'] });
   await chrome.tabs.sendMessage(tabId, { type: 'ZENITH_RETRY_SHIELD' });
   return { ok: true };
+}
+
+async function checkShieldSetup() {
+  const [platform, session, rules] = await Promise.all([
+    chrome.runtime.getPlatformInfo(), getSession(), chrome.declarativeNetRequest.getSessionRules(),
+  ]);
+  const desktop = platform.os === 'mac' ? await probeMacHelper() : 'not_mac';
+  return {
+    version: chrome.runtime.getManifest().version,
+    webActive: !!session && Date.now() < session.expiresAt && rules.some(rule => rule.action.type === 'block'),
+    desktop,
+  };
+}
+
+function probeMacHelper() {
+  return new Promise(resolve => {
+    let port;
+    let finished = false;
+    const finish = state => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      port?.disconnect();
+      resolve(state);
+    };
+    const timeout = setTimeout(() => finish('setup_needed'), 3500);
+    try {
+      port = chrome.runtime.connectNative(desktopHost);
+      port.onDisconnect.addListener(() => {
+        void chrome.runtime.lastError;
+        finish('setup_needed');
+      });
+      port.onMessage.addListener(message => {
+        if (message?.type === 'setup_status') {
+          finish(message.canReadForeground ? 'ready' : 'permission_required');
+        }
+      });
+      port.postMessage({ type: 'check_setup' });
+    } catch {
+      finish('setup_needed');
+    }
+  });
 }

@@ -48,10 +48,14 @@ export class BlockerService {
     enabled?: boolean;
   }) {
     const targetUserId = userId || (await this.getDefaultUserId());
-    const cleanIdentifier = data.type === 'WEBSITE' ? this.normalizeDomain(data.identifier) : data.identifier.trim();
+    if ((data.type !== 'WEBSITE' && data.type !== 'APPLICATION') || typeof data.identifier !== 'string') {
+      throw new Error('Enter a website link or a Mac app name.');
+    }
+    const cleanIdentifier = data.type === 'WEBSITE'
+      ? ZenithPolicyEngine.normalizeRuleDomain(data.identifier)
+      : data.identifier.trim().replace(/\.app$/i, '');
 
-    // Authoritative policy validation and conflict check
-    const validation = ZenithPolicyEngine.validateCustomRule(cleanIdentifier, data.type, !!data.isAllowlist);
+    const validation = ZenithPolicyEngine.validateCustomRule(data.identifier, data.type, !!data.isAllowlist);
     if (!validation.valid) {
       throw new Error(validation.error || 'Invalid rule configuration.');
     }

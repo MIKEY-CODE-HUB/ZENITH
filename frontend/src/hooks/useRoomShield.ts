@@ -9,6 +9,7 @@ const shieldErrors: Record<string, string> = {
   session_expired: 'This focus session expired. Start a new session to enable Shield.',
   status_unreachable: 'The extension could not reach Zenith to verify this session. Check your connection, then retry.',
   rules_rejected: 'Chrome rejected the blocking rules. Check the extension’s Errors panel in chrome://extensions.',
+  extension_error: 'Chrome could not verify the focus tab. Reload this Zenith tab or reconnect through the extension popup.',
   extension_reloaded: 'The extension was reloaded. Open its popup and select Reconnect current focus room.',
 };
 

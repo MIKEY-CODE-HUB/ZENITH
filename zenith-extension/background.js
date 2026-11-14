@@ -2,6 +2,8 @@ importScripts('desktop-bridge.js');
 
 const TIER_1_ALWAYS_BLOCKED = [
   'instagram.com',
+  'facebook.com', 'fb.com', 'messenger.com', 'snapchat.com', 'web.telegram.org',
+  'steampowered.com', 'steamcommunity.com', 'epicgames.com', 'roblox.com',
   'web.whatsapp.com',
   'reddit.com',
   'youtube.com',
@@ -250,6 +252,12 @@ async function enforceForeground(tabId, url, navigationFailed = false) {
     }
   } else {
     await focusRoom(session);
+    if (!navigationFailed) {
+      const [live, blockedTab] = await Promise.all([getSession(), chrome.tabs.get(tabId).catch(() => null)]);
+      if (live?.id === session.id && Date.now() < live.expiresAt && sameRoom(blockedTab?.pendingUrl || blockedTab?.url, target)) {
+        await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('blocked.html') }).catch(reportError);
+      }
+    }
   }
   const now = Date.now();
   if (lastAttempt?.id === session.id && lastAttempt.domain === domain && now - lastAttempt.at < 1500) return;
@@ -265,6 +273,10 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (!message || typeof message.type !== 'string') return false;
   const senderUrl = parseUrl(sender.url);
   if (!senderUrl || !trustedOrigins.has(senderUrl.origin) || !Number.isInteger(sender.tab?.id) || sender.frameId !== 0) return false;
+  if (message.type === 'ZENITH_CHECK_SETUP') {
+    void checkShieldSetup().then(respond, () => respond(null));
+    return true;
+  }
 
   serialize(async () => {
     const current = await getSession();
@@ -318,7 +330,10 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     console.info('shield.activated', session.mode);
     void syncDesktopProtection(session, status).catch(reportError);
     return { active: true };
-  }).then(respond, () => respond({ active: false, reason: 'extension_error' }));
+  }).then(respond, error => {
+    reportError(error);
+    respond({ active: false, reason: 'extension_error' });
+  });
   return true;
 });
 
@@ -363,4 +378,4 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
   chrome.tabs.query({ active: true, windowId }).then(([tab]) => {
     if (tab) return enforceForeground(tab.id, tab.pendingUrl || tab.url);
   }).catch(reportError);
-});
+}, { windowTypes: ['normal', 'popup', 'app'] });

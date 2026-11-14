@@ -13,7 +13,7 @@ const activation = {
   type: 'ZENITH_BLOCKER_ACTIVATE', roomUrl, focusSessionId: 'session-id', blockerToken: 'scoped-token',
 };
 
-function createExtension({ mac = false } = {}) {
+function createExtension({ mac = false, canReadForeground = true } = {}) {
   const listeners = new Map();
   const event = (name) => ({ addListener: (listener) => listeners.set(name, listener) });
   const messages = [];
@@ -24,7 +24,10 @@ function createExtension({ mac = false } = {}) {
   let nativeDisconnect;
   let disconnected = false;
   const port = {
-    postMessage(message) { nativeMessages.push(message); },
+    postMessage(message) {
+      nativeMessages.push(message);
+      if (message.type === 'check_setup') queueMicrotask(() => nativeMessage({ type: 'setup_status', canReadForeground }));
+    },
     disconnect() { disconnected = true; nativeDisconnect(); },
     onMessage: { addListener: fn => { nativeMessage = fn; } },
     onDisconnect: { addListener: fn => { nativeDisconnect = fn; } },
@@ -62,7 +65,7 @@ function createExtension({ mac = false } = {}) {
       clear: async (name) => alarms.delete(name),
       onAlarm: event('alarm'),
     },
-    runtime: { onMessage: event('message'), getURL: () => popupUrl,
+    runtime: { onMessage: event('message'), getURL: name => new URL(name, popupUrl).href, getManifest: () => ({ version: '10.5.0' }),
       connectNative: () => port, getPlatformInfo: async () => ({ os: mac ? 'mac' : 'linux' }) },
     scripting: { executeScript: async (script) => { injected.push(script); } },
     tabs: {
@@ -139,6 +142,8 @@ test('strict rules block restricted destinations and embeds while preserving wor
   assert.equal((await ext.send()).active, true);
   const { rules } = ext;
   assert.equal(action(rules, 'main_frame', instagram), 'block');
+  assert.equal(action(rules, 'main_frame', 'https://store.steampowered.com'), 'block');
+  assert.equal(action(rules, 'main_frame', 'https://web.whatsapp.com'), 'block');
   assert.equal(action(rules, 'sub_frame', 'https://www.youtube-nocookie.com/embed/demo', github), 'block');
   assert.equal(action(rules, 'media', 'https://cdn.googlevideo.com/stream', github), 'block');
   assert.equal(action(rules, 'xmlhttprequest', 'https://api.blocked.test/data', github), 'block');
@@ -279,14 +284,18 @@ test('only the extension popup can reconnect an already-open trusted room', asyn
 test('Mac gets verified rules through Chrome without any account credential', async () => {
   const ext = createExtension({ mac: true });
   ext.status.blockedApps = ['Discord'];
-  ext.status.allowedApps = ['Code'];
+  ext.status.allowedApps = ['Code', 'WhatsApp.app'];
   assert.equal((await ext.send()).active, true);
   await new Promise(setImmediate);
   const message = ext.nativeMessages[0];
   assert.equal(message.type, 'protect');
   assert.equal(message.mode, 'BLOCK');
   assert.equal(message.sessionId, activation.focusSessionId);
-  assert.equal(message.blockedApps[0], 'Discord');
+  assert.ok(message.blockedApps.includes('Discord'));
+  assert.ok(message.blockedApps.includes('WhatsApp'));
+  assert.ok(message.blockedApps.includes('YouTube'));
+  assert.ok(message.allowedApps.includes('Code'));
+  assert.ok(!message.allowedApps.includes('WhatsApp.app'));
   assert.equal(Object.hasOwn(message, 'token'), false);
   ext.nativeMessage({ type: 'blocked', sessionId: activation.focusSessionId, app: 'Discord' });
   await new Promise(setImmediate);
@@ -304,4 +313,32 @@ test('a missing Mac helper reports setup while Chrome continues to block listed 
   assert.equal(ext.messages.at(-1).state, 'setup_needed');
   assert.equal(action(ext.rules, 'main_frame', 'https://blocked.test'), 'block');
   assert.equal(action(ext.rules, 'main_frame', github), 'allow');
+});
+
+test('setup check reports the extension and the Mac helper independently while on standby', async () => {
+  const request = { type: 'ZENITH_CHECK_SETUP' };
+  const browser = createExtension();
+  assert.equal((await browser.send(request)).desktop, 'not_mac');
+  const mac = createExtension({ mac: true, canReadForeground: false });
+  const result = await mac.send(request);
+  assert.equal(result.version, '10.5.0');
+  assert.equal(result.webActive, false);
+  assert.equal(result.desktop, 'permission_required');
+  assert.equal(mac.disconnected, true);
+  assert.equal(mac.rules.length, 0);
+});
+
+test('opening a preloaded distraction replaces its page until the user goes back', async () => {
+  const ext = createExtension();
+  ext.status.mode = 'BLOCK';
+  await ext.send();
+  ext.openTabs.get(2).url = 'https://www.youtube.com/shorts/example';
+  await ext.emit('activation', { tabId: 2 });
+  assert.equal(ext.openTabs.get(2).url, 'chrome-extension://extension-id/blocked.html');
+  assert.equal(ext.openTabs.get(1).active, true);
+  assert.equal(ext.messages.at(-1).domain, 'www.youtube.com');
+  await ext.send({ type: 'ZENITH_ROOM_ENDED', focusSessionId: activation.focusSessionId });
+  ext.openTabs.get(2).url = 'https://www.youtube.com/shorts/example';
+  await ext.emit('activation', { tabId: 2 });
+  assert.equal(ext.openTabs.get(2).url, 'https://www.youtube.com/shorts/example');
 });

@@ -13,6 +13,11 @@
     window.addEventListener('message', async (event) => {
       if (event.source !== window || event.origin !== location.origin) return;
       const message = event.data;
+      if (message?.type === 'ZENITH_CHECK_SETUP' && typeof message.requestId === 'string') {
+        const result = await chrome.runtime.sendMessage({ type: message.type }).catch(() => null);
+        window.postMessage({ type: 'ZENITH_SETUP_STATUS', requestId: message.requestId, result }, location.origin);
+        return;
+      }
       if (!['ZENITH_BLOCKER_ACTIVATE', 'ZENITH_ROOM_ENDED', 'ZENITH_SNAP_BACK'].includes(message?.type)) return;
 
       if (!chrome.runtime?.id) return;

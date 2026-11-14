@@ -494,9 +494,10 @@ function LiveRoom() {
         </p>
       )}
       {shieldActive && (shield.desktopStatus === 'setup_needed' || shield.desktopStatus === 'disconnected') && (
-        <a href="/blocker#install-shield" target="_blank" rel="noreferrer" className="absolute right-4 top-14 z-30 rounded-lg bg-zinc-950/90 px-3 py-2 text-xs text-zinc-200 underline">
-          Set up Mac app blocking
-        </a>
+        <div className="absolute right-4 top-14 z-30 flex gap-3 rounded-lg bg-zinc-950/90 px-3 py-2 text-xs text-zinc-200">
+          <a href="/blocker#install-shield" target="_blank" rel="noreferrer" className="underline">Set up Mac app blocking</a>
+          <button type="button" onClick={shield.retry} className="underline">Reconnect</button>
+        </div>
       )}
       {shield.status === 'unavailable' && (
         <div className="absolute inset-x-4 top-14 z-30 mx-auto w-fit max-w-[calc(100%-2rem)] rounded-xl border border-amber-300/30 bg-zinc-950/95 px-4 py-3 text-xs text-amber-100 shadow-lg sm:text-sm">

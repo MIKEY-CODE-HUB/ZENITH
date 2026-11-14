@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState, type FormEvent } from 'react';
-import { Download, Shield, Trash2 } from 'lucide-react';
+import { Shield, Trash2 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { api } from '@/lib/api';
 import { ZenithPolicyEngine } from '@/lib/policyEngine';
 import { ALWAYS_ALLOWED_APPS, ALWAYS_ALLOWED_DOMAINS, ALWAYS_BLOCKED_APPS, ALWAYS_BLOCKED_DOMAINS } from '@/lib/shieldDomains';
 import type { BlockedResource } from '@/lib/types';
+import { ShieldSetup } from '@/components/ShieldSetup';
 
 const field = 'rounded-lg border border-white/15 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus-visible:outline-emerald-400';
 const panel = 'rounded-2xl border border-white/10 bg-zinc-900/70 p-5 sm:p-6';
@@ -40,10 +41,10 @@ export default function BlockerDashboardPage() {
     setError('');
     setFeedback('');
     const clean = type === 'WEBSITE'
-      ? ZenithPolicyEngine.normalizeDomain(identifier)
+      ? ZenithPolicyEngine.normalizeRuleDomain(identifier)
       : identifier.trim().replace(/\.app$/i, '');
-    const validation = ZenithPolicyEngine.validateCustomRule(clean, type, allow);
-    if (!validation.valid || clean.length > (type === 'WEBSITE' ? 253 : 100)) {
+    const validation = ZenithPolicyEngine.validateCustomRule(identifier, type, allow);
+    if (!validation.valid || !clean || clean.length > (type === 'WEBSITE' ? 253 : 100)) {
       setError(validation.error || 'The website or app name is too long.');
       return;
     }
@@ -93,25 +94,34 @@ export default function BlockerDashboardPage() {
           <p className="mt-2 text-sm text-zinc-300">Shield turns on automatically in a focus session with protection enabled. It stops when you finish or the timer expires.</p>
         </header>
 
-        <section id="install-shield" className={`${panel} scroll-mt-24 space-y-4`}>
-          <h2 className="text-lg font-semibold">Install once</h2>
-          <div className="flex flex-wrap items-center gap-4">
-            <a href="/zenith-mac-shield.zip" download className="inline-flex items-center gap-2 rounded-lg bg-emerald-300 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-emerald-200">
-              <Download aria-hidden="true" size={16} /> Download for Mac
-            </a>
-            <a href="/zenith-extension.zip" download className="text-sm text-emerald-200 underline underline-offset-4">Download Chrome extension only</a>
-          </div>
-          <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed text-zinc-300">
-            <li>Unzip the download. In <code>chrome://extensions</code>, turn on <strong>Developer mode</strong> and choose <strong>Load unpacked</strong>. Select <strong>1 - Chrome Extension</strong> from the Mac download, or the folder containing <code>manifest.json</code> from the Chrome-only download.</li>
-            <li>For Mac app blocking, open <strong>2 - Mac App Setup</strong> and run <strong>Install Zenith Mac Shield.command</strong> once. This uses Node.js and may prompt for macOS permissions during your first protected session.</li>
-          </ol>
-          <p className="text-sm text-zinc-300">Start a protected focus session to test it. If Chrome shows two copies of Zenith Shield, keep the newer one.</p>
-        </section>
+        <ShieldSetup />
 
-        <section className={`${panel} space-y-4`}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <section aria-labelledby="tier-1-heading" className="rounded-2xl border border-rose-400/25 bg-rose-950/20 p-5 sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-rose-300">Tier 1</p>
+            <h2 id="tier-1-heading" className="mt-1 text-xl font-semibold">Always blocked</h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">Social media, streaming and games in Zenith’s built-in list are blocked during protected sessions.</p>
+            <h3 className="mt-4 text-sm font-medium">Websites</h3>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-300">{ALWAYS_BLOCKED_DOMAINS.map(item => item.name).join(', ')}</p>
+            <h3 className="mt-4 text-sm font-medium">Mac apps</h3>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-300">{ALWAYS_BLOCKED_APPS.map(item => item.name).join(', ')}</p>
+          </section>
+          <section aria-labelledby="tier-2-heading" className="rounded-2xl border border-emerald-400/25 bg-emerald-950/20 p-5 sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-200">Tier 2</p>
+            <h2 id="tier-2-heading" className="mt-1 text-xl font-semibold">Always allowed</h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">Built-in study and work tools stay available during protected sessions.</p>
+            <h3 className="mt-4 text-sm font-medium">Websites</h3>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-300">{ALWAYS_ALLOWED_DOMAINS.map(item => item.name).join(', ')}</p>
+            <h3 className="mt-4 text-sm font-medium">Mac apps</h3>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-300">{ALWAYS_ALLOWED_APPS.map(item => item.name).join(', ')}</p>
+          </section>
+        </div>
+
+        <section id="my-rules" aria-labelledby="tier-3-heading" className={`${panel} scroll-mt-24 space-y-4`}>
           <div>
-            <h2 className="text-lg font-semibold">My rules</h2>
-            <p className="mt-1 text-sm text-zinc-300">Add a website or the name of a Mac app as it appears in Finder.</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-sky-200">Tier 3</p>
+            <h2 id="tier-3-heading" className="mt-1 text-xl font-semibold">My rules</h2>
+            <p className="mt-2 text-sm text-zinc-300">Choose Block or Allow and paste a website link. Rules apply to the domain and its subdomains. You can also add a Mac app by its name. Built-in rules take priority.</p>
           </div>
           <form onSubmit={saveRule} className="grid gap-3 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-end">
             <label className="grid gap-1 text-sm">Action
@@ -124,8 +134,8 @@ export default function BlockerDashboardPage() {
                 <option value="WEBSITE">Website</option><option value="APPLICATION">Mac app</option>
               </select>
             </label>
-            <label className="grid min-w-0 gap-1 text-sm">{type === 'WEBSITE' ? 'Website address' : 'App name'}
-              <input className={field} required value={identifier} onChange={event => setIdentifier(event.target.value)} placeholder={type === 'WEBSITE' ? 'example.com' : 'Chess'} />
+            <label className="grid min-w-0 gap-1 text-sm">{type === 'WEBSITE' ? 'Website link' : 'App name'}
+              <input className={field} required value={identifier} onChange={event => setIdentifier(event.target.value)} placeholder={type === 'WEBSITE' ? 'https://example.com' : 'Chess'} />
             </label>
             <button disabled={loading || saving} className="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-950 disabled:opacity-50">Add rule</button>
           </form>
@@ -157,21 +167,6 @@ export default function BlockerDashboardPage() {
           )}
         </section>
 
-        <details className={panel}>
-          <summary className="cursor-pointer font-semibold">Built-in rules</summary>
-          <div className="mt-4 grid gap-4 text-sm leading-relaxed text-zinc-300 sm:grid-cols-2">
-            <div>
-              <h3 className="font-semibold text-zinc-100">Blocked during protected sessions</h3>
-              <p className="mt-2">Websites · {ALWAYS_BLOCKED_DOMAINS.map(item => item.name).join(', ')}</p>
-              <p className="mt-2">Mac apps · {ALWAYS_BLOCKED_APPS.map(item => item.name).join(', ')}</p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-zinc-100">Always allowed</h3>
-              <p className="mt-2">Websites · {ALWAYS_ALLOWED_DOMAINS.map(item => item.name).join(', ')}</p>
-              <p className="mt-2">Mac apps · {ALWAYS_ALLOWED_APPS.map(item => item.name).join(', ')}</p>
-            </div>
-          </div>
-        </details>
       </main>
     </div>
   );

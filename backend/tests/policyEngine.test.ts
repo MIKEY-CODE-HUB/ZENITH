@@ -23,6 +23,15 @@ describe('🛡️ Zenith Authoritative Three-Tier Policy Engine', () => {
       assert.strictEqual(ZenithPolicyEngine.normalizeDomain('http://127.0.0.1:5001/api/health'), '127.0.0.1');
     });
 
+    it('extracts website rules from pasted URLs and rejects malformed or insecure inputs', () => {
+      assert.equal(ZenithPolicyEngine.normalizeRuleDomain('https://www.Example.com/play?query=x#t'), 'example.com');
+      assert.equal(ZenithPolicyEngine.normalizeRuleDomain('https://bücher.de/lesen'), 'xn--bcher-kva.de');
+      assert.equal(ZenithPolicyEngine.validateCustomRule('https://store.steampowered.com/app/1', 'WEBSITE', true).conflictTier, 'TIER_1');
+      assert.equal(ZenithPolicyEngine.validateCustomRule('https://github.com/my-repo', 'WEBSITE', false).conflictTier, 'TIER_2');
+      assert.equal(ZenithPolicyEngine.validateCustomRule('https://bad..example', 'WEBSITE', false).valid, false);
+      assert.equal(ZenithPolicyEngine.validateCustomRule('ftp://example.com/file', 'WEBSITE', false).valid, false);
+    });
+
     it('should match exact domains and nested subdomains correctly', () => {
       assert.ok(ZenithPolicyEngine.matchesDomainPattern('instagram.com', 'instagram.com'));
       assert.ok(ZenithPolicyEngine.matchesDomainPattern('www.instagram.com', 'instagram.com'));
